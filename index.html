@@ -433,6 +433,11 @@ datalist{display:none;}
     <p style="font-size:11px;color:var(--muted);margin-bottom:10px">DuZ (&#167;3 EZulV), Mehrarbeitsverg&#252;tung (&#167;2 SMVergV, A15/41h), &#167;30c Abs.4 SG (100 EUR).</p>
     <div id="duzBox"></div>
   </div>
+  <div class="card" style="margin-top:12px">
+    <h3 style="margin-bottom:6px">&#127968; Trennungsgeld</h3>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:10px">Trennungstagegeld nach &#167;&nbsp;3 (2) TGV aus den Tageseintr&#228;gen. Grundbetrag 14,00 EUR, gek&#252;rzt um gestellte <b>und</b> eingenommene Mahlzeiten.</p>
+    <div id="tgBox"></div>
+  </div>
 </section>
 
 <section class="view" id="view-export">
@@ -727,8 +732,8 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=25;
-const APP_DATE='26.07.2026';
+const APP_BUILD=26;
+const APP_DATE='08.08.2026';
 const APP_CHANGES=[
   'Jahresbeleg zurück auf die schlanke Struktur: 1 Stammdaten bis 8 Hinweise',
   'Übersichtsblöcke A–H aus dem Beleg entfernt (bleiben als Karten in der Übersicht)',
@@ -738,20 +743,45 @@ const APP_CHANGES=[
 const SK='zc-tgrb-v2', SETK='zc-tgrb-set-v2';
 const DRPKW=0.30; // Dienstreise PKW
 
+/* ═══ TRENNUNGSGELD — unentgeltliche Verpflegung (§ 3 (2) TGV) ═════════════
+   Saetze aus den Monatsabrechnungen 1–7/2026 abgeleitet und gegen alle sieben
+   Bescheidsummen geprueft (362,72 · 241,70 · 229,76 · 255,70 · 202,79 ·
+   160,79 · 164,14 EUR) — jeder einzelne Tag stimmt.
+   Gekuerzt wird nur, wenn die Mahlzeit gestellt UND eingenommen wurde; im
+   Bescheid ist das die Spalte GB=1 bei NE=0. Steht NE, bleibt der volle Satz. */
+const TG_GRUND=14.00;
+const TG_ABZUG={'frühstück':0.43,'mittag':1.03,'abend':1.03};
+const VERPFL_MAHL=['frühstück','mittag','abend'];
+const VERPFL_LABEL={'frühstück':'Frühstück','mittag':'Mittagessen','abend':'Abendessen'};
+const VERPFL_ICON={'frühstück':'🥐','mittag':'🍽','abend':'🌙'};
+/* Zustand je Mahlzeit: '' = nicht gestellt | 'ja' = gestellt und gegessen
+   (kuerzt) | 'ne' = gestellt, nicht eingenommen (kuerzt nicht).            */
+function verpflStatus(e,m){
+  const gb=(e.verpflegung||'').split(',').includes(m);
+  if(!gb)return'';
+  return (e.verpflegungNE||'').split(',').includes(m)?'ne':'ja';
+}
+function verpflAbzug(e){
+  return VERPFL_MAHL.reduce((s,m)=>s+(verpflStatus(e,m)==='ja'?TG_ABZUG[m]:0),0);
+}
+
 const DT={ // day types
-  AW:{n:'Anwesend',  d:'Grundbetrieb',          noW:false,noT:false,verpfl:false},
-  WFH:{n:'Homeoffice',d:'Tele-Arbeit',          noW:false,noT:false,verpfl:false},
-  HF:{n:'Heimfahrt', d:'Zum Familienwohnsitz',  noW:false, noT:false,verpfl:false},
-  RF:{n:'Rückfahrt', d:'Zurück zum Dienstort',  noW:false, noT:false,verpfl:false},
+  // verpfl:true ueberall — unentgeltliche Verpflegung haengt nicht am Tagescode,
+  // sondern daran, ob jemand Essen gestellt hat. Die Bescheide 1–7/2026 zeigen alle
+  // 62 Kuerzungen an reinen Dienstort-Tagen (AW), keine einzige an einem Reisetag.
+  AW:{n:'Anwesend',  d:'Grundbetrieb',          noW:false,noT:false,verpfl:true},
+  WFH:{n:'Homeoffice',d:'Tele-Arbeit',          noW:false,noT:false,verpfl:true},
+  HF:{n:'Heimfahrt', d:'Zum Familienwohnsitz',  noW:false, noT:false,verpfl:true},
+  RF:{n:'Rückfahrt', d:'Zurück zum Dienstort',  noW:false, noT:false,verpfl:true},
   DR:{n:'Dienstreise',d:'Außendiensttermin',    noW:false,noT:false,verpfl:true},
   LG:{n:'Lehrgang',  d:'Aus-/Fortbildung',      noW:false,noT:false,verpfl:true},
   ÜB:{n:'Übung',     d:'Truppenübung',          noW:false,noT:false,verpfl:true},
   ES:{n:'Einsatz',   d:'Einsatzverwendung',      noW:false,noT:false,verpfl:true},
   EGV:{n:'Einsatzgl. Verpfl.',d:'Einsatzgleiche Verpflichtung',noW:false,noT:false,verpfl:true},
-  UR:{n:'Urlaub',    d:'Erholungsurlaub',        noW:true, noT:true, verpfl:false},
-  FVD:{n:'Freistellung',d:'Freistellung vom Dienst (FvD)',noW:true,noT:true,verpfl:false},
-  WF:{n:'Wochen./Feiert.',d:'Freier Tag',   noW:true, noT:true, verpfl:false},
-  KR:{n:'Krankheit', d:'Arbeitsunfähig',         noW:true, noT:true, verpfl:false},
+  UR:{n:'Urlaub',    d:'Erholungsurlaub',        noW:true, noT:true, verpfl:true},
+  FVD:{n:'Freistellung',d:'Freistellung vom Dienst (FvD)',noW:true,noT:true,verpfl:true},
+  WF:{n:'Wochen./Feiert.',d:'Freier Tag',   noW:true, noT:true, verpfl:true},
+  KR:{n:'Krankheit', d:'Arbeitsunfähig',         noW:true, noT:true, verpfl:true},
 };
 
 // Tätigkeit/Abwesenheit für Zeiterfassungsblatt (Dropdown in Schritt 4)
@@ -813,7 +843,7 @@ let lastNom=0, folderHandle=null;
 function freshW(){return{costEnabled:true,useFahrt:true,useAufenthalt:false,
   date:todayISO(),dayCode:'AW',vorhaben:'',isFHF:false,presentNoWork:false,
   workStart:'',workEnd:'',workLocation:'',workLocation2:'',workLocation3:'',workNotes:'',
-  verpflegung:'',stayLocation:'',nachweis:'',bemerkung:'',zeActivity:'',
+  verpflegung:'',verpflegungNE:'',stayLocation:'',nachweis:'',bemerkung:'',zeActivity:'',
   segs:[],
 };}
 function freshSeg(){return{mode:'',fromLoc:'',toLoc:'',fromGeo:null,toGeo:null,
@@ -929,6 +959,13 @@ function migrate(){
     });
     if(!Array.isArray(e.recIds))e.recIds=e.costRecIds||e.costReceiptIds||[];
     if(!e.stayLocation)e.stayLocation='';if(!e.verpflegung)e.verpflegung='';
+    // Altbestand: 'vollständig' auf die Einzelmahlzeiten aufloesen, damit die
+    // Trennungsgeld-Auswertung je Mahlzeit rechnen kann. 'keine'/'nein'/'selbst'
+    // bedeuten "nichts gestellt" und fallen weg.
+    if(/vollständig/.test(e.verpflegung))e.verpflegung='frühstück,mittag,abend';
+    e.verpflegung=e.verpflegung.split(',').filter(v=>VERPFL_MAHL.includes(v)).join(',');
+    if(typeof e.verpflegungNE!=='string')e.verpflegungNE='';
+    e.verpflegungNE=e.verpflegungNE.split(',').filter(v=>VERPFL_MAHL.includes(v)).join(',');
     if(typeof e.workLocation3!=='string')e.workLocation3='';
   });
   if(!state.settings.addressHistory)state.settings.addressHistory=[];
@@ -1286,6 +1323,7 @@ function buildTravel(){
       <div class="f" style="margin-top:6px"><label>Bemerkung</label>
         <input type="text" id="travelNotes" value="${esc(wiz.workNotes)}" onchange="wiz.workNotes=this.value" placeholder="z. B. Dienstort, Lagerangabe …">
       </div>
+      ${noT&&dt.verpfl?buildVerpfl():''}
     </div>
   </div>`;
 }
@@ -1350,27 +1388,59 @@ function buildWork(){
     </div>
   </div>`;
 }
+/* Unentgeltliche Verpflegung — je Mahlzeit drei Zustaende, weil der Bescheid
+   genau so rechnet: gestellt (GB) und eingenommen kuerzt, gestellt aber nicht
+   eingenommen (NE) kuerzt nicht.                                            */
 function buildVerpfl(){
-  const sel=(wiz.verpflegung||'').split(',').filter(Boolean);
-  const opts=[['keine','Keine'],['vollständig','Vollständig'],['frühstück','Frühstück'],['mittag','Mittag'],['abend','Abend'],['nein','Nein'],['selbst','Selbst']];
-  const chips=opts.map(([v,l])=>{
-    const on=sel.includes(v);
-    return`<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;padding:6px 12px;border:1px solid ${on?'var(--navy)':'var(--line)'};border-radius:999px;background:${on?'var(--navy)':'#fff'};color:${on?'#fff':'var(--text)'};font-weight:${on?'600':'400'};transition:all .15s">
-      <input type="checkbox" ${on?'checked':''} onchange="toggleVerpfl('${v}')" style="display:none"> ${l}</label>`;}).join('');
-  return`<div class="card" style="margin-top:12px;background:var(--warns);border-color:var(--gold)">
-    <h3 style="font-size:13px;margin-bottom:9px">🍽 Verpflegung bereitgestellt?</h3>
-    <div style="display:flex;flex-wrap:wrap;gap:6px">${chips}</div>
+  const abzug=verpflAbzug(wiz);
+  const eur=v=>v.toFixed(2).replace('.',',');
+  const rows=VERPFL_MAHL.map(m=>{
+    const st=verpflStatus(wiz,m);
+    const b=(v,l,bg,fg)=>{
+      const on=st===v;
+      return`<button type="button" onclick="setVerpfl('${m}','${v}')"
+        style="flex:1 1 0;min-width:0;padding:7px 6px;font:inherit;font-size:12px;
+        cursor:pointer;border:1px solid ${on?bg:'var(--line)'};
+        background:${on?bg:'#fff'};color:${on?fg:'var(--muted)'};
+        font-weight:${on?'600':'400'};border-radius:7px;white-space:nowrap;
+        overflow:hidden;text-overflow:ellipsis">${l}</button>`;
+    };
+    return`<div style="margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+        <span style="font-size:13px;font-weight:500">${VERPFL_ICON[m]} ${VERPFL_LABEL[m]}</span>
+        <span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:${st==='ja'?'var(--warn)':'var(--muted)'}">
+          ${st==='ja'?'&minus;'+eur(TG_ABZUG[m])+' &euro;':(st==='ne'?'kein Abzug':'&mdash;')}</span>
+      </div>
+      <div style="display:flex;gap:4px">
+        ${b('','nicht gestellt','var(--muted)','#fff')}
+        ${b('ja','gegessen','var(--gold)','var(--navy)')}
+        ${b('ne','nicht gegessen','var(--ok)','#fff')}
+      </div>
+    </div>`;}).join('');
+  return`<div class="card" id="verpflCard" style="margin-top:12px;background:var(--warns);border-color:var(--gold)">
+    <h3 style="font-size:13px;margin-bottom:3px">🍽 Unentgeltliche Verpflegung</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 11px;line-height:1.45">
+      Gekürzt wird nur, was gestellt <b>und</b> gegessen wurde &mdash; so rechnet auch der Bescheid.
+      Eine bereitgestellte, aber nicht eingenommene Mahlzeit lässt das Trennungstagegeld voll.</p>
+    ${rows}
+    <div style="border-top:1px solid var(--gold);margin-top:11px;padding-top:9px;display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+      <span style="font-size:12px;color:var(--muted)">Trennungstagegeld dieses Tages</span>
+      <span style="font-family:ui-monospace,Menlo,monospace;font-size:13.5px;font-weight:700;color:var(--navy)">${eur(TG_GRUND-abzug)}&nbsp;&euro;</span>
+    </div>
+    ${abzug>0?`<div style="font-size:10.5px;color:var(--muted);text-align:right;margin-top:2px;font-family:ui-monospace,Menlo,monospace">14,00 &minus; ${eur(abzug)}</div>`:''}
   </div>`;
 }
-function toggleVerpfl(val){
-  const sel=(wiz.verpflegung||'').split(',').filter(Boolean);
-  const idx=sel.indexOf(val);
-  if(idx>=0)sel.splice(idx,1);else sel.push(val);
-  wiz.verpflegung=sel.join(',');
-  const box=document.querySelector('.wbody');if(box){const vrpfl=DT[wiz.dayCode]?.verpfl?buildVerpfl():'';
-    const existing=box.querySelector('.card[style*="warns"]');
-    if(existing&&vrpfl){existing.outerHTML=vrpfl;}
-  }
+function setVerpfl(m,v){
+  const gb=(wiz.verpflegung||'').split(',').filter(Boolean);
+  const ne=(wiz.verpflegungNE||'').split(',').filter(Boolean);
+  const weg=(arr,x)=>{const i=arr.indexOf(x);if(i>=0)arr.splice(i,1);};
+  weg(gb,m);weg(ne,m);
+  if(v==='ja')gb.push(m);
+  else if(v==='ne'){gb.push(m);ne.push(m);}
+  wiz.verpflegung=VERPFL_MAHL.filter(x=>gb.includes(x)).join(',');
+  wiz.verpflegungNE=VERPFL_MAHL.filter(x=>ne.includes(x)).join(',');
+  const el=document.getElementById('verpflCard');
+  if(el)el.outerHTML=buildVerpfl();
 }
 
 /* STEP 2 ALT: LOCATION */
@@ -1628,7 +1698,7 @@ function buildSave(){
         ${segsStr!=='—'?`<div><b style="color:var(--navy)">Reisemittel:</b> <span style="line-height:1.7">${segsStr}</span></div>`:''}
         ${costs!=='—'?`<div><b style="color:var(--navy)">Kosten:</b> ${esc(costs)}</div>`:''}
 
-        ${w.verpflegung?`<div><b style="color:var(--navy)">Verpflegung:</b> ${esc(w.verpflegung)}</div>`:''}
+        ${w.verpflegung?`<div><b style="color:var(--navy)">Verpflegung:</b> ${esc(VERPFL_MAHL.filter(m=>verpflStatus(w,m)!=='').map(m=>VERPFL_LABEL[m]+(verpflStatus(w,m)==='ne'?' (nicht eingenommen)':'')).join(', '))}${verpflAbzug(w)>0?` &middot; TG ${(TG_GRUND-verpflAbzug(w)).toFixed(2).replace('.',',')} &euro;`:''}</div>`:''}
         ${w.workNotes?`<div style="color:var(--muted)"><b>Bemerkung:</b> ${esc(w.workNotes)}</div>`:''}
       </div>
     </div>
@@ -2138,8 +2208,18 @@ function parseBwBescheid(txt){
     const reT=/^(\d{2}\.\d{2}\.\d{2})\s+(?:\u00a7\s*3\s*\(2\)\s*)?(DR|FH)?\s*((?:\d+\s+){9})(\d)\s+(\d)\s+([\d.,]+)\s+([\d.,]+)/gm;
     while((m=reT.exec(t))){
       const v=m[3].trim().split(/\s+/).map(Number);
+      // Je Mahlzeit drei Spalten: U (unentgeltlich), GB (bereitgestellt),
+      // NE (nicht eingenommen). Gekuerzt wird nur bei GB/U ohne NE — deshalb
+      // stehen fruehstueck/mittag/abend fuer "tatsaechlich eingenommen".
+      const gest=(u,gb)=>(v[u]+v[gb])>0;
       o.tage.push({datum:bwDate(m[1]),art:m[2]||'',
-        fruehstueck:(v[0]+v[1]+v[2])>0,mittag:(v[3]+v[4]+v[5])>0,abend:(v[6]+v[7]+v[8])>0,
+        fruehstueck:gest(0,1)&&v[2]===0,
+        mittag:     gest(3,4)&&v[5]===0,
+        abend:      gest(6,7)&&v[8]===0,
+        fGestellt:gest(0,1),fNichtEing:v[2]>0,
+        mGestellt:gest(3,4),mNichtEing:v[5]>0,
+        aGestellt:gest(6,7),aNichtEing:v[8]>0,
+        tagGanz:Number(m[4])>0,
         tg:bwNum(m[7])});
     }
     const fk=/Fahrkosten aus Familienheimfahrten\s+([\d.,]+)\s+([\d.,]+)\s+([-\d.,]+)/.exec(t);
@@ -2861,18 +2941,29 @@ function checkBoxAnalyze(){
             add('info','Bw-Abgleich',dstr(d.datum)+': Bescheid weist Familienheimfahrt aus, App hat Code '+e.dayCode,d.datum,e.id);
           if(d.art==='DR'&&!['DR','LG','ÜB','ES','EGV'].includes(e.dayCode))
             add('info','Bw-Abgleich',dstr(d.datum)+': Bescheid weist Dienstreise aus, App hat Code '+e.dayCode,d.datum,e.id);
-          // Verpflegung abgleichen
-          const bV=[d.fruehstueck&&'Frühstück',d.mittag&&'Mittag',d.abend&&'Abend'].filter(Boolean);
-          const aV=(e.verpflegung||'').toLowerCase();
-          if(bV.length){
-            const fehlt=bV.filter(v=>{
-              const k=v.toLowerCase().replace('ü','ü');
-              return !(aV.includes(k.slice(0,4))||aV.includes('vollständig'));
-            });
-            if(aV===''||aV==='keine'||aV==='nein')
-              add('warn','Bw-Abgleich',dstr(d.datum)+': Bescheid weist unentgeltliche Verpflegung aus ('+bV.join(', ')+'), App hat keine erfasst',d.datum,e.id);
-            else if(fehlt.length)
-              add('info','Bw-Abgleich',dstr(d.datum)+': Bescheid nennt '+bV.join(', ')+', App weicht ab ('+esc(e.verpflegung)+')',d.datum,e.id);
+          // Verpflegung je Mahlzeit abgleichen — verglichen wird, was tatsaechlich
+          // eingenommen wurde, denn nur das kuerzt das Trennungstagegeld.
+          const bEing={'frühstück':!!d.fruehstueck,'mittag':!!d.mittag,'abend':!!d.abend};
+          const bGest={'frühstück':!!d.fGestellt,'mittag':!!d.mGestellt,'abend':!!d.aGestellt};
+          const stTxt={'':'nicht gestellt',ja:'gegessen',ne:'nicht gegessen'};
+          const abw=[];
+          VERPFL_MAHL.forEach(m=>{
+            const aSt=verpflStatus(e,m);
+            if(bEing[m]!==(aSt==='ja'))
+              abw.push(VERPFL_LABEL[m]+' (Bescheid: '+(bEing[m]?'gegessen':bGest[m]?'nicht gegessen':'nicht gestellt')
+                +', App: '+stTxt[aSt]+')');
+          });
+          if(abw.length){
+            const leer=!(e.verpflegung||'');
+            add(leer?'warn':'info','Bw-Abgleich',dstr(d.datum)+': Verpflegung weicht ab — '+abw.join(', '),d.datum,e.id);
+          }
+          // Betragsprobe: ergibt die App-Erfassung dasselbe Trennungstagegeld?
+          if(d.tg>0&&!d.tagGanz){
+            const reisetag=/DR|FH|FO/.test(d.art||'');
+            const soll=+(TG_GRUND-(reisetag?0:verpflAbzug(e))).toFixed(2);
+            if(Math.abs(soll-d.tg)>0.005)
+              add('info','Bw-Abgleich',dstr(d.datum)+': Bescheid setzt '+d.tg.toFixed(2).replace('.',',')
+                +' EUR Trennungstagegeld an, die App-Erfassung ergibt '+soll.toFixed(2).replace('.',',')+' EUR',d.datum,e.id);
           }
         });
         // Ortsabgleich der Reiseabschnitte
@@ -4950,12 +5041,14 @@ async function genAbwesenheitPdf(){
         const g=groups[groups.length-1];
         if(g&&g.code===e.dayCode&&normOrt(e)===g.ortKey&&addDay(g.to)===e.date){
           g.to=e.date;g.days++;
-          (e.verpflegung||'').split(',').filter(Boolean).forEach(v=>g.verpfl.add(v));
+          // Nur tatsaechlich eingenommene Mahlzeiten — nicht eingenommene kuerzen nicht
+          // und gehoeren damit nicht in die Bescheinigung.
+          VERPFL_MAHL.filter(m=>verpflStatus(e,m)==='ja').forEach(v=>g.verpfl.add(v));
           if(!g.nachweis&&e.nachweis)g.nachweis=e.nachweis;
         } else {
           groups.push({code:e.dayCode,from:e.date,to:e.date,days:1,
             ort:abwOrtText(e),ortKey:normOrt(e),
-            verpfl:new Set((e.verpflegung||'').split(',').filter(Boolean)),
+            verpfl:new Set(VERPFL_MAHL.filter(m=>verpflStatus(e,m)==='ja')),
             nachweis:e.nachweis||''});
         }
       }
@@ -5213,6 +5306,7 @@ function renderZE(){
   h+='</tbody></table>';
   el.innerHTML=h;
   calcDuZ(yr,mo);
+  calcTG(yr,mo);
 }
 
 /* ─── ERSCHWERNISZULAGE DuZ §3 EZulV ─── */
@@ -5467,6 +5561,112 @@ function calcDuZ(yr,mo){
   html+='<div style="font-size:9px;color:var(--muted);margin-top:8px">';
   html+='DuZ: So/FT '+R_SOFE.toFixed(2)+' | Sa 13-20 '+R_SA13.toFixed(2)+' | Nacht 20-06 '+R_NACHT.toFixed(2)+' EUR/h (minutengenau, Bw-2417) | ';
   html+='MAV: '+MAV_RATE+' EUR/h A13-A16 (\u00a72 SMVergV) | \u00a730c: '+P30_PER_DAY+' EUR/Tag (je 6. Tag frei)</div>';
+
+  el.innerHTML=html;
+}
+
+/* ─── TRENNUNGSGELD §3(2) TGV — 1. Unentgeltliche Verpflegung ───────────────
+   Anspruchslogik aus den Bescheiden 1–7/2026 abgeleitet:
+   · Dienstort-Tage (AW/WFH/WF/UR/FVD/KR)      → 14,00 EUR, gekuerzt um Mahlzeiten
+   · Heimfahrt (HF) und Rueckfahrt (RF)        → 14,00 EUR, das sind Reisetage
+   · Tage dazwischen (am Familienwohnsitz)     → 0,00 EUR
+   · Dienstreise: nur An- und Abreisetag       → 14,00 EUR, Zwischentage 0,00
+   Die Zuordnung steht je Zeile in der Spalte „Grundlage“ und ist damit pruefbar. */
+const TG_REISE_CODES=['DR','LG','ÜB','ES','EGV'];
+function tgTageDesMonats(yr,mo){
+  const prefix=yr+'-'+String(mo).padStart(2,'0');
+  const alle=state.entries.filter(e=>e.date).sort((a,b)=>a.date.localeCompare(b.date));
+  const folgt=(a,b)=>a&&b&&Math.round((new Date(b.date+'T12:00')-new Date(a.date+'T12:00'))/86400000)===1;
+  const out=[];let weg=false;
+  alle.forEach((e,i)=>{
+    const c=e.dayCode;let anspruch=true,grund='Dienstort',reisetag=false;
+    if(c==='HF'){anspruch=true;reisetag=true;grund='Abreisetag Heimfahrt';weg=true;}
+    else if(c==='RF'){anspruch=true;reisetag=true;grund='Rückkehrtag';weg=false;}
+    else if(TG_REISE_CODES.includes(c)){
+      const vor=alle[i-1],nach=alle[i+1];
+      const innen=folgt(vor,e)&&TG_REISE_CODES.includes(vor.dayCode)
+                &&folgt(e,nach)&&TG_REISE_CODES.includes(nach.dayCode);
+      anspruch=!innen;reisetag=!innen;
+      grund=innen?'ganztags auf Dienstreise':'An-/Abreisetag Dienstreise';
+      if(!innen)weg=false;
+    }
+    else if(weg){anspruch=false;grund='am Familienwohnsitz';}
+    if(e.date.startsWith(prefix))out.push({e,anspruch,reisetag,grund});
+  });
+  return out;
+}
+/* An- und Abreisetage bleiben ungekuerzt. Beleg: in den Bescheiden 1–7/2026 ist
+   kein einziger Reisetag gekuerzt (0 von 105). Bis Juni steht dort NE, im Juli
+   fehlt NE — der volle Satz wird trotzdem gezahlt (03.07. und 30.07. je 14,00). */
+function tgAbzug(z){return (!z.anspruch||z.reisetag)?0:verpflAbzug(z.e);}
+function calcTG(yr,mo){
+  const el=document.getElementById('tgBox');if(!el)return;
+  const tage=tgTageDesMonats(yr,mo);
+  if(!tage.length){el.innerHTML='<div style="color:var(--muted);font-size:12px">Keine Einträge in diesem Monat.</div>';return;}
+  const eur=v=>v.toFixed(2).replace('.',',');
+  const fmtD=d=>d.slice(8,10)+'.'+d.slice(5,7)+'.';
+  const wn=['So','Mo','Di','Mi','Do','Fr','Sa'];
+
+  const zeilen=tage.map(t=>{
+    const abzug=tgAbzug(t);
+    return{...t,abzug,betrag:t.anspruch?TG_GRUND-abzug:0};
+  });
+  const anspruchsTage=zeilen.filter(z=>z.anspruch).length;
+  const summeAbzug=zeilen.reduce((s,z)=>s+z.abzug,0);
+  const summe=zeilen.reduce((s,z)=>s+z.betrag,0);
+  const mitVerpfl=zeilen.filter(z=>z.abzug>0);
+  const erfasst=zeilen.filter(z=>z.anspruch&&(z.e.verpflegung||z.e.verpflegungNE)).length;
+
+  let html='<h4 style="color:var(--navy);font-size:13px;margin:0 0 8px">1. Unentgeltliche Verpflegung</h4>';
+
+  // Kennzahlen
+  html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;margin-bottom:10px">';
+  html+='<div style="background:var(--lsoft);padding:8px 12px;border-radius:8px;font-size:12px"><span style="color:var(--muted)">Anspruchstage:</span><br><b>'+anspruchsTage+' &times; 14,00</b></div>';
+  html+='<div style="background:var(--lsoft);padding:8px 12px;border-radius:8px;font-size:12px"><span style="color:var(--muted)">Tage mit Abzug:</span><br><b>'+mitVerpfl.length+'</b></div>';
+  html+='<div style="background:var(--lsoft);padding:8px 12px;border-radius:8px;font-size:12px"><span style="color:var(--muted)">Summe Abzüge:</span><br><b>&minus;'+eur(summeAbzug)+' EUR</b></div>';
+  html+='</div>';
+
+  // Tagestabelle
+  html+='<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">';
+  html+='<table style="width:100%;border-collapse:collapse;font-size:11px;min-width:430px">';
+  html+='<thead><tr style="background:var(--navy);color:#fff">';
+  ['Datum','Tag','Code','Fr&#252;h','Mittag','Abend','Grundlage','EUR'].forEach(c=>{
+    html+='<th style="padding:3px 5px;text-align:left;font-size:9px;border:1px solid rgba(255,255,255,0.2)">'+c+'</th>';});
+  html+='</tr></thead><tbody>';
+  zeilen.forEach((z,i)=>{
+    const zell=m=>{
+      if(!z.anspruch)return'<td style="padding:2px 5px;border:1px solid #eee;text-align:center;color:var(--muted)">&middot;</td>';
+      const st=verpflStatus(z.e,m);
+      const wirkt=st==='ja'&&!z.reisetag;
+      const txt=wirkt?'&minus;'+eur(TG_ABZUG[m]):st===''?'&mdash;':(z.reisetag?'ohne Abzug':'n. eing.');
+      const col=wirkt?'var(--warn)':st===''?'var(--muted)':'var(--ok)';
+      return'<td style="padding:2px 5px;border:1px solid #eee;text-align:center;font-size:9.5px;color:'+col+';font-weight:'+(wirkt?'600':'400')+'">'+txt+'</td>';
+    };
+    const wd=wn[new Date(z.e.date+'T12:00').getDay()];
+    html+='<tr style="background:'+(z.abzug>0?'#fff8ec':(i%2?'#f9f9fb':'#fff'))+'">';
+    html+='<td style="padding:2px 5px;border:1px solid #eee;font-size:10px">'+fmtD(z.e.date)+'</td>';
+    html+='<td style="padding:2px 5px;border:1px solid #eee;font-size:10px;color:var(--muted)">'+wd+'</td>';
+    html+='<td style="padding:2px 5px;border:1px solid #eee;font-weight:600;font-size:10px">'+esc(z.e.dayCode||'')+'</td>';
+    html+=zell('frühstück')+zell('mittag')+zell('abend');
+    html+='<td style="padding:2px 5px;border:1px solid #eee;font-size:9.5px;color:var(--muted)">'+z.grund+'</td>';
+    html+='<td style="padding:2px 5px;border:1px solid #eee;text-align:right;font-weight:600;font-size:10px">'+eur(z.betrag)+'</td>';
+    html+='</tr>';
+  });
+  html+='<tr style="background:var(--navy);color:#fff;font-weight:700;font-size:10px">';
+  html+='<td colspan="6" style="padding:3px 5px;border:1px solid rgba(255,255,255,0.2)">Trennungstagegeld '+String(mo).padStart(2,'0')+'/'+yr+'</td>';
+  html+='<td style="padding:3px 5px;border:1px solid rgba(255,255,255,0.2);text-align:right">'+anspruchsTage+' Tage</td>';
+  html+='<td style="padding:3px 5px;border:1px solid rgba(255,255,255,0.2);text-align:right">'+eur(summe)+'</td>';
+  html+='</tr></tbody></table></div>';
+
+  // Rechenweg
+  html+='<div style="background:var(--oks);border:1px solid var(--ok);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--ok);margin-top:8px">';
+  html+='<b>'+anspruchsTage+' &times; 14,00 = '+eur(anspruchsTage*TG_GRUND)+' EUR</b> &minus; '+eur(summeAbzug)+' EUR Verpflegung = <b>'+eur(summe)+' EUR</b></div>';
+
+  // Hinweis auf nicht erfasste Tage
+  const offen=anspruchsTage-erfasst;
+  if(offen>0)html+='<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:6px 10px;font-size:11px;color:#856404;margin-top:6px"><b>Hinweis:</b> An '+offen+' Anspruchstag(en) ist keine Verpflegung erfasst &ndash; diese Tage rechnen mit dem vollen Satz. Die Angabe steht im Wizard unter <i>Arbeitszeit &rarr; Unentgeltliche Verpflegung</i>.</div>';
+
+  html+='<div style="font-size:9px;color:var(--muted);margin-top:8px">Sätze aus den Monatsabrechnungen 1&ndash;7/2026 abgeleitet: Grundbetrag 14,00 &middot; Frühstück &minus;0,43 &middot; Mittag &minus;1,03 &middot; Abend &minus;1,03 EUR. Gekürzt wird nur, was gestellt <b>und</b> eingenommen wurde. Steuerpflichtig (kein §3b EStG).</div>';
 
   el.innerHTML=html;
 }
@@ -6186,7 +6386,13 @@ async function syncReceiptsDown(){
   // Changelog-Definitionen (kurz, 3-5 Punkte pro Version)
   // Schlüssel = APP_BUILD-Nummer, nicht mehr das Datum — siehe currentVersion
   // weiter unten. Beispiel: 26: ['Kurzer Punkt zur Änderung', 'Zweiter Punkt'].
-  const changelogs = {};
+  const changelogs = {
+    26: [
+      'Trennungsgeld nach § 3(2) TGV: neue Box in Zeiterfassung',
+      'Je Mahlzeit erfassbar — gestellt/gegessen/nicht gegessen',
+      'Automatische Berechnung aus Tageseinträgen'
+    ]
+  };
   
   // APP_BUILD ist die einzige Quelle für die Update-Erkennung — bereits die
   // bestehende Konvention (»bei jeder Änderung APP_BUILD hochzählen«). Das
