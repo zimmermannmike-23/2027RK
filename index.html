@@ -766,12 +766,14 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=25;
-const APP_DATE='26.07.2026';
+const APP_BUILD=26;
+const APP_DATE='09.08.2026';
 const APP_CHANGES=[
-  'Jahresbeleg zurück auf die schlanke Struktur: 1 Stammdaten bis 8 Hinweise',
-  'Übersichtsblöcke A–H aus dem Beleg entfernt (bleiben als Karten in der Übersicht)',
-  'Kilometersumme in den Summenzeilen von Teil 2 und Teil 3 ergänzt',
+  'Neuer Reiter „Jahresübersicht": Jahreszahlen, DHF-Vergleich, Querprüfung und Belegeablage an einem Ort',
+  'Firebase-Sync repariert: TG/RK-Bescheide und Belegeablage-Dateien wurden bisher nie in die Cloud hochgeladen',
+  'CheckBox: vollständiger Beleg-Abgleich gegen Wizard-Einträge und TG-Bescheide, inkl. Diagnose-Übersicht',
+  'Deutschlandticket-Fahrten und Familienheimfahrt-Enddatum korrekt berücksichtigt',
+  'Beleg-Ordner-Funktion entfernt, Backup in die Einstellungen verschoben',
 ];
 
 const SK='zc-tgrb-v2', SETK='zc-tgrb-set-v2';
@@ -6213,7 +6215,7 @@ async function cloudPush(manual){
   try{
     if(manual)fbStatusUI('wait','Lade hoch\u2026',fbUser.email);
     // 1. Belege hochladen, die noch nicht in der Cloud sind
-    await syncReceiptsUp();
+    const r=await syncReceiptsUp();
     // 2. State-Dokument schreiben
     const payload=JSON.stringify({entries:state.entries,settings:stripLocalOnly(state.settings)});
     const now=Date.now();
@@ -6221,7 +6223,17 @@ async function cloudPush(manual){
       .set({payload,updatedAt:now,device:navigator.platform||'web'});
     state.settings.fbLastSync=now;persist();
     const info=document.getElementById('fbSyncInfo');if(info)info.textContent='Zuletzt: '+new Date(now).toLocaleString('de-DE');
-    if(manual){fbStatusUI('ok','Hochgeladen',fbUser.email);toast('Daten hochgeladen','ok');}
+    if(manual){
+      fbStatusUI('ok','Hochgeladen',fbUser.email);
+      const probleme=[];
+      if(r.hochgeladen)probleme.push(r.hochgeladen+' Beleg(e) neu hochgeladen');
+      if(r.uebersprungenGross.length)probleme.push(r.uebersprungenGross.length+' zu gro\u00df \u00fcbersprungen ('
+        +r.uebersprungenGross.map(x=>x.name+', '+(x.size/1024).toFixed(0)+' KB').join('; ')+')');
+      if(r.fehlendLokal.length)probleme.push(r.fehlendLokal.length+' lokal nicht gefunden (ID: '+r.fehlendLokal.join(', ')+')');
+      if(r.fehler.length)probleme.push(r.fehler.length+' Fehler ('+r.fehler.map(x=>x.message).join('; ')+')');
+      toast(probleme.length?'Daten hochgeladen \u2014 '+probleme.join(' \u00b7 '):'Daten hochgeladen',
+        (r.uebersprungenGross.length||r.fehlendLokal.length||r.fehler.length)?'err':'ok');
+    }
   }catch(e){fbStatusUI('err','Sync-Fehler',e.message);if(manual)toast('Upload: '+e.message,'err');}
 }
 
@@ -6232,8 +6244,16 @@ async function cloudPull(manual){
     const doc=await fbDB.collection('users').doc(fbUser.uid).collection('state').doc('main').get();
     if(!doc.exists){if(manual)toast('Noch keine Cloud-Daten','err');fbStatusUI('ok','Angemeldet',fbUser.email);return;}
     const d=doc.data();
-    await mergeRemote(JSON.parse(d.payload),d.updatedAt);
-    if(manual){fbStatusUI('ok','Geladen',fbUser.email);toast('Daten geladen','ok');}
+    const r=await mergeRemote(JSON.parse(d.payload),d.updatedAt);
+    if(manual){
+      fbStatusUI('ok','Geladen',fbUser.email);
+      const probleme=[];
+      if(r?.heruntergeladen)probleme.push(r.heruntergeladen+' Beleg(e) heruntergeladen');
+      if(r?.nochNichtInCloud)probleme.push(r.nochNichtInCloud+' Beleg(e) sind lokal noch nicht in der Cloud (erst auf dem anderen Gerät „Jetzt hochladen" klicken)');
+      if(r?.fehler?.length)probleme.push(r.fehler.length+' Fehler ('+r.fehler.map(x=>x.message).join('; ')+')');
+      toast(probleme.length?'Daten geladen — '+probleme.join(' · '):'Daten geladen',
+        (r?.nochNichtInCloud||r?.fehler?.length)?'err':'ok');
+    }
   }catch(e){fbStatusUI('err','Sync-Fehler',e.message);if(manual)toast('Laden: '+e.message,'err');}
 }
 
@@ -6246,8 +6266,9 @@ function stripLocalOnly(s){
 
 // Merge: Eintraege per id + updated (LWW), Settings per Objekt, Belege nachladen
 async function mergeRemote(remote,remoteTs){
-  if(!remote)return;
+  if(!remote)return null;
   fbApplyingRemote=true;
+  let downRes=null;
   try{
     // Eintraege mergen (per-id last-write-wins ueber 'updated')
     const localById={};state.entries.forEach(e=>{localById[e.id]=e;});
@@ -6267,15 +6288,17 @@ async function mergeRemote(remote,remoteTs){
     }
     migrate();persist();
     // Belege nachladen, die lokal fehlen
-    await syncReceiptsDown();
+    downRes=await syncReceiptsDown();
     // UI aktualisieren
     const active=document.querySelector('.tab.on')?.dataset.v;
     if(active==='overview')renderOverview();
+    if(active==='jahr'){if(typeof renderJahresView==='function')renderJahresView();if(typeof renderBelegeablage==='function')renderBelegeablage();}
     if(active==='zeiterfassung'){renderZE();}
     if(active==='export'){renderExportPdfs();renderReceipts();}
     if(active==='wizard')renderCal();
   }catch(e){console.error('merge:',e);}
   finally{fbApplyingRemote=false;}
+  return downRes;
 }
 
 // Alle im State referenzierten Beleg-IDs sammeln
@@ -6295,38 +6318,54 @@ function allReceiptIds(){
   bwList().forEach(b=>{if(b.fileId)ids.add(b.fileId);});
   return [...ids];
 }
+/* Liefert eine Zusammenfassung statt stumm zu scheitern: bisher wurden einzelne
+   Beleg-Fehler nur in der Konsole geloggt und der manuelle "Jetzt hochladen"-Button
+   meldete trotzdem pauschal Erfolg \u2014 dadurch blieb unsichtbar, warum ein bestimmter
+   Beleg (z. B. eine TG-Bescheid-PDF) nie in der Cloud ankam. */
 async function syncReceiptsUp(){
-  if(!fbDB||!fbUser)return;
+  const res={hochgeladen:0,uebersprungenGross:[],fehlendLokal:[],fehler:[]};
+  if(!fbDB||!fbUser)return res;
   const uploaded=state.settings.fbUploaded||{};
   const col=fbDB.collection('users').doc(fbUser.uid).collection('receipts');
   for(const id of allReceiptIds()){
     if(uploaded[id])continue;
-    try{const rec=await idbGetF(id);if(!rec||!rec.blob)continue;
+    try{
+      const rec=await idbGetF(id);
+      if(!rec||!rec.blob){res.fehlendLokal.push(id);continue;}
       // Firestore-Dokument-Limit ~1 MB. base64 vergroessert um ~33% -> Nutzlast < ~720 KB.
       if(rec.blob.size>700000){
         console.warn('Beleg zu gross fuer Firestore-Sync:',id,rec.name,rec.blob.size);
-        toast('Beleg "'+(rec.name||id)+'" ist zu gro\u00df f\u00fcr Cloud-Sync (>0,7 MB) und bleibt lokal','err');
+        res.uebersprungenGross.push({id,name:rec.name||rec.filename||id,size:rec.blob.size});
         continue;
       }
       const dataUrl=await blobToDataURL(rec.blob);
       await col.doc(id).set({data:dataUrl,name:rec.name||'',type:rec.type||'',filename:rec.filename||'',size:rec.blob.size,uploadedAt:Date.now()});
       uploaded[id]=true;
-    }catch(e){console.error('upload receipt',id,e);}
+      res.hochgeladen++;
+    }catch(e){
+      console.error('upload receipt',id,e);
+      res.fehler.push({id,message:e.message||String(e)});
+    }
   }
   state.settings.fbUploaded=uploaded;persist();
+  return res;
 }
 async function syncReceiptsDown(){
-  if(!fbDB||!fbUser)return;
+  const res={heruntergeladen:0,nochNichtInCloud:0,fehler:[]};
+  if(!fbDB||!fbUser)return res;
   const col=fbDB.collection('users').doc(fbUser.uid).collection('receipts');
   for(const id of allReceiptIds()){
-    try{const existing=await idbGetF(id);if(existing)continue;
+    try{
+      const existing=await idbGetF(id);if(existing)continue;
       const doc=await col.doc(id).get();
-      if(!doc.exists)continue;
-      const d=doc.data();if(!d||!d.data)continue;
+      if(!doc.exists){res.nochNichtInCloud++;continue;}
+      const d=doc.data();if(!d||!d.data){res.nochNichtInCloud++;continue;}
       const resp=await fetch(d.data);const blob=await resp.blob();
       await idbFile({id,blob,name:d.name||id,type:d.type||blob.type,size:blob.size,created:Date.now(),filename:d.filename||d.name||id});
-    }catch(e){/* Beleg evtl. noch nicht hochgeladen */}
+      res.heruntergeladen++;
+    }catch(e){res.fehler.push({id,message:e.message||String(e)});}
   }
+  return res;
 }
 
 /* ═══════════════ END FIREBASE SYNC ═══════════════ */
@@ -6439,7 +6478,13 @@ async function syncReceiptsDown(){
   // Changelog-Definitionen (kurz, 3-5 Punkte pro Version)
   // Schlüssel = APP_BUILD-Nummer, nicht mehr das Datum — siehe currentVersion
   // weiter unten. Beispiel: 26: ['Kurzer Punkt zur Änderung', 'Zweiter Punkt'].
-  const changelogs = {};
+  const changelogs = {
+    26: [
+      'Neuer Reiter „Jahresübersicht" mit DHF-Vergleich, Querprüfung und Belegeablage',
+      'Firebase-Sync für Belege und Bescheide repariert',
+      'CheckBox: vollständiger Beleg-Abgleich mit Diagnose-Übersicht',
+    ],
+  };
   
   // APP_BUILD ist die einzige Quelle für die Update-Erkennung — bereits die
   // bestehende Konvention (»bei jeder Änderung APP_BUILD hochzählen«). Das
