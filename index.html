@@ -771,9 +771,10 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=27;
+const APP_BUILD=28;
 const APP_DATE='09.08.2026';
 const APP_CHANGES=[
+  'Sync-Diagnose: fehlende Belege zeigen jetzt ihre Quelle (welcher Bescheid/Eintrag referenziert sie)',
   'Trennungsgeld nach § 3(2) TGV: neue Box in Zeiterfassung, je Mahlzeit erfassbar',
   'Neuer Reiter „Jahresübersicht": Jahreszahlen, DHF-Vergleich, Querprüfung und Belegeablage an einem Ort',
   'Firebase-Sync repariert: TG/RK-Bescheide und Belegeablage-Dateien wurden bisher nie in die Cloud hochgeladen',
@@ -6712,6 +6713,9 @@ async function syncReceiptsDown(){
       'Neuer Reiter „Jahresübersicht" mit DHF-Vergleich, Querprüfung und Belegeablage',
       'Firebase-Sync für Belege und Bescheide repariert',
       'CheckBox: vollständiger Beleg-Abgleich mit Diagnose-Übersicht',
+    ],
+    28: [
+      'Sync-Diagnose zeigt jetzt die Quelle fehlender Belege',
     ],
   };
   
