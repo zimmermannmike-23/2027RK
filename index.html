@@ -314,6 +314,12 @@ main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;}
   .uchip{display:none;}
 }
 datalist{display:none;}
+#dropZone{transition:all .2s;}
+#dropZone.dragover{border-color:#0A84FF!important;background:rgba(10,132,255,.08)!important;box-shadow:0 0 0 3px rgba(10,132,255,.1)!important;}
+.import-item{display:flex;gap:12px;padding:12px;background:#f5f7fa;border-radius:9px;margin-bottom:8px;border-left:3px solid #0A84FF;}
+.import-item.error{border-left-color:var(--err);background:rgba(255,59,48,.05);}
+.import-item.warning{border-left-color:var(--warn);background:rgba(255,193,7,.05);}
+.import-item.success{border-left-color:var(--ok);background:rgba(76,175,80,.05);}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -345,8 +351,9 @@ datalist{display:none;}
   <div class="tabs-i">
     <button class="tab on" data-v="wizard">Eintrag</button>
     <button class="tab" data-v="overview">Übersicht</button>
+    <button class="tab" data-v="jahr">Jahresübersicht</button>
     <button class="tab" data-v="zeiterfassung">Zeiterfassung</button>
-    <button class="tab" data-v="export">Belege</button>
+    <button class="tab" data-v="export">Übersichten &amp; Belege</button>
     <button class="tab" data-v="settings">Einstellungen</button>
   </div>
 </nav>
@@ -380,8 +387,6 @@ datalist{display:none;}
   <div id="checkBoxResult"></div>
   <div class="sg" id="ovStats"></div>
   <div id="ovDetail"></div>
-  <div id="jahresCard"></div>
-  <div id="dhfCard"></div>
   <div id="urlaubCard"></div>
   <div id="fhfCard"></div>
   <div id="costDupCheck"></div>
@@ -412,11 +417,66 @@ datalist{display:none;}
   <div id="costsSummary" style="margin-top:0"></div>
   <div id="wsSummary" style="margin-top:14px"></div>
 </section>
-<!-- RECEIPTS -->
+<!-- JAHRESÜBERSICHT -->
+<section class="view" id="view-jahr">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:22px;color:var(--navy);font-weight:700;letter-spacing:-0.4px">Jahres&#252;bersicht</h2>
+      <p style="color:var(--muted);font-size:13px;margin:2px 0 0">Jahreszahlen, steuerlicher Vergleich und Beleg-Ablage an einem Ort.</p>
+    </div>
+    <select id="jahrY" style="font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:#fff;"></select>
+  </div>
+  <div id="jahresCard"></div>
+  <div id="dhfCard"></div>
+  <div id="querCard"></div>
 
-<!-- EXPORT -->
+  <div class="card" style="margin-top:14px;border-left:3px solid #0A84FF">
+    <h3 style="margin-bottom:4px">📤 Bescheide &amp; Belege hochladen</h3>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:8px">
+      Ziehe Dateien hierher oder klicke zum Auswählen.
+      Unterstützt: PDF-Bescheide (TG, RK, Bundeswehr) + Belegs-PDFs/Bilder
+    </p>
 
+    <div id="dropZone"
+      style="border:2px dashed var(--line);border-radius:12px;padding:40px;text-align:center;background:rgba(10,132,255,.02);cursor:pointer;transition:all .2s"
+      ondragover="onDragOver(event)"
+      ondragleave="onDragLeave(event)"
+      ondrop="onDrop(event)">
+      <div style="font-size:40px;margin-bottom:12px">📁</div>
+      <div>Dateien hierher ziehen oder <strong style="color:#0A84FF;cursor:pointer">klicken</strong></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px">PDF, JPG, PNG unterstützt</div>
+      <input type="file" id="fileInputPrimary" multiple accept="application/pdf,image/*"
+        onchange="onFilesSelected(event)" style="display:none">
+    </div>
 
+    <div id="uploadProgress" style="margin-top:12px;display:none">
+      <div style="font-size:12px;margin-bottom:6px">Verarbeite: <span id="uploadStatus"></span></div>
+      <div style="background:var(--lsoft);border-radius:6px;height:6px;overflow:hidden">
+        <div id="progressBar" style="background:#0A84FF;height:100%;width:0%;transition:width .3s"></div>
+      </div>
+    </div>
+
+    <div id="importPreview" style="margin-top:12px"></div>
+
+    <div id="importActions" style="margin-top:12px;display:none;gap:8px;display:flex;flex-wrap:wrap">
+      <button class="btn" onclick="confirmImports()" style="background:var(--navy);color:#fff;border:none;padding:9px 16px;border-radius:var(--r);font:inherit;font-size:13px;font-weight:600;cursor:pointer">✓ Alle übernehmen</button>
+      <button class="btn-xs" onclick="clearImports()">🗑️ Alle löschen</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px;border-left:3px solid #0A84FF">
+    <h3 style="margin-bottom:4px">🗄️ Belegeablage</h3>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:8px">
+      Alle über die Drag &amp; Drop-Ablage hochgeladenen Bescheide &amp; Belege.
+    </p>
+    <div id="bwList" style="margin-bottom:14px"></div>
+    <div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Originaldateien nach Monat</div>
+    <div id="belegeablageListe"></div>
+    <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)">
+      <button class="btn-xs" onclick="window.resetBelegeKomplett()" style="border-color:var(--err);color:var(--err)">🗑️ Alle Bescheide &amp; Belege löschen (Clean-Up)</button>
+    </div>
+  </div>
+</section>
 <!-- ZEITERFASSUNG -->
 <section class="view" id="view-zeiterfassung">
   <div class="card">
@@ -433,15 +493,10 @@ datalist{display:none;}
     <p style="font-size:11px;color:var(--muted);margin-bottom:10px">DuZ (&#167;3 EZulV), Mehrarbeitsverg&#252;tung (&#167;2 SMVergV, A15/41h), &#167;30c Abs.4 SG (100 EUR).</p>
     <div id="duzBox"></div>
   </div>
-  <div class="card" style="margin-top:12px">
-    <h3 style="margin-bottom:6px">&#127968; Trennungsgeld</h3>
-    <p style="font-size:11px;color:var(--muted);margin-bottom:10px">Trennungstagegeld nach &#167;&nbsp;3 (2) TGV aus den Tageseintr&#228;gen. Grundbetrag 14,00 EUR, gek&#252;rzt um gestellte <b>und</b> eingenommene Mahlzeiten.</p>
-    <div id="tgBox"></div>
-  </div>
 </section>
 
 <section class="view" id="view-export">
-  <h2 style="font-size:20px;color:var(--navy);font-weight:700;letter-spacing:-0.4px;margin:0 0 4px">Belege</h2>
+  <h2 style="font-size:20px;color:var(--navy);font-weight:700;letter-spacing:-0.4px;margin:0 0 4px">&#220;bersichten &amp; Belege</h2>
   <p style="color:var(--muted);font-size:13px;margin-bottom:14px">PDF-Erstellung, Druck und alle gespeicherten Belege an einem Ort.</p>
   <div style="display:flex;gap:9px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
     <select id="rcY" style="font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:#fff;"></select>
@@ -539,31 +594,6 @@ datalist{display:none;}
     <div id="drArea"></div>
   </div>
 
-  <div class="card">
-    <h3 style="font-size:15px;margin-bottom:4px">&#128190; Backup</h3>
-    <p style="color:var(--muted);font-size:12px;margin-bottom:10px">Alle Daten als JSON sichern oder wiederherstellen.</p>
-    <div style="display:flex;gap:9px;flex-wrap:wrap">
-      <button class="btn btn-s btn-sm" onclick="doExport()">&#128229; JSON-Backup</button>
-      <label class="btn btn-s btn-sm" style="cursor:pointer">&#128228; JSON laden<input type="file" accept="application/json" onchange="doImport(event)" style="display:none"></label>
-    </div>
-  </div>
-
-  <div class="card" style="margin-top:14px;border-left:3px solid var(--gold)">
-    <h3 style="margin-bottom:4px">&#128196; Bundeswehr-Bescheid einlesen</h3>
-    <p style="font-size:11px;color:var(--muted);margin-bottom:8px">
-      Trennungsgeld- oder Reisekostenbescheid im PDF markieren, kopieren und hier einf&#252;gen.
-      Die App erkennt Typ, Zeitraum und alle Betr&#228;ge automatisch. Bereits eingelesene Bescheide
-      werden anhand der Abrechnungsnummer aktualisiert statt doppelt gespeichert.
-    </p>
-    <textarea id="bwPaste" rows="5" placeholder="Bescheidtext hier einf&#252;gen &hellip;"
-      style="width:100%;font:inherit;font-size:12px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);resize:vertical"></textarea>
-    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-      <button class="btn" onclick="bwAnalyse()">&#128269; Analysieren</button>
-      <button class="btn-xs" onclick="document.getElementById(\'bwPaste\').value=\'\';document.getElementById(\'bwPreview\').innerHTML=\'\';_bwPend=null">Feld leeren</button>
-    </div>
-    <div id="bwPreview" style="margin-top:10px"></div>
-    <div id="bwList" style="margin-top:12px"></div>
-  </div>
   <div id="rcList" style="margin-top:12px"></div>
 </section>
 
@@ -675,9 +705,10 @@ datalist{display:none;}
     <div class="g g2" style="display:none">
     </div>
     <h3 style="margin-top:22px;margin-bottom:8px">&#9992;&#65039; Familienheimfahrten (Reisebeihilfe)</h3>
-    <p style="font-size:11px;color:var(--muted);margin-bottom:8px">Erster Aufenthaltstag am Dienstort. Grundlage f&#252;r die 14-Tage-Anspruchsberechnung (1 Fahrt je 14 Tage).</p>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:8px">Erster Aufenthaltstag am Dienstort. Grundlage f&#252;r die 14-Tage-Anspruchsberechnung (1 Fahrt je 14 Tage). Mit dem Enddatum entstehen ab dem Folgetag keine neuen Anspr&#252;che mehr &ndash; leer lassen, solange der Anspruch l&#228;uft.</p>
     <div class="g g2">
       <div class="f"><label>Erster Aufenthaltstag</label><input type="date" id="sFhfStart"></div>
+      <div class="f"><label>Letzter Aufenthaltstag (optional)</label><input type="date" id="sFhfEnde"></div>
     </div>
     <h3 style="margin-top:22px;margin-bottom:12px">&#128196; Briefkopf (Abwesenheitsbescheinigung)</h3>
     <p style="font-size:11px;color:var(--muted);margin-bottom:8px">Absender f&#252;r die Bescheinigung zur Vorlage beim Finanzamt.</p>
@@ -687,18 +718,21 @@ datalist{display:none;}
       <div class="f"><label>Zeile 3 (Abteilung)</label><input type="text" id="sBK3" placeholder="z. B. BSB BMVg SE I 3"></div>
       <div class="f"><label>Zeile 4 (Stra&#223;e)</label><input type="text" id="sBK4" placeholder="z. B. Stauffenbergstra&#223;e 18"></div>
     </div>
-    <h3 style="margin-top:22px;margin-bottom:8px">&#128193; Beleg-Ordner</h3>
-    <div id="folderSt" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--lsoft);border:1px solid var(--line);border-radius:var(--r);margin-bottom:9px;font-size:12px">
-      <span>&#128193;</span><div><b style="display:block;font-size:12px">Kein Ordner</b><small style="color:var(--muted)">Nur lokale Speicherung.</small></div>
-    </div>
-    <div style="display:flex;gap:7px">
-      <button class="btn btn-s btn-sm" onclick="pickFolder()">&#128193; Ordner w&#228;hlen</button>
-      <button class="btn btn-g btn-sm" onclick="disconnectFolder()">Trennen</button>
+    <h3 style="margin-top:22px;margin-bottom:8px">&#128190; Backup</h3>
+    <p style="color:var(--muted);font-size:11px;margin-bottom:8px">Alle Daten als JSON sichern oder wiederherstellen.</p>
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+      <button class="btn btn-s btn-sm" onclick="doExport()">&#128229; JSON-Backup</button>
+      <label class="btn btn-s btn-sm" style="cursor:pointer">&#128228; JSON laden<input type="file" accept="application/json" onchange="doImport(event)" style="display:none"></label>
     </div>
     <h3 style="margin-top:22px;margin-bottom:5px">&#128190; Speicher</h3>
     <div id="stInfo" style="font-size:12px;color:var(--muted)">L&#228;dt&#8230;</div>
     <div class="sbar"><div class="sfill" id="stFill" style="width:0%"></div></div>
     <div id="stPers" style="font-size:11px;color:var(--muted);margin-top:3px"></div>
+    <div id="stBreakdown" style="font-size:11px;color:var(--muted);margin-top:6px"></div>
+    <div style="margin-top:12px">
+      <button class="btn-xs" onclick="window.loescheAlteBelegQuellen()" style="border-color:var(--err);color:var(--err)">🗑️ Alte Beleg-Verknüpfungen löschen (nur Belegeablage behalten)</button>
+      <p style="font-size:10px;color:var(--muted);margin:4px 0 0">Entfernt BW-Beleg-Uploads, Dienstreise-Belege und über 📎 im Wizard angehängte Belege. Die neue Belegeablage (Drag &amp; Drop) sowie generierte Dokumente (Monatsberichte etc.) bleiben erhalten.</p>
+    </div>
     <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--lsoft);display:flex;gap:9px;flex-wrap:wrap;justify-content:space-between">
       <button class="btn btn-d btn-sm" onclick="confirmReset()">Alle Daten l&#246;schen</button>
       <button class="btn btn-p" onclick="saveSettings()">Speichern</button>
@@ -732,8 +766,8 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=26;
-const APP_DATE='08.08.2026';
+const APP_BUILD=25;
+const APP_DATE='26.07.2026';
 const APP_CHANGES=[
   'Jahresbeleg zurück auf die schlanke Struktur: 1 Stammdaten bis 8 Hinweise',
   'Übersichtsblöcke A–H aus dem Beleg entfernt (bleiben als Karten in der Übersicht)',
@@ -743,45 +777,20 @@ const APP_CHANGES=[
 const SK='zc-tgrb-v2', SETK='zc-tgrb-set-v2';
 const DRPKW=0.30; // Dienstreise PKW
 
-/* ═══ TRENNUNGSGELD — unentgeltliche Verpflegung (§ 3 (2) TGV) ═════════════
-   Saetze aus den Monatsabrechnungen 1–7/2026 abgeleitet und gegen alle sieben
-   Bescheidsummen geprueft (362,72 · 241,70 · 229,76 · 255,70 · 202,79 ·
-   160,79 · 164,14 EUR) — jeder einzelne Tag stimmt.
-   Gekuerzt wird nur, wenn die Mahlzeit gestellt UND eingenommen wurde; im
-   Bescheid ist das die Spalte GB=1 bei NE=0. Steht NE, bleibt der volle Satz. */
-const TG_GRUND=14.00;
-const TG_ABZUG={'frühstück':0.43,'mittag':1.03,'abend':1.03};
-const VERPFL_MAHL=['frühstück','mittag','abend'];
-const VERPFL_LABEL={'frühstück':'Frühstück','mittag':'Mittagessen','abend':'Abendessen'};
-const VERPFL_ICON={'frühstück':'🥐','mittag':'🍽','abend':'🌙'};
-/* Zustand je Mahlzeit: '' = nicht gestellt | 'ja' = gestellt und gegessen
-   (kuerzt) | 'ne' = gestellt, nicht eingenommen (kuerzt nicht).            */
-function verpflStatus(e,m){
-  const gb=(e.verpflegung||'').split(',').includes(m);
-  if(!gb)return'';
-  return (e.verpflegungNE||'').split(',').includes(m)?'ne':'ja';
-}
-function verpflAbzug(e){
-  return VERPFL_MAHL.reduce((s,m)=>s+(verpflStatus(e,m)==='ja'?TG_ABZUG[m]:0),0);
-}
-
 const DT={ // day types
-  // verpfl:true ueberall — unentgeltliche Verpflegung haengt nicht am Tagescode,
-  // sondern daran, ob jemand Essen gestellt hat. Die Bescheide 1–7/2026 zeigen alle
-  // 62 Kuerzungen an reinen Dienstort-Tagen (AW), keine einzige an einem Reisetag.
-  AW:{n:'Anwesend',  d:'Grundbetrieb',          noW:false,noT:false,verpfl:true},
-  WFH:{n:'Homeoffice',d:'Tele-Arbeit',          noW:false,noT:false,verpfl:true},
-  HF:{n:'Heimfahrt', d:'Zum Familienwohnsitz',  noW:false, noT:false,verpfl:true},
-  RF:{n:'Rückfahrt', d:'Zurück zum Dienstort',  noW:false, noT:false,verpfl:true},
+  AW:{n:'Anwesend',  d:'Grundbetrieb',          noW:false,noT:false,verpfl:false},
+  WFH:{n:'Homeoffice',d:'Tele-Arbeit',          noW:false,noT:false,verpfl:false},
+  HF:{n:'Heimfahrt', d:'Zum Familienwohnsitz',  noW:false, noT:false,verpfl:false},
+  RF:{n:'Rückfahrt', d:'Zurück zum Dienstort',  noW:false, noT:false,verpfl:false},
   DR:{n:'Dienstreise',d:'Außendiensttermin',    noW:false,noT:false,verpfl:true},
   LG:{n:'Lehrgang',  d:'Aus-/Fortbildung',      noW:false,noT:false,verpfl:true},
   ÜB:{n:'Übung',     d:'Truppenübung',          noW:false,noT:false,verpfl:true},
   ES:{n:'Einsatz',   d:'Einsatzverwendung',      noW:false,noT:false,verpfl:true},
   EGV:{n:'Einsatzgl. Verpfl.',d:'Einsatzgleiche Verpflichtung',noW:false,noT:false,verpfl:true},
-  UR:{n:'Urlaub',    d:'Erholungsurlaub',        noW:true, noT:true, verpfl:true},
-  FVD:{n:'Freistellung',d:'Freistellung vom Dienst (FvD)',noW:true,noT:true,verpfl:true},
-  WF:{n:'Wochen./Feiert.',d:'Freier Tag',   noW:true, noT:true, verpfl:true},
-  KR:{n:'Krankheit', d:'Arbeitsunfähig',         noW:true, noT:true, verpfl:true},
+  UR:{n:'Urlaub',    d:'Erholungsurlaub',        noW:true, noT:true, verpfl:false},
+  FVD:{n:'Freistellung',d:'Freistellung vom Dienst (FvD)',noW:true,noT:true,verpfl:false},
+  WF:{n:'Wochen./Feiert.',d:'Freier Tag',   noW:true, noT:true, verpfl:false},
+  KR:{n:'Krankheit', d:'Arbeitsunfähig',         noW:true, noT:true, verpfl:false},
 };
 
 // Tätigkeit/Abwesenheit für Zeiterfassungsblatt (Dropdown in Schritt 4)
@@ -834,6 +843,7 @@ let state={entries:[],settings:{
   addrPrimary:'',addrSecondary:'',addrWork:'',
   addrPrimaryGeo:null,addrSecondaryGeo:null,addrWorkGeo:null,
   fhfCounter:0,fhfYear:new Date().getFullYear(),
+  fhfStart:'',fhfEnde:'',
   dtKosten:0,dtStart:'',
   addressHistory:[],selectedCats:null,bwReceipts:{}
 }};
@@ -843,7 +853,7 @@ let lastNom=0, folderHandle=null;
 function freshW(){return{costEnabled:true,useFahrt:true,useAufenthalt:false,
   date:todayISO(),dayCode:'AW',vorhaben:'',isFHF:false,presentNoWork:false,
   workStart:'',workEnd:'',workLocation:'',workLocation2:'',workLocation3:'',workNotes:'',
-  verpflegung:'',verpflegungNE:'',stayLocation:'',nachweis:'',bemerkung:'',zeActivity:'',
+  verpflegung:'',stayLocation:'',nachweis:'',bemerkung:'',zeActivity:'',
   segs:[],
 };}
 function freshSeg(){return{mode:'',fromLoc:'',toLoc:'',fromGeo:null,toGeo:null,
@@ -871,6 +881,13 @@ function segCostCounts(s){
   return true;
 }
 function segCostAmt(s){return segCostCounts(s)?(parseFloat(s.costAmt)||0):0;}
+/* Fahrten auf das Deutschlandticket verursachen keine Einzelkosten — das Ticket ist
+   pauschal in den Einstellungen hinterlegt. Solche Strecken duerfen deshalb weder
+   einen fehlenden Betrag noch einen fehlenden Beleg als Mangel ausloesen. */
+function istDTicket(s){
+  if(!s)return false;
+  return /Deutschlandticket/i.test(s.costType||'')||/Deutschlandticket/i.test(s.detail||'');
+}
 function scopeNote(s){
   if(!s)return '';
   if(s.costScope==='roundtrip')return ' (inkl. Rückflug)';
@@ -959,13 +976,6 @@ function migrate(){
     });
     if(!Array.isArray(e.recIds))e.recIds=e.costRecIds||e.costReceiptIds||[];
     if(!e.stayLocation)e.stayLocation='';if(!e.verpflegung)e.verpflegung='';
-    // Altbestand: 'vollständig' auf die Einzelmahlzeiten aufloesen, damit die
-    // Trennungsgeld-Auswertung je Mahlzeit rechnen kann. 'keine'/'nein'/'selbst'
-    // bedeuten "nichts gestellt" und fallen weg.
-    if(/vollständig/.test(e.verpflegung))e.verpflegung='frühstück,mittag,abend';
-    e.verpflegung=e.verpflegung.split(',').filter(v=>VERPFL_MAHL.includes(v)).join(',');
-    if(typeof e.verpflegungNE!=='string')e.verpflegungNE='';
-    e.verpflegungNE=e.verpflegungNE.split(',').filter(v=>VERPFL_MAHL.includes(v)).join(',');
     if(typeof e.workLocation3!=='string')e.workLocation3='';
   });
   if(!state.settings.addressHistory)state.settings.addressHistory=[];
@@ -1003,21 +1013,21 @@ async function storeFile(file,prefix){
   if(folderHandle){try{await saveToFolder(blob,fn);}catch(e){}}
   return id;
 }
-
-/* FOLDER */
-async function pickFolder(){
-  if(!('showDirectoryPicker' in window)){toast('Nur Chrome/Edge Desktop','error');return;}
-  try{folderHandle=await window.showDirectoryPicker({mode:'readwrite'});
-    await idbPut('handles','folder',folderHandle);updateFolderSt();toast('Ordner: '+folderHandle.name,'ok');}
-  catch(e){if(e.name!=='AbortError')toast('Fehler: '+e.message,'error');}
+/* Speichert die Originaldatei unkomprimiert (für die Belegeablage) samt Metadaten für die Monatsgruppierung. */
+async function storeOriginalFile(file,meta){
+  meta=meta||{};
+  const id=fid();const fn=`${meta.prefix||'beleg'}_${file.name}`;
+  await idbFile({id,blob:file,name:file.name,type:file.type,size:file.size,created:Date.now(),filename:fn,
+    herkunft:'upload',monat:meta.monat||null,typ:meta.typ||null,belegart:meta.belegart||null,datum:meta.datum||null,betrag:meta.betrag!=null?meta.betrag:null});
+  if(folderHandle){try{await saveToFolder(file,fn);}catch(e){}}
+  return id;
 }
-async function disconnectFolder(){folderHandle=null;try{const d=await ensureDB();const tx=d.transaction(['handles'],'readwrite');tx.objectStore('handles').delete('folder');}catch(e){}updateFolderSt();toast('Ordner getrennt');}
+
+/* FOLDER — die Bedienoberfläche dafür wurde entfernt. Ein früher einmal verbundener Ordner
+   bleibt in IndexedDB gespeichert und wird weiter beschrieben; neu verbinden lässt er sich
+   ohne UI nicht mehr. saveToFolder bleibt deshalb aktiv, pickFolder/disconnectFolder entfielen. */
 async function saveToFolder(blob,fn){if(!folderHandle)return false;
   try{const sf=fn.replace(/[<>:"/\\|?*]/g,'_');const fh=await folderHandle.getFileHandle(sf,{create:true});const w=await fh.createWritable();await w.write(blob);await w.close();return true;}catch(e){return false;}}
-function updateFolderSt(){const el=document.getElementById('folderSt');if(!el)return;
-  if(folderHandle){el.style.background='var(--oks)';
-    el.innerHTML=`<span>✓</span><div><b style="display:block;font-size:12px;color:var(--ok)">${esc(folderHandle.name)}</b><small style="color:var(--ok)">Belege werden gespeichert.</small></div>`;}
-  else{el.style.background='';el.innerHTML=`<span>📁</span><div><b style="display:block;font-size:12px">Kein Ordner</b><small style="color:var(--muted)">Nur lokal.</small></div>`;}}
 
 /* GEOCODING */
 async function geocode(addr){
@@ -1076,7 +1086,8 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>goto
 function gotoView(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.v===v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
-  if(v==='overview'){fillYrSel('ovY');const _n=new Date();const _oy=document.getElementById('ovY');if(_oy)_oy.value=String(_n.getFullYear());const _om=document.getElementById('ovM');if(_om)_om.value=String(_n.getMonth()+1).padStart(2,'0');renderOverview();}if(v==='zeiterfassung'){initZeMonth();const _z=document.getElementById('zeMonth');const _n2=new Date();if(_z)_z.value=_n2.getFullYear()+'-'+String(_n2.getMonth()+1).padStart(2,'0');renderZE();}if(v==='export'){updExStats();renderFhf();initCatGrid();renderExportPdfs();renderReceipts();renderBwList();}
+  if(v==='overview'){fillYrSel('ovY');const _n=new Date();const _oy=document.getElementById('ovY');if(_oy)_oy.value=String(_n.getFullYear());const _om=document.getElementById('ovM');if(_om)_om.value=String(_n.getMonth()+1).padStart(2,'0');renderOverview();}if(v==='zeiterfassung'){initZeMonth();const _z=document.getElementById('zeMonth');const _n2=new Date();if(_z)_z.value=_n2.getFullYear()+'-'+String(_n2.getMonth()+1).padStart(2,'0');renderZE();}if(v==='export'){updExStats();renderFhf();initCatGrid();renderExportPdfs();renderReceipts();}
+  if(v==='jahr'){renderJahresView();if(typeof renderBelegeablage==='function')renderBelegeablage();}
   if(v==='settings'){loadSettings();renderVersion();}
   if(v==='wizard'){renderCal();}
   window.scrollTo({top:0,behavior:'smooth'});
@@ -1323,7 +1334,6 @@ function buildTravel(){
       <div class="f" style="margin-top:6px"><label>Bemerkung</label>
         <input type="text" id="travelNotes" value="${esc(wiz.workNotes)}" onchange="wiz.workNotes=this.value" placeholder="z. B. Dienstort, Lagerangabe …">
       </div>
-      ${noT&&dt.verpfl?buildVerpfl():''}
     </div>
   </div>`;
 }
@@ -1388,59 +1398,27 @@ function buildWork(){
     </div>
   </div>`;
 }
-/* Unentgeltliche Verpflegung — je Mahlzeit drei Zustaende, weil der Bescheid
-   genau so rechnet: gestellt (GB) und eingenommen kuerzt, gestellt aber nicht
-   eingenommen (NE) kuerzt nicht.                                            */
 function buildVerpfl(){
-  const abzug=verpflAbzug(wiz);
-  const eur=v=>v.toFixed(2).replace('.',',');
-  const rows=VERPFL_MAHL.map(m=>{
-    const st=verpflStatus(wiz,m);
-    const b=(v,l,bg,fg)=>{
-      const on=st===v;
-      return`<button type="button" onclick="setVerpfl('${m}','${v}')"
-        style="flex:1 1 0;min-width:0;padding:7px 6px;font:inherit;font-size:12px;
-        cursor:pointer;border:1px solid ${on?bg:'var(--line)'};
-        background:${on?bg:'#fff'};color:${on?fg:'var(--muted)'};
-        font-weight:${on?'600':'400'};border-radius:7px;white-space:nowrap;
-        overflow:hidden;text-overflow:ellipsis">${l}</button>`;
-    };
-    return`<div style="margin-bottom:9px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-        <span style="font-size:13px;font-weight:500">${VERPFL_ICON[m]} ${VERPFL_LABEL[m]}</span>
-        <span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:${st==='ja'?'var(--warn)':'var(--muted)'}">
-          ${st==='ja'?'&minus;'+eur(TG_ABZUG[m])+' &euro;':(st==='ne'?'kein Abzug':'&mdash;')}</span>
-      </div>
-      <div style="display:flex;gap:4px">
-        ${b('','nicht gestellt','var(--muted)','#fff')}
-        ${b('ja','gegessen','var(--gold)','var(--navy)')}
-        ${b('ne','nicht gegessen','var(--ok)','#fff')}
-      </div>
-    </div>`;}).join('');
-  return`<div class="card" id="verpflCard" style="margin-top:12px;background:var(--warns);border-color:var(--gold)">
-    <h3 style="font-size:13px;margin-bottom:3px">🍽 Unentgeltliche Verpflegung</h3>
-    <p style="font-size:11px;color:var(--muted);margin:0 0 11px;line-height:1.45">
-      Gekürzt wird nur, was gestellt <b>und</b> gegessen wurde &mdash; so rechnet auch der Bescheid.
-      Eine bereitgestellte, aber nicht eingenommene Mahlzeit lässt das Trennungstagegeld voll.</p>
-    ${rows}
-    <div style="border-top:1px solid var(--gold);margin-top:11px;padding-top:9px;display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-      <span style="font-size:12px;color:var(--muted)">Trennungstagegeld dieses Tages</span>
-      <span style="font-family:ui-monospace,Menlo,monospace;font-size:13.5px;font-weight:700;color:var(--navy)">${eur(TG_GRUND-abzug)}&nbsp;&euro;</span>
-    </div>
-    ${abzug>0?`<div style="font-size:10.5px;color:var(--muted);text-align:right;margin-top:2px;font-family:ui-monospace,Menlo,monospace">14,00 &minus; ${eur(abzug)}</div>`:''}
+  const sel=(wiz.verpflegung||'').split(',').filter(Boolean);
+  const opts=[['keine','Keine'],['vollständig','Vollständig'],['frühstück','Frühstück'],['mittag','Mittag'],['abend','Abend'],['nein','Nein'],['selbst','Selbst']];
+  const chips=opts.map(([v,l])=>{
+    const on=sel.includes(v);
+    return`<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;padding:6px 12px;border:1px solid ${on?'var(--navy)':'var(--line)'};border-radius:999px;background:${on?'var(--navy)':'#fff'};color:${on?'#fff':'var(--text)'};font-weight:${on?'600':'400'};transition:all .15s">
+      <input type="checkbox" ${on?'checked':''} onchange="toggleVerpfl('${v}')" style="display:none"> ${l}</label>`;}).join('');
+  return`<div class="card" style="margin-top:12px;background:var(--warns);border-color:var(--gold)">
+    <h3 style="font-size:13px;margin-bottom:9px">🍽 Verpflegung bereitgestellt?</h3>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${chips}</div>
   </div>`;
 }
-function setVerpfl(m,v){
-  const gb=(wiz.verpflegung||'').split(',').filter(Boolean);
-  const ne=(wiz.verpflegungNE||'').split(',').filter(Boolean);
-  const weg=(arr,x)=>{const i=arr.indexOf(x);if(i>=0)arr.splice(i,1);};
-  weg(gb,m);weg(ne,m);
-  if(v==='ja')gb.push(m);
-  else if(v==='ne'){gb.push(m);ne.push(m);}
-  wiz.verpflegung=VERPFL_MAHL.filter(x=>gb.includes(x)).join(',');
-  wiz.verpflegungNE=VERPFL_MAHL.filter(x=>ne.includes(x)).join(',');
-  const el=document.getElementById('verpflCard');
-  if(el)el.outerHTML=buildVerpfl();
+function toggleVerpfl(val){
+  const sel=(wiz.verpflegung||'').split(',').filter(Boolean);
+  const idx=sel.indexOf(val);
+  if(idx>=0)sel.splice(idx,1);else sel.push(val);
+  wiz.verpflegung=sel.join(',');
+  const box=document.querySelector('.wbody');if(box){const vrpfl=DT[wiz.dayCode]?.verpfl?buildVerpfl():'';
+    const existing=box.querySelector('.card[style*="warns"]');
+    if(existing&&vrpfl){existing.outerHTML=vrpfl;}
+  }
 }
 
 /* STEP 2 ALT: LOCATION */
@@ -1698,7 +1676,7 @@ function buildSave(){
         ${segsStr!=='—'?`<div><b style="color:var(--navy)">Reisemittel:</b> <span style="line-height:1.7">${segsStr}</span></div>`:''}
         ${costs!=='—'?`<div><b style="color:var(--navy)">Kosten:</b> ${esc(costs)}</div>`:''}
 
-        ${w.verpflegung?`<div><b style="color:var(--navy)">Verpflegung:</b> ${esc(VERPFL_MAHL.filter(m=>verpflStatus(w,m)!=='').map(m=>VERPFL_LABEL[m]+(verpflStatus(w,m)==='ne'?' (nicht eingenommen)':'')).join(', '))}${verpflAbzug(w)>0?` &middot; TG ${(TG_GRUND-verpflAbzug(w)).toFixed(2).replace('.',',')} &euro;`:''}</div>`:''}
+        ${w.verpflegung?`<div><b style="color:var(--navy)">Verpflegung:</b> ${esc(w.verpflegung)}</div>`:''}
         ${w.workNotes?`<div style="color:var(--muted)"><b>Bemerkung:</b> ${esc(w.workNotes)}</div>`:''}
       </div>
     </div>
@@ -1892,10 +1870,19 @@ function fhfStartDate(){
   if(!s)return null;
   const d=new Date(s+'T12:00');return isNaN(d)?null:d;
 }
+/* Letzter Aufenthaltstag am Dienstort. Ab dem Folgetag entsteht kein neuer Anspruch mehr;
+   bereits angesparte Ansprueche bleiben bestehen. Leer = der Anspruch laeuft weiter. */
+function fhfEndDate(){
+  const s=state.settings.fhfEnde||'';
+  if(!s)return null;
+  const d=new Date(s+'T12:00');return isNaN(d)?null:d;
+}
 function fhfDaysBetween(a,b){return Math.floor((b-a)/86400000);}
 function fhfEntitledUpTo(date){
   const start=fhfStartDate();if(!start)return 0;
-  const d=(date instanceof Date)?date:new Date(date+'T12:00');
+  let d=(date instanceof Date)?date:new Date(date+'T12:00');
+  const ende=fhfEndDate();
+  if(ende&&d>ende)d=ende;   // nach dem letzten Aufenthaltstag waechst der Anspruch nicht weiter
   const diff=fhfDaysBetween(start,d)+1;
   if(diff<14)return 0;
   return Math.floor(diff/14);
@@ -1916,9 +1903,11 @@ function fhfUsedUpTo(date){
 }
 function fhfPerYear(year){
   const start=fhfStartDate();if(!start)return 0;
+  const ende=fhfEndDate();
   let count=0,n=1;
   while(n<=600){
     const be=new Date(start);be.setDate(be.getDate()+n*14-1);
+    if(ende&&be>ende)break;   // nach dem letzten Aufenthaltstag entsteht kein Block mehr
     if(be.getFullYear()>year)break;
     if(be.getFullYear()===year)count++;
     n++;
@@ -1936,7 +1925,20 @@ function fhfStatus(){
   const usedNow=fhfUsedUpTo(today);
   const angespart=Math.max(0,entitledNow-usedNow);
   const nochKuenftig=Math.max(0,entitledYearEnd-entitledNow);
-  return {start,yr,entitledNow,entitledYearEnd,usedNow,angespart,nochKuenftig,perYear:fhfPerYear(yr)};
+  return {start,ende:fhfEndDate(),yr,entitledNow,entitledYearEnd,usedNow,angespart,nochKuenftig,perYear:fhfPerYear(yr)};
+}
+/* Familienheimfahrten (Hinfahrt, FHF-Häkchen gesetzt) ohne jede Kostenposition und ohne
+   Deutschlandticket/Privat-Kfz-Pauschale — dafür gibt es keinen Beleg und keine Erstattung.
+   Gemeinsame Grundlage für die CheckBox-Warnung (I.4) und die Anzeige in der FHF-Karte. */
+function fhfOhneKostenListe(yr){
+  const y=String(yr);
+  return state.entries.filter(e=>e.date&&e.date.startsWith(y)&&e.isFHF===true&&e.dayCode!=='RF').filter(e=>{
+    const segsAn=(e.segs||[]).filter(s=>s.enabled!==false);
+    if(segsAn.some(s=>segCostCounts(s)))return false;   // hat eine Kostenposition
+    if(segsAn.some(istDTicket))return false;             // auf das Deutschlandticket gefahren
+    if(segsAn.some(s=>MODE_GRUPPE[s.mode]==='Privat-Kfz'&&parseFloat(s.km)>0))return false; // Pauschale
+    return true;
+  }).sort((a,b)=>a.date.localeCompare(b.date));
 }
 function renderOverview(){
   fillYrSel('ovY');
@@ -1951,7 +1953,7 @@ function renderOverview(){
   const tb=document.getElementById('tbody'),em=document.getElementById('emptyMsg');
   const cnt=document.getElementById('ovCnt');if(cnt)cnt.textContent=list.length+' Einträge';
   if(!list.length){if(tb)tb.innerHTML='';if(em)em.style.display='block';
-    document.getElementById('ppSummary').innerHTML='';document.getElementById('costsSummary').innerHTML='';document.getElementById('wsSummary').innerHTML='';renderJahresCard();renderDhfCard();renderUrlaubCard();renderFhfCard();renderCostDupCheck();renderFhfBlocks();if(ovDetailType)showOvDetailRefresh();return;}
+    document.getElementById('ppSummary').innerHTML='';document.getElementById('costsSummary').innerHTML='';document.getElementById('wsSummary').innerHTML='';renderJahresView();renderUrlaubCard();renderFhfCard();renderCostDupCheck();renderFhfBlocks();if(ovDetailType)showOvDetailRefresh();return;}
   if(em)em.style.display='none';
   tb.innerHTML=list.map(e=>{
     const dt=DT[e.dayCode]||{n:'—'};
@@ -2007,7 +2009,7 @@ function renderOverview(){
       </tr>`;
     }).join('');
   }).join('');
-  renderFahrtSummary(list);renderCostsSummary(list);renderWSSummary(list);renderJahresCard();renderDhfCard();renderUrlaubCard();renderFhfCard();renderCostDupCheck();renderFhfBlocks();
+  renderFahrtSummary(list);renderCostsSummary(list);renderWSSummary(list);renderJahresView();renderUrlaubCard();renderFhfCard();renderCostDupCheck();renderFhfBlocks();
   if(ovDetailType)showOvDetailRefresh();
 }
 function showOvDetailRefresh(){const t=ovDetailType;ovDetailType=null;showOvDetail(t);}
@@ -2208,18 +2210,8 @@ function parseBwBescheid(txt){
     const reT=/^(\d{2}\.\d{2}\.\d{2})\s+(?:\u00a7\s*3\s*\(2\)\s*)?(DR|FH)?\s*((?:\d+\s+){9})(\d)\s+(\d)\s+([\d.,]+)\s+([\d.,]+)/gm;
     while((m=reT.exec(t))){
       const v=m[3].trim().split(/\s+/).map(Number);
-      // Je Mahlzeit drei Spalten: U (unentgeltlich), GB (bereitgestellt),
-      // NE (nicht eingenommen). Gekuerzt wird nur bei GB/U ohne NE — deshalb
-      // stehen fruehstueck/mittag/abend fuer "tatsaechlich eingenommen".
-      const gest=(u,gb)=>(v[u]+v[gb])>0;
       o.tage.push({datum:bwDate(m[1]),art:m[2]||'',
-        fruehstueck:gest(0,1)&&v[2]===0,
-        mittag:     gest(3,4)&&v[5]===0,
-        abend:      gest(6,7)&&v[8]===0,
-        fGestellt:gest(0,1),fNichtEing:v[2]>0,
-        mGestellt:gest(3,4),mNichtEing:v[5]>0,
-        aGestellt:gest(6,7),aNichtEing:v[8]>0,
-        tagGanz:Number(m[4])>0,
+        fruehstueck:(v[0]+v[1]+v[2])>0,mittag:(v[3]+v[4]+v[5])>0,abend:(v[6]+v[7]+v[8])>0,
         tg:bwNum(m[7])});
     }
     const fk=/Fahrkosten aus Familienheimfahrten\s+([\d.,]+)\s+([\d.,]+)\s+([-\d.,]+)/.exec(t);
@@ -2447,6 +2439,62 @@ function bwSummen(praefix){
   s.unterkunft=s.tgUnterkunft;
   return s;
 }
+/* Summen der über die Belegeablage hochgeladenen sonstigen Belege (Bahn/Bus/Flug/Bilder), gefiltert nach Jahr/Monat-Präfix */
+function mbSummen(praefix){
+  const items=(state.settings.mbReceipts&&state.settings.mbReceipts['unassigned'])||[];
+  const l=items.filter(r=>!praefix||(r.datum||'').startsWith(praefix));
+  const s={anzahl:l.length,gesamt:0,nachArt:{}};
+  l.forEach(r=>{
+    const betrag=parseFloat(r.gesamtkosten)||0;
+    s.gesamt+=betrag;
+    const art=r.belegart||'Sonstiges';
+    s.nachArt[art]=(s.nachArt[art]||0)+betrag;
+  });
+  return s;
+}
+/* ═══ Monatliche Querprüfung: Belege (tatsächlich bezahlt) ↔ TG-Bescheid (erstattet) ═══
+   Ordnet hochgeladene Belege (Flugkarte/Bahnkarte/Buskarte) den je Verkehrsmittel
+   erstatteten Fahrkosten aus dem TG-Bescheid zu (o.posten: „Fahrkosten DB/Bus/Flugzeug",
+   „Wegstrecke Kfz"), sowie den steuerlich relevanten km-Angaben (Privat-Kfz, Bahn/ÖPNV).
+   Nur TG-Bescheide enthalten diese Aufschlüsselung — bei RK-Abrechnungen liegt lediglich
+   ein Gesamtbetrag vor, keine Einzelposten je Verkehrsmittel. */
+function belegArtKategorie(art){
+  const a=(art||'').toLowerCase();
+  if(a.includes('flug'))return'Flugkarte';
+  if(a.includes('bahn')||a.includes('zug')||a.includes('ice')||a.includes('db'))return'Bahnkarte';
+  if(a.includes('bus'))return'Buskarte';
+  return null;
+}
+function mbBezahltFuerMonatKategorie(monat,kategorie){
+  const items=(state.settings.mbReceipts&&state.settings.mbReceipts['unassigned'])||[];
+  return items.filter(r=>(r.datum||'').startsWith(monat)&&belegArtKategorie(r.belegart)===kategorie)
+    .reduce((a,r)=>a+(parseFloat(r.gesamtkosten)||0),0);
+}
+function tgQuerpruefungMonat(monat){
+  const bescheide=bwList().filter(b=>b.typ==='TG'&&b.periode===monat);
+  const q={monat,hatBescheid:bescheide.length>0,
+    flug:{bezahlt:0,erstattet:0},bahn:{bezahlt:0,erstattet:0},bus:{bezahlt:0,erstattet:0},
+    kfzKm:{km:0,erstattet:0},bahnOevKm:{km:0,kosten:0,steuerfrei:0}};
+  bescheide.forEach(b=>{
+    (b.posten||[]).forEach(p=>{
+      if(p.art==='Fahrkosten Flugzeug')q.flug.erstattet+=p.betrag||0;
+      else if(p.art==='Fahrkosten DB')q.bahn.erstattet+=p.betrag||0;
+      else if(p.art==='Fahrkosten Bus')q.bus.erstattet+=p.betrag||0;
+      else if(p.art==='Wegstrecke Kfz'){q.kfzKm.erstattet+=p.betrag||0;q.kfzKm.km+=p.km||0;}
+    });
+    (b.km||[]).forEach(k=>{
+      if(k.art==='Bahn/ÖPNV'){q.bahnOevKm.km+=k.km||0;q.bahnOevKm.kosten+=k.kosten||0;q.bahnOevKm.steuerfrei+=k.steuerfrei||0;}
+    });
+  });
+  q.flug.bezahlt=mbBezahltFuerMonatKategorie(monat,'Flugkarte');
+  q.bahn.bezahlt=mbBezahltFuerMonatKategorie(monat,'Bahnkarte');
+  q.bus.bezahlt=mbBezahltFuerMonatKategorie(monat,'Buskarte');
+  q.flug.diff=q.flug.bezahlt-q.flug.erstattet;
+  q.bahn.diff=q.bahn.bezahlt-q.bahn.erstattet;
+  q.bus.diff=q.bus.bezahlt-q.bus.erstattet;
+  q.hatDaten=q.hatBescheid||q.flug.bezahlt||q.bahn.bezahlt||q.bus.bezahlt;
+  return q;
+}
 /* Monatsweise Auswertung: App-Daten und Bw-Erstattung je Monat */
 function monatsUebersicht(yr){
   const y=String(yr);
@@ -2502,6 +2550,7 @@ function jahresUebersicht(yr){
     if(ec>0){u.kostGrp['Sonstige']=(u.kostGrp['Sonstige']||0)+ec;u.kostGesamt+=ec;}
   });
   u.bw=bwSummen(y);
+  u.mb=mbSummen(y);
   u.eigen=Math.max(0,u.kostGesamt-(u.bw.fahrkosten||0));
   return u;
 }
@@ -2571,6 +2620,68 @@ function vmaBerechnung(yr){
   return{aktiv:true,start,ende,von,bis,tage:nVoll+nHalb,nVoll,nHalb,nNull,brutto,kuerzung,
     betrag:Math.max(0,brutto-kuerzung),VOLL,TEIL,detail};
 }
+/* Tatsächliche Fahrtkosten für Familienheimfahrten, je Verkehrsmittel (steuerlich korrekt statt reiner
+   Pauschale, §9 EStG): Flugzeug muss immer mit den tatsächlichen Kosten angesetzt werden, bei Bahn/
+   Bus/ÖPNV gilt der höhere Betrag aus tatsächlichen Kosten oder Entfernungspauschale, Privat-Kfz nur
+   die Pauschale (km × Satz). Für Fahrten ohne erfasste Segmentdaten (nur das FHF-Häkchen gesetzt, keine
+   Fahrt-Details) greift ersatzweise die konfigurierte Pauschal-Route je Fahrt. */
+function fhfTatsaechlicheKosten(yr,kmFhfPauschale,epKm){
+  const y=String(yr);
+  const ents=state.entries.filter(e=>e.date&&e.date.startsWith(y)&&e.isFHF===true);
+  let flugKosten=0,oepnvKosten=0,oepnvKm=0,oepnvPauschale=0,pkwKm=0,pkwPauschale=0;
+  let bahnKm=0,bahnKosten=0,busKm=0,busKosten=0;
+  let hfMitSegmente=0,hfOhneSegmente=0;
+  ents.forEach(e=>{
+    let hatSegment=false;
+    (e.segs||[]).forEach(s=>{
+      if(s.enabled===false||!s.mode)return;
+      const grp=MODE_GRUPPE[s.mode];
+      const km=parseFloat(s.km)||0;
+      const kosten=segCostAmt(s);
+      if(grp==='Flugzeug'){
+        if(kosten>0){flugKosten+=kosten;hatSegment=true;}
+      } else if(grp==='Bahn'||grp==='Bus/ÖPNV'){
+        if(kosten>0||km>0){
+          oepnvKosten+=kosten;oepnvKm+=km;oepnvPauschale+=epKm(km);hatSegment=true;
+          if(grp==='Bahn'){bahnKm+=km;bahnKosten+=kosten;}else{busKm+=km;busKosten+=kosten;}
+        }
+      } else if(grp==='Privat-Kfz'){
+        if(km>0){pkwKm+=km;pkwPauschale+=epKm(km);hatSegment=true;}
+      }
+    });
+    if(e.dayCode!=='RF'){
+      if(hatSegment)hfMitSegmente++;else hfOhneSegmente++;
+    }
+  });
+  const oepnvAngesetzt=Math.max(oepnvKosten,oepnvPauschale);
+  const fallback=hfOhneSegmente*epKm(kmFhfPauschale);
+  return{flugKosten,oepnvKosten,oepnvKm,oepnvPauschale,oepnvAngesetzt,pkwKm,pkwPauschale,
+    bahnKm,bahnKosten,busKm,busKosten,
+    hfMitSegmente,hfOhneSegmente,fallback,kmFhfPauschale,
+    gesamt:flugKosten+oepnvAngesetzt+pkwPauschale+fallback};
+}
+/* Deutschlandticket als tatsaechliche Kosten oeffentlicher Verkehrsmittel.
+   § 9 Abs. 2 Satz 2 EStG: Die Aufwendungen fuer oeffentliche Verkehrsmittel sind ansetzbar,
+   soweit sie den im Kalenderjahr insgesamt als Entfernungspauschale abziehbaren Betrag
+   uebersteigen. Verglichen wird also jahresweise, angesetzt wird der hoehere der beiden Werte.
+   Beruecksichtigt werden nur Monate, in denen die Zweitwohnung bestand — ohne sie gibt es
+   keine Wege von der Zweitwohnung zur Arbeitsstaette. */
+function dtKostenImJahr(yr){
+  const s=state.settings,y=parseInt(yr);
+  const proMonat=parseFloat(s.dtKosten)||0;
+  const leer={proMonat,monate:0,gesamt:0,von:null,bis:null};
+  if(!proMonat)return leer;
+  const mon=v=>{const m=/^(\d{4})-(\d{2})/.exec(v||'');return m?{y:parseInt(m[1]),m:parseInt(m[2])}:null;};
+  let von=1,bis=12;
+  const ab=mon(s.dtStart);
+  if(ab){if(ab.y>y)return leer;if(ab.y===y)von=Math.max(von,ab.m);}
+  const dhfA=mon(s.dhfStart);
+  if(dhfA){if(dhfA.y>y)return leer;if(dhfA.y===y)von=Math.max(von,dhfA.m);}
+  const dhfE=mon(s.dhfEnde);
+  if(dhfE){if(dhfE.y<y)return leer;if(dhfE.y===y)bis=Math.min(bis,dhfE.m);}
+  const monate=Math.max(0,bis-von+1);
+  return{proMonat,monate,gesamt:proMonat*monate,von,bis};
+}
 function dhfVergleich(yr){
   const y=String(yr),s=state.settings;
   const U=jahresUebersicht(y),BW=U.bw;
@@ -2583,8 +2694,13 @@ function dhfVergleich(yr){
   const monate=BW.anzTG||0;
   // Absetzbar (doppelte Haushaltsfuehrung)
   const dhfUnterkunft=Math.min(miete,1000)*(monate||12);
-  const dhfFahrten=U.arbTage*epKm(KM_TAG);
-  const dhfFhf=U.fhf*epKm(KM_FHF);
+  // Fahrten Zweitwohnung–Arbeitsstaette: Entfernungspauschale gegen die tatsaechlichen
+  // OePNV-Kosten (Deutschlandticket) stellen, der hoehere Betrag zaehlt (§ 9 Abs. 2 S. 2 EStG).
+  const fahrtPausch=U.arbTage*epKm(KM_TAG);
+  const DTK=dtKostenImJahr(y);
+  const dhfFahrten=Math.max(fahrtPausch,DTK.gesamt);
+  const FHF=fhfTatsaechlicheKosten(y,KM_FHF,epKm);
+  const dhfFhf=FHF.gesamt;
   const dhfSumme=dhfUnterkunft+dhfFahrten+dhfFhf;
   const VMA=vmaBerechnung(y);
   // Steuerfrei erstattet
@@ -2595,17 +2711,32 @@ function dhfVergleich(yr){
     posten:[
       {n:'Unterkunft Zweitwohnung (max. 1.000 EUR/Monat)',dhf:dhfUnterkunft,erst:erstUnterkunft},
       {n:'Fahrten Zweitwohnung - Arbeitsstaette',dhf:dhfFahrten,erst:0},
-      {n:'Familienheimfahrten',dhf:dhfFhf,erst:erstFahrt},
+      {n:'Familienheimfahrten',dhf:dhfFhf,erst:erstFahrt,fhfDetail:FHF},
       {n:'Verpflegungsmehraufwand (erste 3 Monate)',dhf:VMA.betrag||0,erst:0,vma:VMA},
     ],
-    vma:VMA,
+    vma:VMA,fhf:FHF,dt:DTK,fahrtPausch,arbTage:U.arbTage,kmTag:KM_TAG,
     dhfSumme:dhfSumme+(VMA.betrag||0),erstSumme,rest:Math.max(0,dhfSumme+(VMA.betrag||0)-erstSumme),
     stpflTG:BW.tgTgStpfl||0, tagegeldGesamt:BW.tgTagegeld||0};
 }
+/* Maßgebliches Jahr für den Reiter „Jahresübersicht". Eigener Filter (jahrY); solange dort
+   nichts gewählt ist, greift ersatzweise der Jahresfilter der Übersicht, sonst das laufende Jahr. */
+function jahrAuswahl(){
+  const j=document.getElementById('jahrY')?.value;
+  if(j&&j!=='all')return j;
+  const o=document.getElementById('ovY')?.value;
+  if(o&&o!=='all')return o;
+  return String(new Date().getFullYear());
+}
+/* Rendert alle Karten des Reiters „Jahresübersicht" gemeinsam. Die Belegeablage-Liste
+   liest aus IndexedDB und wird deshalb nur beim Tab-Wechsel bzw. nach Änderungen erneuert. */
+function renderJahresView(){
+  fillYrSel('jahrY');
+  renderJahresCard();renderDhfCard();renderQuerCard();
+  if(typeof renderBwList==='function')renderBwList();
+}
 function renderJahresCard(){
   const el=document.getElementById('jahresCard');if(!el)return;
-  const ySel=document.getElementById('ovY')?.value;
-  const yr=(ySel&&ySel!=='all')?ySel:String(new Date().getFullYear());
+  const yr=jahrAuswahl();
   const u=jahresUebersicht(yr);
   if(!u.eintraege){el.innerHTML='';return;}
   const e=v=>(v||0).toLocaleString('de-DE',{minimumFractionDigits:2});
@@ -2626,6 +2757,7 @@ function renderJahresCard(){
       <span><span class="cpill ${k}" style="font-size:9px;padding:1px 5px;margin-right:5px">${k}</span>${esc(DT[k]?.n||k)}</span>
       <b>${u.codes[k]}</b></div>`).join('');
   const bw=u.bw;
+  const mb=u.mb||{anzahl:0,gesamt:0,nachArt:{}};
   el.innerHTML=`<div class="card" style="margin-bottom:12px;border-left:3px solid var(--navy)">
     <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;margin-bottom:10px">
       <h3 style="font-size:15px;margin:0">&#128202; Jahres&#252;bersicht ${u.jahr}</h3>
@@ -2665,13 +2797,22 @@ function renderJahresCard(){
           </div>`
         :'<div style="font-size:11px;color:var(--muted)">Noch keine Bescheide eingelesen. Im Reiter <b>Belege</b> unter „Bundeswehr-Bescheid einlesen" einf&#252;gen.</div>'}
       </div>
+      <div style="flex:1;min-width:210px">
+        <div style="font-size:11px;font-weight:700;color:#0A84FF;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Sonstige Belege (hochgeladen)</div>
+        ${mb.anzahl?`
+          ${liste(mb.nachArt,v=>e(v)+' €','Keine Belege')}
+          <div style="margin-top:8px;padding:7px 9px;background:#E3F2FD;border-radius:8px">
+            <div style="font-size:10px;color:var(--muted)">${mb.anzahl} Beleg${mb.anzahl!==1?'e':''} &middot; Summe</div>
+            <div style="font-size:16px;font-weight:800;color:#0A84FF">${e(mb.gesamt)} €</div>
+          </div>`
+        :'<div style="font-size:11px;color:var(--muted)">Noch keine Belege hochgeladen. Im Reiter <b>Belege</b> unter „Bescheide &amp; Belege hochladen" ablegen.</div>'}
+      </div>
     </div>
   </div>`;
 }
 function renderDhfCard(){
   const el=document.getElementById('dhfCard');if(!el)return;
-  const ySel=document.getElementById('ovY')?.value;
-  const yr=(ySel&&ySel!=='all')?ySel:String(new Date().getFullYear());
+  const yr=jahrAuswahl();
   const D=dhfVergleich(yr);
   if(!D.dhfSumme&&!D.erstSumme){el.innerHTML='';return;}
   const e=v=>(v||0).toLocaleString('de-DE',{minimumFractionDigits:2});
@@ -2702,6 +2843,24 @@ function renderDhfCard(){
         </tr>
       </tbody>
     </table>
+    ${D.dt&&D.dt.gesamt?`<div style="margin-top:9px;padding:9px 11px;background:var(--lsoft);border-radius:8px;font-size:11px">
+      <div style="font-weight:700;color:var(--navy);margin-bottom:5px">&#127903; Fahrten Zweitwohnung &ndash; Arbeitsst&#228;tte: Pauschale oder Deutschlandticket?</div>
+      <div style="display:flex;justify-content:space-between;padding:2px 0"><span>Entfernungspauschale: ${D.arbTage} Arbeitsst&#228;tten-Tage &times; ${Math.round(D.kmTag)} km</span><b${D.fahrtPausch>=D.dt.gesamt?' style="color:var(--ok)"':''}>${e(D.fahrtPausch)} &euro;</b></div>
+      <div style="display:flex;justify-content:space-between;padding:2px 0"><span>Deutschlandticket: ${D.dt.monate} Monat(e) &times; ${e(D.dt.proMonat)} &euro;</span><b${D.dt.gesamt>D.fahrtPausch?' style="color:var(--ok)"':''}>${e(D.dt.gesamt)} &euro;</b></div>
+      <div style="margin-top:4px;color:var(--muted)">Angesetzt wird der h&#246;here Betrag (&#167; 9 Abs. 2 Satz 2 EStG &ndash; tats&#228;chliche &#214;PNV-Kosten sind ansetzbar, soweit sie die Jahres-Entfernungspauschale &#252;bersteigen).
+      ${D.dt.gesamt>D.fahrtPausch?'Hier ist das <b>Deutschlandticket</b> g&#252;nstiger.':'Hier ist die <b>Entfernungspauschale</b> h&#246;her &ndash; das Ticket wirkt sich nicht aus.'}
+      Pr&#252;fe selbst, ob das Ticket im gesamten Zeitraum tats&#228;chlich f&#252;r diesen Arbeitsweg genutzt wurde.</div>
+    </div>`:''}
+    ${D.fhf?`<div style="margin-top:9px;padding:9px 11px;background:var(--lsoft);border-radius:8px;font-size:11px">
+      <div style="font-weight:700;color:var(--navy);margin-bottom:5px">&#9992;&#65039; Familienheimfahrten &ndash; wie sich ${e(D.fhf.gesamt)} &euro; zusammensetzen</div>
+      <div style="display:flex;justify-content:space-between;padding:2px 0"><span>Flugzeug (immer tats&#228;chliche Kosten)</span><b>${e(D.fhf.flugKosten)} &euro;</b></div>
+      <div style="display:flex;justify-content:space-between;padding:2px 0"><span>&nbsp;&nbsp;davon Bahn</span><span>${e(D.fhf.bahnKosten)} &euro; (${Math.round(D.fhf.bahnKm)} km)</span></div>
+      <div style="display:flex;justify-content:space-between;padding:2px 0"><span>&nbsp;&nbsp;davon Bus/&Ouml;PNV</span><span>${e(D.fhf.busKosten)} &euro; (${Math.round(D.fhf.busKm)} km)</span></div>
+      <div style="display:flex;justify-content:space-between;padding:2px 0"><span>Bahn+Bus/&Ouml;PNV gesamt: tats&#228;chlich ${e(D.fhf.oepnvKosten)} &euro; vs. Pauschale ${e(D.fhf.oepnvPauschale)} &euro; (${Math.round(D.fhf.oepnvKm)} km) &rarr; angesetzt (h&#246;herer Betrag)</span><b>${e(D.fhf.oepnvAngesetzt)} &euro;</b></div>
+      <div style="display:flex;justify-content:space-between;padding:2px 0"><span>Privat-Kfz: ${Math.round(D.fhf.pkwKm)} km &times; Pauschale (nur Entfernungspauschale)</span><b>${e(D.fhf.pkwPauschale)} &euro;</b></div>
+      ${D.fhf.hfOhneSegmente?`<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${D.fhf.hfOhneSegmente} Fahrt(en) ohne erfasste Fahrt-Segmente &times; Pauschale (${Math.round(D.fhf.kmFhfPauschale)} km-Route)</span><b>${e(D.fhf.fallback)} &euro;</b></div>`:''}
+      <div style="margin-top:4px;color:var(--muted)">${D.fhf.hfMitSegmente} Fahrt(en) mit erfassten Segmenten &middot; ${D.fhf.hfOhneSegmente} ohne Segmentdaten (Pauschale-Fallback) &middot; nur Eintr&#228;ge mit gesetztem FHF-H&#228;kchen, nicht alle Dienstreisen</div>
+    </div>`:''}
     ${D.stpflTG?`<div style="margin-top:9px;padding:7px 10px;background:#fff8e1;border-radius:8px;font-size:11px;color:#8D6E00">
       <b>Hinweis:</b> Das Trennungstagegeld von ${e(D.tagegeldGesamt)} &euro; wurde <b>steuerpflichtig</b> gezahlt
       (${e(D.stpflTG)} &euro; im Steuerbrutto). Es mindert den Werbungskostenabzug daher <b>nicht</b> &ndash;
@@ -2717,6 +2876,79 @@ function renderDhfCard(){
       ${e(D.vma.brutto)} &euro; abz&#252;glich ${e(D.vma.kuerzung)} &euro; f&#252;r gestellte Mahlzeiten = <b>${e(D.vma.betrag)} &euro;</b>
     </div>`:''}
     ${!D.miete?`<div style="margin-top:8px;font-size:11px;color:var(--muted)">Trag in den Einstellungen die Monatsmiete der Zweitwohnung ein, damit der Unterkunftsblock rechnet.</div>`:''}
+  </div>`;
+}
+function renderQuerCard(){
+  const el=document.getElementById('querCard');if(!el)return;
+  const yr=jahrAuswahl();
+  const MN=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  const e=v=>(v||0).toLocaleString('de-DE',{minimumFractionDigits:2});
+  const n=v=>Math.round(v||0).toLocaleString('de-DE');
+  const monate=[];
+  for(let m=1;m<=12;m++){
+    const pre=yr+'-'+String(m).padStart(2,'0');
+    const q=tgQuerpruefungMonat(pre);
+    if(q.hatDaten)monate.push({m,q});
+  }
+  if(!monate.length){el.innerHTML='';return;}
+  const zeile=(label,bezahlt,erstattet,zusatz)=>{
+    const diff=bezahlt-erstattet;
+    const diffFarbe=Math.abs(diff)<0.005?'var(--muted)':(diff>0?'var(--err)':'var(--ok)');
+    return`<tr>
+      <td style="padding:5px 6px;font-size:12px">${label}${zusatz?` <span style="color:var(--muted);font-size:10px">${zusatz}</span>`:''}</td>
+      <td style="padding:5px 6px;text-align:right;font-size:12px">${e(bezahlt)} &euro;</td>
+      <td style="padding:5px 6px;text-align:right;font-size:12px;color:var(--ok)">${e(erstattet)} &euro;</td>
+      <td style="padding:5px 6px;text-align:right;font-size:12px;font-weight:700;color:${diffFarbe}">${diff>0?'+':''}${e(diff)} &euro;</td>
+    </tr>`;
+  };
+  const kmZeile=(label,km,erstattet)=>`<tr>
+      <td style="padding:5px 6px;font-size:12px">${label} <span style="color:var(--muted);font-size:10px">(${n(km)} km)</span></td>
+      <td style="padding:5px 6px;text-align:right;font-size:12px;color:var(--muted)">&ndash;</td>
+      <td style="padding:5px 6px;text-align:right;font-size:12px;color:var(--ok)">${e(erstattet)} &euro;</td>
+      <td style="padding:5px 6px;text-align:right;font-size:12px;color:var(--muted)">&ndash;</td>
+    </tr>`;
+  const monatsBloecke=monate.map(({m,q})=>{
+    const gesBezahlt=q.flug.bezahlt+q.bahn.bezahlt+q.bus.bezahlt;
+    const gesErstattet=q.flug.erstattet+q.bahn.erstattet+q.bus.erstattet;
+    const gesDiff=gesBezahlt-gesErstattet;
+    const gesFarbe=Math.abs(gesDiff)<0.005?'var(--navy)':(gesDiff>0?'var(--err)':'var(--ok)');
+    return`<div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px">${MN[m-1]} ${yr}${!q.hatBescheid?' <span style="color:var(--warn);font-weight:400">(kein TG-Bescheid für diesen Monat)</span>':''}</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:var(--navy);color:#fff">
+          <th style="padding:5px 6px;text-align:left;font-size:10px">Kategorie</th>
+          <th style="padding:5px 6px;text-align:right;font-size:10px">Bezahlt (Beleg)</th>
+          <th style="padding:5px 6px;text-align:right;font-size:10px">Erstattet (Bescheid)</th>
+          <th style="padding:5px 6px;text-align:right;font-size:10px">Differenz</th>
+        </tr></thead>
+        <tbody>
+          ${zeile('&#9992;&#65039; Flugkarte',q.flug.bezahlt,q.flug.erstattet)}
+          ${zeile('&#128646; Bahnkarte',q.bahn.bezahlt,q.bahn.erstattet)}
+          ${zeile('&#128652; Buskarte',q.bus.bezahlt,q.bus.erstattet)}
+          ${q.kfzKm.km?kmZeile('&#128663; Privat-Kfz',q.kfzKm.km,q.kfzKm.erstattet):''}
+          ${q.bahnOevKm.km?kmZeile('&#128647; Bahn/&Ouml;PNV (km)',q.bahnOevKm.km,q.bahnOevKm.steuerfrei):''}
+          <tr style="background:var(--lsoft);font-weight:700">
+            <td style="padding:6px">Summe Belege (Tickets)</td>
+            <td style="padding:6px;text-align:right">${e(gesBezahlt)} &euro;</td>
+            <td style="padding:6px;text-align:right;color:var(--ok)">${e(gesErstattet)} &euro;</td>
+            <td style="padding:6px;text-align:right;color:${gesFarbe}">${gesDiff>0?'+':''}${e(gesDiff)} &euro;</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+  }).join('');
+  el.innerHTML=`<div class="card" style="margin-bottom:12px;border-left:3px solid #0A84FF">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+      <h3 style="font-size:15px;margin:0">&#128203; Querpr&#252;fung: Belege &harr; TG-Bescheid ${yr}</h3>
+      <span style="font-size:11px;color:var(--muted)">was bezahlt &amp; was erstattet wurde</span>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 10px">
+      Vergleicht hochgeladene Belege (Flug-/Bahn-/Buskarte) mit den je Verkehrsmittel erstatteten Fahrkosten
+      aus dem TG-Bescheid. Eine positive Differenz (rot) ist selbst getragen, eine negative (gr&#252;n) &#252;bererstattet.
+      Kilometerpauschalen (Privat-Kfz, Bahn/&Ouml;PNV) haben keinen eigenen Kauf-Beleg und zeigen nur den erstatteten Betrag.
+      Nur f&#252;r Trennungsgeld-Bescheide verf&#252;gbar &ndash; Reisekostenabrechnungen (RK) enthalten keine Aufschl&#252;sselung je Verkehrsmittel.
+    </p>
+    ${monatsBloecke}
   </div>`;
 }
 function renderVersion(){
@@ -2851,6 +3083,15 @@ function checkBoxAnalyze(){
     const today=new Date();today.setHours(12,0,0,0);
     const ent=fhfEntitledUpTo(today),used=fhfUsedUpTo(today);
     if(used>ent)add('err','FHF',`${used} FHF genutzt, aber erst ${ent} Ansprüche entstanden`,'','');
+    // Letzter Aufenthaltstag: danach entstehen keine neuen Ansprueche mehr
+    const fhfEn=fhfEndDate();
+    if(fhfEn){
+      if(fhfEn<fhfSt)add('err','FHF','Letzter Aufenthaltstag liegt vor dem ersten – Anspruch nicht berechenbar','','');
+      const eIso=fhfEn.getFullYear()+'-'+String(fhfEn.getMonth()+1).padStart(2,'0')+'-'+String(fhfEn.getDate()).padStart(2,'0');
+      const danach=ents.filter(e=>e.isFHF===true&&e.dayCode!=='RF'&&e.date>eIso);
+      if(danach.length)add('warn','FHF',danach.length+' Familienheimfahrt(en) nach dem letzten Aufenthaltstag ('
+        +dstr(eIso)+') – dafür ist kein Anspruch mehr entstanden',danach[0].date,danach[0].id);
+    }
   } else {
     add('info','FHF','Kein FHF-Startdatum in den Einstellungen hinterlegt – Anspruch nicht berechenbar','','');
   }
@@ -2860,7 +3101,8 @@ function checkBoxAnalyze(){
     (e.segs||[]).filter(s=>s.enabled!==false).forEach((s,ix)=>{
       const n=`Strecke ${ix+1}`;
       if(s.costAmt&&!s.costType)add('warn','Kosten',`${n}: Betrag ohne Kostenart`,e.date,e.id);
-      if(s.costType&&!s.costAmt)add('info','Kosten',`${n}: Kostenart „${s.costType}" ohne Betrag`,e.date,e.id);
+      // Deutschlandticket-Fahrten sind bewusst ohne Betrag — das Ticket steckt in den Einstellungen
+      if(s.costType&&!s.costAmt&&!istDTicket(s))add('info','Kosten',`${n}: Kostenart „${s.costType}" ohne Betrag`,e.date,e.id);
       const a=parseFloat(s.costAmt)||0;
       if(a<0)add('err','Kosten',`${n}: Negativer Betrag`,e.date,e.id);
       if(a>1500)add('info','Kosten',`${n}: ${fmtM(a,s.costCurr||'EUR')} – auffällig hoch`,e.date,e.id);
@@ -2941,29 +3183,18 @@ function checkBoxAnalyze(){
             add('info','Bw-Abgleich',dstr(d.datum)+': Bescheid weist Familienheimfahrt aus, App hat Code '+e.dayCode,d.datum,e.id);
           if(d.art==='DR'&&!['DR','LG','ÜB','ES','EGV'].includes(e.dayCode))
             add('info','Bw-Abgleich',dstr(d.datum)+': Bescheid weist Dienstreise aus, App hat Code '+e.dayCode,d.datum,e.id);
-          // Verpflegung je Mahlzeit abgleichen — verglichen wird, was tatsaechlich
-          // eingenommen wurde, denn nur das kuerzt das Trennungstagegeld.
-          const bEing={'frühstück':!!d.fruehstueck,'mittag':!!d.mittag,'abend':!!d.abend};
-          const bGest={'frühstück':!!d.fGestellt,'mittag':!!d.mGestellt,'abend':!!d.aGestellt};
-          const stTxt={'':'nicht gestellt',ja:'gegessen',ne:'nicht gegessen'};
-          const abw=[];
-          VERPFL_MAHL.forEach(m=>{
-            const aSt=verpflStatus(e,m);
-            if(bEing[m]!==(aSt==='ja'))
-              abw.push(VERPFL_LABEL[m]+' (Bescheid: '+(bEing[m]?'gegessen':bGest[m]?'nicht gegessen':'nicht gestellt')
-                +', App: '+stTxt[aSt]+')');
-          });
-          if(abw.length){
-            const leer=!(e.verpflegung||'');
-            add(leer?'warn':'info','Bw-Abgleich',dstr(d.datum)+': Verpflegung weicht ab — '+abw.join(', '),d.datum,e.id);
-          }
-          // Betragsprobe: ergibt die App-Erfassung dasselbe Trennungstagegeld?
-          if(d.tg>0&&!d.tagGanz){
-            const reisetag=/DR|FH|FO/.test(d.art||'');
-            const soll=+(TG_GRUND-(reisetag?0:verpflAbzug(e))).toFixed(2);
-            if(Math.abs(soll-d.tg)>0.005)
-              add('info','Bw-Abgleich',dstr(d.datum)+': Bescheid setzt '+d.tg.toFixed(2).replace('.',',')
-                +' EUR Trennungstagegeld an, die App-Erfassung ergibt '+soll.toFixed(2).replace('.',',')+' EUR',d.datum,e.id);
+          // Verpflegung abgleichen
+          const bV=[d.fruehstueck&&'Frühstück',d.mittag&&'Mittag',d.abend&&'Abend'].filter(Boolean);
+          const aV=(e.verpflegung||'').toLowerCase();
+          if(bV.length){
+            const fehlt=bV.filter(v=>{
+              const k=v.toLowerCase().replace('ü','ü');
+              return !(aV.includes(k.slice(0,4))||aV.includes('vollständig'));
+            });
+            if(aV===''||aV==='keine'||aV==='nein')
+              add('warn','Bw-Abgleich',dstr(d.datum)+': Bescheid weist unentgeltliche Verpflegung aus ('+bV.join(', ')+'), App hat keine erfasst',d.datum,e.id);
+            else if(fehlt.length)
+              add('info','Bw-Abgleich',dstr(d.datum)+': Bescheid nennt '+bV.join(', ')+', App weicht ab ('+esc(e.verpflegung)+')',d.datum,e.id);
           }
         });
         // Ortsabgleich der Reiseabschnitte
@@ -3040,6 +3271,187 @@ function checkBoxAnalyze(){
       if(bn.length)add('info','Zeitraum','Trennungsgeldbescheide nach dem hinterlegten Ende ('
         +dstr(s2.tgEnde)+'): '+bn.map(b=>b.periode).join(', '),'','');
     }
+  }
+
+  // ── I. Belege: vollstaendiger Abgleich hochgeladener Belege gegen Wizard-Eintraege ──
+  // Die Drag-&-Drop-Ablage legt Belege unverknuepft in mbReceipts['unassigned'] ab.
+  // Zugeordnet wird deshalb rechnerisch: erst exakt (Datum + Betrag), dann ueber den
+  // Betrag mit Datumstoleranz — Flugtickets tragen das Kaufdatum, nicht das Reisedatum.
+  {
+    const belege=((state.settings.mbReceipts||{})['unassigned']||[])
+      .filter(b=>b&&typeof b==='object');   // Alt-Eintraege waren blosse ID-Strings
+    const bNum=b=>parseFloat(b.gesamtkosten)||0;
+    // Klartext: die Ausgabe in runCheckBox escapt die Meldung bereits
+    const bName=b=>b.dateiname||b.belegart||'Beleg';
+    // Kostenpflichtige Fahrt-Segmente aus dem Wizard
+    const kosten=[];
+    ents.forEach(e=>{
+      (e.segs||[]).forEach((s,si)=>{
+        if(!segCostCounts(s))return;
+        if(/Deutschlandticket|Pendlerpauschale/i.test(s.costType||''))return;
+        kosten.push({date:e.date,id:e.id,nr:si+1,betrag:segCostAmt(s),
+          curr:s.costCurr||'EUR',art:s.costType||s.mode||'Fahrt',mode:s.mode||'',
+          von:s.fromLoc||'',bis:s.toLoc||'',isFHF:e.isFHF===true,code:e.dayCode,
+          legacy:!!(s.recIds&&s.recIds.length)});
+      });
+    });
+    const TOL_TAGE=45;
+    const tagAbst=(a,b)=>{if(!a||!b)return null;
+      const d=(new Date(b+'T12:00')-new Date(a+'T12:00'))/86400000;return isNaN(d)?null:Math.abs(d);};
+    const belegZu={},kostenZu={};
+    // Runde 1: Datum UND Betrag treffen
+    belege.forEach((b,bi)=>{
+      const ki=kosten.findIndex((k,i)=>kostenZu[i]===undefined&&k.date===b.datum&&Math.abs(k.betrag-bNum(b))<=0.01);
+      if(ki>=0){belegZu[bi]=ki;kostenZu[ki]=bi;}
+    });
+    // Runde 2: nur Betrag, Datum innerhalb der Toleranz (Kauf- vs. Reisedatum)
+    belege.forEach((b,bi)=>{
+      if(belegZu[bi]!==undefined||bNum(b)<=0)return;
+      let best=-1,bestAb=Infinity;
+      kosten.forEach((k,ki)=>{
+        if(kostenZu[ki]!==undefined||Math.abs(k.betrag-bNum(b))>0.01)return;
+        const ab=tagAbst(b.datum,k.date);
+        if(ab===null||ab>TOL_TAGE||ab>=bestAb)return;
+        bestAb=ab;best=ki;
+      });
+      if(best>=0){
+        belegZu[bi]=best;kostenZu[best]=bi;
+        add('info','Belege',bName(belege[bi])+': Belegdatum '+dstr(belege[bi].datum)+' weicht '
+          +Math.round(bestAb)+' Tag(e) vom Eintrag ('+dstr(kosten[best].date)+') ab – über den Betrag zugeordnet',
+          kosten[best].date,kosten[best].id);
+      }
+    });
+
+    // I.1 Doppelte Belege in der Ablage
+    const gesehen={},doppelt=new Set();
+    belege.forEach((b,bi)=>{
+      const kName=(b.dateiname||'').toLowerCase().trim();
+      const kDaten=[b.datum||'',bNum(b).toFixed(2),(b.belegart||'').toLowerCase().trim()].join('|');
+      if(kName&&gesehen['n:'+kName]!==undefined){
+        add('err','Belege','Datei „'+bName(b)+'" ist mehrfach in der Belegeablage',b.datum||'','');
+        doppelt.add(bi);
+      } else if(bNum(b)>0&&gesehen['d:'+kDaten]!==undefined){
+        add('warn','Belege','Möglicher Doppel-Beleg: '+bName(b)+' – gleiches Datum, gleicher Betrag ('
+          +fmtM(bNum(b),'EUR')+') und gleiche Belegart wie '+bName(belege[gesehen['d:'+kDaten]]),b.datum||'','');
+        doppelt.add(bi);
+      }
+      if(kName)gesehen['n:'+kName]=bi;
+      if(bNum(b)>0)gesehen['d:'+kDaten]=bi;
+    });
+
+    // I.2 Belege ohne passenden Wizard-Eintrag
+    const erklaert=new Set();   // Kostenpositionen, deren Beleg zwar da ist, aber betraglich abweicht
+    belege.forEach((b,bi)=>{
+      if(belegZu[bi]!==undefined||doppelt.has(bi))return;   // Doppel schon oben gemeldet
+      if(!b.datum&&!bNum(b)){
+        add('warn','Belege',bName(b)+': weder Datum noch Betrag erfasst – nicht zuordenbar. Angaben in der Belegeablage nachtragen.','','');
+        return;
+      }
+      // Gibt es am Belegdatum ueberhaupt einen Eintrag?
+      const amTag=[];
+      kosten.forEach((k,ki)=>{if(k.date===b.datum)amTag.push({k,ki});});
+      // Betragsgleiche Position am selben Tag: sie ist bereits einem anderen Beleg zugeordnet
+      const belegt=amTag.filter(x=>Math.abs(x.k.betrag-bNum(b))<=0.01);
+      if(belegt.length){
+        add('warn','Belege','Überzähliger Beleg am '+dstr(b.datum)+': '+bName(b)+' über '
+          +fmtM(bNum(b),'EUR')+' – die betragsgleiche Kostenposition ist bereits durch einen anderen Beleg abgedeckt',
+          b.datum,belegt[0].k.id);
+      } else if(amTag.length){
+        add('warn','Belege','Betragsabweichung am '+dstr(b.datum)+': Beleg '+bName(b)+' über '
+          +fmtM(bNum(b),'EUR')+', im Wizard erfasst: '
+          +amTag.map(x=>fmtM(x.k.betrag,x.k.curr)+' ('+x.k.art+')').join(', '),b.datum,amTag[0].k.id);
+        // Der Beleg liegt vor, nur der Betrag passt nicht – I.3 soll das nicht
+        // zusaetzlich als "Beleg fehlt" melden.
+        amTag.forEach(x=>{erklaert.add(x.ki);});
+      } else if(byDate[b.datum]){
+        add('warn','Belege','Beleg ohne Kosteneintrag: '+bName(b)+' ('+fmtM(bNum(b),'EUR')+') vom '
+          +dstr(b.datum)+' – am Tag existiert ein Eintrag, aber keine passende Fahrtkosten-Position',b.datum,'');
+      } else {
+        add('warn','Belege','Beleg ohne Eintrag: '+bName(b)+' ('+fmtM(bNum(b),'EUR')+') vom '
+          +dstr(b.datum)+' – für diesen Tag gibt es keinen Wizard-Eintrag',b.datum,'');
+      }
+    });
+
+    // I.3 Kosten im Wizard ohne hinterlegten Beleg
+    let fhfOffenGezaehlt=0,fhfLegacyGezaehlt=0,fhfZugeordnetGezaehlt=0;
+    kosten.forEach((k,ki)=>{
+      if(k.isFHF&&k.legacy)fhfLegacyGezaehlt++;
+      if(k.isFHF&&kostenZu[ki]!==undefined)fhfZugeordnetGezaehlt++;
+      if(kostenZu[ki]!==undefined||k.legacy||erklaert.has(ki))return;
+      if(k.isFHF)fhfOffenGezaehlt++;
+      add(k.isFHF?'err':'warn','Belege',(k.isFHF?'Familienheimfahrt – kein Beleg: ':'Kein Beleg vorhanden: ')
+        +'Strecke '+k.nr+' '+k.art+' '+k.von+' → '+k.bis+' ('+fmtM(k.betrag,k.curr)+')',
+        k.date,k.id);
+    });
+
+    // I.3b Diagnose-Übersicht: warum zeigt die Prüfung genau diese Anzahl an Fehlern?
+    // Erklärt, wie viele FHF-Kostenpositionen es gibt und was mit jeder passiert ist —
+    // damit „warum nur 4?" nachvollziehbar wird statt geraten werden zu müssen.
+    {
+      const fhfKostenGesamt=kosten.filter(k=>k.isFHF).length;
+      const fhfTripsGesamt=[...new Set(ents.filter(e=>e.isFHF===true&&e.dayCode!=='RF').map(e=>e.id))].length;
+      const fhfOhneKostenGesamt=[...new Set(ents.map(e=>e.date.slice(0,4)))]
+        .reduce((n,y)=>n+fhfOhneKostenListe(y).length,0);
+      add('info','Belege','Diagnose: '+fhfTripsGesamt+' Familienheimfahrt(en) insgesamt · '
+        +fhfKostenGesamt+' Fahrtkosten-Position(en) mit Betrag, davon '
+        +fhfZugeordnetGezaehlt+' über die Belegeablage zugeordnet, '
+        +fhfLegacyGezaehlt+' bereits über einen älteren Beleg verknüpft (📎-Upload im Wizard), '
+        +fhfOffenGezaehlt+' als Fehler unten gemeldet · '
+        +fhfOhneKostenGesamt+' Familienheimfahrt(en) ganz ohne Kostenangabe (siehe Warnungen)','','');
+    }
+
+    // I.4 Familienheimfahrten ohne jede Kostenposition
+    [...new Set(ents.map(e=>e.date.slice(0,4)))].forEach(y=>{
+      fhfOhneKostenListe(y).forEach(e=>{
+        add('warn','Belege','Familienheimfahrt ohne Fahrtkosten und ohne Beleg – nur die Pauschale wird angesetzt',e.date,e.id);
+      });
+    });
+
+    // I.5 Belegart passt nicht zum erfassten Reisemittel
+    belege.forEach((b,bi)=>{
+      const ki=belegZu[bi];if(ki===undefined)return;
+      const kat=belegArtKategorie(b.belegart);
+      if(!kat)return;
+      const grp=MODE_GRUPPE[kosten[ki].mode]||'';
+      const passt=(kat==='Flugkarte'&&grp==='Flugzeug')||(kat==='Bahnkarte'&&grp==='Bahn')
+                ||(kat==='Buskarte'&&grp==='Bus/ÖPNV');
+      if(!passt&&grp)
+        add('info','Belege',dstr(kosten[ki].date)+': Beleg ist als „'+b.belegart
+          +'" erfasst, das Segment als „'+kosten[ki].mode+'"',kosten[ki].date,kosten[ki].id);
+    });
+
+    // I.5b Beleg (Flug-/Bahn-/Buskarte) einem Tag ohne Familienheimfahrt-Kennzeichnung
+    // zugeordnet — Datum+Betrag können zufällig treffen, obwohl die Fahrt inhaltlich
+    // nicht dazu passt (z. B. eine Dienstreise mit zufällig gleichem Ticketpreis).
+    belege.forEach((b,bi)=>{
+      const ki=belegZu[bi];if(ki===undefined)return;
+      if(!belegArtKategorie(b.belegart))return;   // nur Fahrkarten-Typen, keine sonstigen Belege
+      if(kosten[ki].isFHF)return;
+      add('warn','Belege',dstr(kosten[ki].date)+': Beleg „'+bName(b)+'" ist einem Eintrag ohne '
+        +'Familienheimfahrt-Kennzeichnung zugeordnet (Code '+esc(kosten[ki].code||'?')
+        +') – Datum und Betrag passen zufällig, prüfen ob das wirklich die richtige Fahrt ist',
+        kosten[ki].date,kosten[ki].id);
+    });
+
+    // I.6 Belege gegen die im TG-Bescheid erstatteten Fahrkosten
+    [...new Set(belege.map(b=>(b.datum||'').slice(0,7)).filter(Boolean))].sort().forEach(mon=>{
+      const q=tgQuerpruefungMonat(mon);
+      if(!q.hatBescheid)return;
+      [['flug','Flugkosten'],['bahn','Bahnkosten'],['bus','Buskosten']].forEach(([sl,lbl])=>{
+        const d=q[sl].bezahlt-q[sl].erstattet;
+        if(Math.abs(d)<0.005)return;
+        if(d>0)add('info','Belege',mon+' '+lbl+': '+fmtM(q[sl].bezahlt,'EUR')+' bezahlt, '
+          +fmtM(q[sl].erstattet,'EUR')+' erstattet – '+fmtM(d,'EUR')+' selbst getragen','','');
+        else add('warn','Belege',mon+' '+lbl+': '+fmtM(q[sl].erstattet,'EUR')+' erstattet, aber nur '
+          +fmtM(q[sl].bezahlt,'EUR')+' durch Belege gedeckt – Beleg fehlt oder Betrag stimmt nicht','','');
+      });
+    });
+
+    // I.7 Verwaiste Verweise aus der alten Beleg-Verknuepfung
+    const bwOhneDatei=bwList().filter(b=>b.fileId===null&&b.dateiname);
+    if(bwOhneDatei.length)
+      add('info','Belege',bwOhneDatei.length+' Bescheid(e) verweisen auf eine gelöschte Datei: '
+        +bwOhneDatei.map(b=>b.typ+' '+(b.nr||'')).join(', '),'','');
   }
 
   // ── H. Vollständigkeit: fehlende Werktage ──
@@ -3156,6 +3568,7 @@ const fhfOpenBlocks=new Set(); // aufgeklappte Blöcke merken
 function renderFhfBlocks(){  const el=document.getElementById('fhfBlocks');if(!el)return;
   const start=fhfStartDate();
   if(!start){el.innerHTML='';return;}
+  const ende=fhfEndDate();
   const today=new Date();today.setHours(12,0,0,0);
   const yr=today.getFullYear();
   const yearEnd=new Date(yr,11,31,12,0,0);
@@ -3166,6 +3579,7 @@ function renderFhfBlocks(){  const el=document.getElementById('fhfBlocks');if(!e
     const bs=new Date(start);bs.setDate(bs.getDate()+(n-1)*14);
     const be=new Date(start);be.setDate(be.getDate()+n*14-1);
     if(bs>yearEnd)break;
+    if(ende&&be>ende)break;   // nach dem letzten Aufenthaltstag entsteht kein Block mehr
     blocks.push({n,bs:new Date(bs),be:new Date(be)});
     n++;
   }
@@ -3257,6 +3671,20 @@ function renderFhfCard(){
       <span>Genutzt: <b style="color:var(--navy)">${st.usedNow}</b></span>
       <span>Anspruch ${st.yr} gesamt: <b style="color:var(--navy)">${st.perYear}</b></span>
     </div>
+    ${(()=>{
+      const ySel=document.getElementById('ovY')?.value;
+      const listYr=(ySel&&ySel!=='all')?ySel:String(st.yr);
+      const ohne=fhfOhneKostenListe(listYr);
+      if(!ohne.length)return'';
+      return `<div style="margin-top:10px;padding:9px 11px;background:#fffdf5;border:1px solid var(--warn);border-radius:8px;font-size:11px">
+        <div style="font-weight:700;color:#8D6E00;margin-bottom:5px">&#9888;&#65039; ${ohne.length} Familienheimfahrt(en) ${listYr} ohne Fahrtkosten und ohne Beleg</div>
+        ${ohne.map(e=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0">
+          <span>${dstrSafe(e.date)}</span>
+          <button class="btn-xs" onclick="editEntry('${e.id}')">&#9998; bearbeiten</button>
+        </div>`).join('')}
+        <div style="margin-top:4px;color:var(--muted)">Nur die Pauschale wird angesetzt, sofern keine Fahrtkosten oder ein Beleg nachgetragen werden.</div>
+      </div>`;
+    })()}
   </div>`;
 }
 function check28W(){
@@ -3459,6 +3887,8 @@ function renderWSSummary(list){
   </div>`;
 }
 ['ovY','ovM','ovQ'].forEach(id=>{const el=document.getElementById(id);if(el){el.addEventListener('change',renderOverview);if(id==='ovQ')el.addEventListener('input',renderOverview);}});
+// Eigener Jahresfilter des Reiters „Jahresübersicht"
+{const jy=document.getElementById('jahrY');if(jy)jy.addEventListener('change',()=>{renderJahresCard();renderDhfCard();renderQuerCard();});}
 ['rcY','rcM'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',renderReceipts);});
 /* RECEIPTS VIEW */
 async function renderReceipts(){
@@ -3697,6 +4127,7 @@ function loadSettings(){
   ['sName','sRank','sUnit','sPNr','sAP','sAS','sAW'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.value=[s.name,s.rank,s.unit,s.persNr,s.addrPrimary,s.addrSecondary,s.addrWork][i]||'';});
   document.getElementById('sDT').value=s.dtKosten||'';document.getElementById('sDTd').value=s.dtStart||'';
   const fhfS=document.getElementById('sFhfStart');if(fhfS)fhfS.value=s.fhfStart||'';
+  const fhfE=document.getElementById('sFhfEnde');if(fhfE)fhfE.value=s.fhfEnde||'';
   const setV=(id,v)=>{const el=document.getElementById(id);if(el)el.value=(v!=null?v:'');};
   setV('sRSoFe',s.rSoFe);setV('sRSa13',s.rSa13);setV('sRNacht',s.rNacht);setV('sTaxRate',s.taxRate);
   const dc=document.getElementById('sDupCheck');if(dc)dc.checked=!s.dupCheckHidden;
@@ -3705,7 +4136,7 @@ function loadSettings(){
   const geo=g=>g?`✓(${g.lat.toFixed(3)},${g.lng.toFixed(3)})`:'?';
   const gs=document.getElementById('geoStat');
   if(gs)gs.innerHTML=[s.addrPrimary?`EW:${geo(s.addrPrimaryGeo)}`:'',s.addrSecondary?`TGW:${geo(s.addrSecondaryGeo)}`:'',s.addrWork?`Arb.:${geo(s.addrWorkGeo)}`:''].filter(Boolean).join(' · ');
-  updateFolderSt();updStInfo();
+  updStInfo();
   // Firebase-Konfiguration ins Feld
   const fc=document.getElementById('fbConfig');
   if(fc&&state.settings.fbConfig&&!fc.value)fc.value=JSON.stringify(state.settings.fbConfig,null,2);
@@ -3722,6 +4153,7 @@ function saveSettings(){
     addrWorkGeo:nw===prev.addrWork?prev.addrWorkGeo:null,
     dtKosten:parseFloat(document.getElementById('sDT').value)||0,dtStart:document.getElementById('sDTd').value||'',
     fhfStart:(document.getElementById('sFhfStart')?.value)||'',
+    fhfEnde:(document.getElementById('sFhfEnde')?.value)||'',
     dupCheckHidden:!(document.getElementById('sDupCheck')?.checked),
     urlaubJahr:parseFloat(document.getElementById('sUrlaubJahr')?.value)||null,
     urlaubUebertrag:parseFloat(document.getElementById('sUrlaubUebertrag')?.value)||null,
@@ -3741,13 +4173,36 @@ function saveSettings(){
   persist();document.getElementById('uchip').textContent=(state.settings.rank?state.settings.rank+' ':'')+state.settings.name||'Nicht konfiguriert';
   refreshAddrList();toast('Einstellungen gespeichert ✓','ok');
 }
+/* Speicher-Herkunft: storeFile() legt nicht nur hochgeladene Belege ab, sondern jede
+   generierte PDF (Monatsbericht, Zeiterfassung, Fahrtkosten-Jahresbeleg, Abwesenheits-
+   bescheinigung) landet im selben IndexedDB-Store — anhand des filename-Präfix unterscheidbar. */
+function kategorisiereDatei(f){
+  if(f.herkunft==='upload')return'Belegeablage (Drag & Drop)';
+  if(f.herkunft==='firebase')return'Firebase-Altbestand';
+  const fn=f.filename||'';
+  if(fn.startsWith('bw_'))return'BW-Beleg (Upload)';
+  if(fn.startsWith('dr_'))return'Dienstreise-Beleg';
+  if(fn.startsWith('mb_'))return'Monatsbericht (generiert)';
+  if(fn.startsWith('da_'))return'Dienstabrechnung (generiert)';
+  if(fn.startsWith('fk_'))return'Fahrtkosten-Jahresbeleg (generiert)';
+  if(fn.startsWith('ab_'))return'Abwesenheitsbescheinigung (generiert)';
+  return'Wizard-Beleg (Fahrt/Eintrag)';
+}
 async function updStInfo(){
-  const el=document.getElementById('stInfo'),fill=document.getElementById('stFill'),pel=document.getElementById('stPers');
+  const el=document.getElementById('stInfo'),fill=document.getElementById('stFill'),pel=document.getElementById('stPers'),bel=document.getElementById('stBreakdown');
   if(!el)return;try{
     const files=await idbAllF();const tot=files.reduce((s,f)=>s+(f.size||0),0);
     let qi='',pct=0;if(navigator.storage?.estimate){const e=await navigator.storage.estimate();pct=e.quota?(e.usage/e.quota*100):0;qi=` · ${fmtBytes(e.usage||0)}/${fmtBytes(e.quota||0)} (${pct.toFixed(1)}%)`;}
-    el.textContent=`${files.length} Beleg(e) · ${fmtBytes(tot)}${qi}`;
+    el.textContent=`${files.length} Datei(en) gesamt · ${fmtBytes(tot)}${qi}`;
     fill.style.width=Math.min(100,pct)+'%';fill.classList.toggle('warn',pct>70);fill.classList.toggle('danger',pct>90);
+    if(bel){
+      const nach={};files.forEach(f=>{const k=kategorisiereDatei(f);(nach[k]=nach[k]||{n:0,b:0}).n++;nach[k].b+=(f.size||0);});
+      bel.innerHTML=Object.entries(nach).sort((a,b)=>b[1].n-a[1].n)
+        .map(([k,v])=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:2px 0">
+          <span>${v.n}× ${esc(k)} (${fmtBytes(v.b)})</span>
+          <button class="btn-xs" onclick='window.loescheDateiKategorie(${JSON.stringify(k)})' style="border-color:var(--err);color:var(--err);flex-shrink:0;white-space:nowrap">✕ löschen</button>
+        </div>`).join('');
+    }
   }catch(e){el.textContent='Speicherinfo n.v.';}
   if(pel&&navigator.storage){try{
     const ip=navigator.storage.persisted?await navigator.storage.persisted():null;
@@ -3757,6 +4212,76 @@ async function updStInfo(){
     else if(ip===false)pel.innerHTML='<span style="color:var(--muted)">Persistent Storage nicht aktiv.</span>';
   }catch(e){}}
 }
+/* Entfernt Verweise auf gelöschte Datei-IDs aus allen bekannten Ablagestrukturen, damit
+   nach dem Löschen keine kaputten „Beleg ansehen"-Links übrig bleiben. */
+function entferneDateiReferenzen(ids){
+  const idSet=new Set(ids);
+  // Namensräume mit Arrays reiner ID-Strings
+  ['bwReceipts','drReceipts','fkReceipts','abReceipts','daReceipts'].forEach(ns=>{
+    if(!state.settings[ns])return;
+    Object.keys(state.settings[ns]).forEach(k=>{
+      state.settings[ns][k]=(state.settings[ns][k]||[]).filter(x=>!idSet.has(x));
+    });
+  });
+  // mbReceipts: 'unassigned' enthält Objekte {id,...}, alle anderen Keys reine ID-Strings
+  if(state.settings.mbReceipts){
+    Object.keys(state.settings.mbReceipts).forEach(k=>{
+      state.settings.mbReceipts[k]=(state.settings.mbReceipts[k]||[])
+        .filter(x=>!idSet.has(x&&typeof x==='object'?x.id:x));
+    });
+  }
+  // Wizard-Einträge und ihre Fahrt-Segmente
+  (state.entries||[]).forEach(e=>{
+    e.recIds=(e.recIds||[]).filter(x=>!idSet.has(x));
+    (e.segs||[]).forEach(s=>{s.recIds=(s.recIds||[]).filter(x=>!idSet.has(x));});
+  });
+  // TG/RK-Bescheide: fileId-Verweis auf die Original-PDF
+  bwList().forEach(b=>{if(b.fileId&&idSet.has(b.fileId))b.fileId=null;});
+}
+window.loescheDateiKategorie=async function(kategorie){
+  const alle=await idbAllF();
+  const treffer=alle.filter(f=>kategorisiereDatei(f)===kategorie);
+  if(!treffer.length){toast('Keine Dateien in dieser Kategorie','err');return;}
+  const groesse=treffer.reduce((s,f)=>s+(f.size||0),0);
+  if(!confirm(treffer.length+' Datei(en) aus „'+kategorie+'" wirklich löschen ('+fmtBytes(groesse)+')?\n\n'
+    +'Zugehörige Verweise (z. B. an Fahrt-Einträgen oder Bescheiden) werden mit entfernt. '
+    +'Das kann nicht rückgängig gemacht werden.'))return;
+  for(const f of treffer){try{await idbDelF(f.id);}catch(e){}}
+  entferneDateiReferenzen(treffer.map(f=>f.id));
+  persist();
+  scheduleCloudPush();
+  updStInfo();
+  if(typeof renderReceipts==='function')renderReceipts();
+  if(typeof renderOverview==='function')renderOverview();
+  if(typeof renderBelegeablage==='function')renderBelegeablage();
+  if(typeof renderBwList==='function')renderBwList();
+  toast(treffer.length+' Datei(en) gelöscht','ok');
+};
+/* Löscht alle Belege aus den ÄLTEREN Upload-Wegen (BW-Beleg, Dienstreise-Beleg, Wizard-📎-Uploads,
+   Firebase-Altbestand) samt ihrer Verknüpfungen. Die neue Belegeablage (Drag & Drop, herkunft:'upload')
+   und generierte Dokumente (Monatsbericht/Dienstabrechnung/Fahrtkosten-Jahresbeleg/Abwesenheits-
+   bescheinigung) bleiben unangetastet — ab sofort zählt für die Beleg-Prüfung nur noch die Belegeablage. */
+window.loescheAlteBelegQuellen=async function(){
+  const ALTE_KATEGORIEN=['BW-Beleg (Upload)','Dienstreise-Beleg','Wizard-Beleg (Fahrt/Eintrag)','Firebase-Altbestand'];
+  const alle=await idbAllF();
+  const treffer=alle.filter(f=>ALTE_KATEGORIEN.includes(kategorisiereDatei(f)));
+  if(!treffer.length){toast('Keine alten Beleg-Verknüpfungen gefunden','ok');return;}
+  const groesse=treffer.reduce((s,f)=>s+(f.size||0),0);
+  if(!confirm(treffer.length+' Datei(en) aus älteren Beleg-Quellen (BW-Beleg, Dienstreise-Beleg, '
+    +'Wizard-📎-Uploads, Firebase-Altbestand) wirklich löschen ('+fmtBytes(groesse)+')?\n\n'
+    +'Danach zählt für die Beleg-Prüfung nur noch die Belegeablage (Drag & Drop). Generierte Dokumente '
+    +'(Monatsberichte, Dienstabrechnungen etc.) bleiben unberührt. Das kann nicht rückgängig gemacht werden.'))return;
+  for(const f of treffer){try{await idbDelF(f.id);}catch(e){}}
+  entferneDateiReferenzen(treffer.map(f=>f.id));
+  persist();
+  scheduleCloudPush();
+  updStInfo();
+  if(typeof renderReceipts==='function')renderReceipts();
+  if(typeof renderOverview==='function')renderOverview();
+  if(typeof renderBelegeablage==='function')renderBelegeablage();
+  if(typeof renderBwList==='function')renderBwList();
+  toast(treffer.length+' alte Beleg-Datei(en) gelöscht','ok');
+};
 function confirmReset(){showModal('Alle Daten löschen?','ALLE Einträge und Belege werden permanent entfernt!',async()=>{
   const files=await idbAllF();for(const f of files){try{await idbDelF(f.id);}catch(e){}}
   state.entries=[];persist();renderOverview();updStInfo();toast('Alle Daten gelöscht','ok');
@@ -5041,14 +5566,12 @@ async function genAbwesenheitPdf(){
         const g=groups[groups.length-1];
         if(g&&g.code===e.dayCode&&normOrt(e)===g.ortKey&&addDay(g.to)===e.date){
           g.to=e.date;g.days++;
-          // Nur tatsaechlich eingenommene Mahlzeiten — nicht eingenommene kuerzen nicht
-          // und gehoeren damit nicht in die Bescheinigung.
-          VERPFL_MAHL.filter(m=>verpflStatus(e,m)==='ja').forEach(v=>g.verpfl.add(v));
+          (e.verpflegung||'').split(',').filter(Boolean).forEach(v=>g.verpfl.add(v));
           if(!g.nachweis&&e.nachweis)g.nachweis=e.nachweis;
         } else {
           groups.push({code:e.dayCode,from:e.date,to:e.date,days:1,
             ort:abwOrtText(e),ortKey:normOrt(e),
-            verpfl:new Set(VERPFL_MAHL.filter(m=>verpflStatus(e,m)==='ja')),
+            verpfl:new Set((e.verpflegung||'').split(',').filter(Boolean)),
             nachweis:e.nachweis||''});
         }
       }
@@ -5306,7 +5829,6 @@ function renderZE(){
   h+='</tbody></table>';
   el.innerHTML=h;
   calcDuZ(yr,mo);
-  calcTG(yr,mo);
 }
 
 /* ─── ERSCHWERNISZULAGE DuZ §3 EZulV ─── */
@@ -5561,112 +6083,6 @@ function calcDuZ(yr,mo){
   html+='<div style="font-size:9px;color:var(--muted);margin-top:8px">';
   html+='DuZ: So/FT '+R_SOFE.toFixed(2)+' | Sa 13-20 '+R_SA13.toFixed(2)+' | Nacht 20-06 '+R_NACHT.toFixed(2)+' EUR/h (minutengenau, Bw-2417) | ';
   html+='MAV: '+MAV_RATE+' EUR/h A13-A16 (\u00a72 SMVergV) | \u00a730c: '+P30_PER_DAY+' EUR/Tag (je 6. Tag frei)</div>';
-
-  el.innerHTML=html;
-}
-
-/* ─── TRENNUNGSGELD §3(2) TGV — 1. Unentgeltliche Verpflegung ───────────────
-   Anspruchslogik aus den Bescheiden 1–7/2026 abgeleitet:
-   · Dienstort-Tage (AW/WFH/WF/UR/FVD/KR)      → 14,00 EUR, gekuerzt um Mahlzeiten
-   · Heimfahrt (HF) und Rueckfahrt (RF)        → 14,00 EUR, das sind Reisetage
-   · Tage dazwischen (am Familienwohnsitz)     → 0,00 EUR
-   · Dienstreise: nur An- und Abreisetag       → 14,00 EUR, Zwischentage 0,00
-   Die Zuordnung steht je Zeile in der Spalte „Grundlage“ und ist damit pruefbar. */
-const TG_REISE_CODES=['DR','LG','ÜB','ES','EGV'];
-function tgTageDesMonats(yr,mo){
-  const prefix=yr+'-'+String(mo).padStart(2,'0');
-  const alle=state.entries.filter(e=>e.date).sort((a,b)=>a.date.localeCompare(b.date));
-  const folgt=(a,b)=>a&&b&&Math.round((new Date(b.date+'T12:00')-new Date(a.date+'T12:00'))/86400000)===1;
-  const out=[];let weg=false;
-  alle.forEach((e,i)=>{
-    const c=e.dayCode;let anspruch=true,grund='Dienstort',reisetag=false;
-    if(c==='HF'){anspruch=true;reisetag=true;grund='Abreisetag Heimfahrt';weg=true;}
-    else if(c==='RF'){anspruch=true;reisetag=true;grund='Rückkehrtag';weg=false;}
-    else if(TG_REISE_CODES.includes(c)){
-      const vor=alle[i-1],nach=alle[i+1];
-      const innen=folgt(vor,e)&&TG_REISE_CODES.includes(vor.dayCode)
-                &&folgt(e,nach)&&TG_REISE_CODES.includes(nach.dayCode);
-      anspruch=!innen;reisetag=!innen;
-      grund=innen?'ganztags auf Dienstreise':'An-/Abreisetag Dienstreise';
-      if(!innen)weg=false;
-    }
-    else if(weg){anspruch=false;grund='am Familienwohnsitz';}
-    if(e.date.startsWith(prefix))out.push({e,anspruch,reisetag,grund});
-  });
-  return out;
-}
-/* An- und Abreisetage bleiben ungekuerzt. Beleg: in den Bescheiden 1–7/2026 ist
-   kein einziger Reisetag gekuerzt (0 von 105). Bis Juni steht dort NE, im Juli
-   fehlt NE — der volle Satz wird trotzdem gezahlt (03.07. und 30.07. je 14,00). */
-function tgAbzug(z){return (!z.anspruch||z.reisetag)?0:verpflAbzug(z.e);}
-function calcTG(yr,mo){
-  const el=document.getElementById('tgBox');if(!el)return;
-  const tage=tgTageDesMonats(yr,mo);
-  if(!tage.length){el.innerHTML='<div style="color:var(--muted);font-size:12px">Keine Einträge in diesem Monat.</div>';return;}
-  const eur=v=>v.toFixed(2).replace('.',',');
-  const fmtD=d=>d.slice(8,10)+'.'+d.slice(5,7)+'.';
-  const wn=['So','Mo','Di','Mi','Do','Fr','Sa'];
-
-  const zeilen=tage.map(t=>{
-    const abzug=tgAbzug(t);
-    return{...t,abzug,betrag:t.anspruch?TG_GRUND-abzug:0};
-  });
-  const anspruchsTage=zeilen.filter(z=>z.anspruch).length;
-  const summeAbzug=zeilen.reduce((s,z)=>s+z.abzug,0);
-  const summe=zeilen.reduce((s,z)=>s+z.betrag,0);
-  const mitVerpfl=zeilen.filter(z=>z.abzug>0);
-  const erfasst=zeilen.filter(z=>z.anspruch&&(z.e.verpflegung||z.e.verpflegungNE)).length;
-
-  let html='<h4 style="color:var(--navy);font-size:13px;margin:0 0 8px">1. Unentgeltliche Verpflegung</h4>';
-
-  // Kennzahlen
-  html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;margin-bottom:10px">';
-  html+='<div style="background:var(--lsoft);padding:8px 12px;border-radius:8px;font-size:12px"><span style="color:var(--muted)">Anspruchstage:</span><br><b>'+anspruchsTage+' &times; 14,00</b></div>';
-  html+='<div style="background:var(--lsoft);padding:8px 12px;border-radius:8px;font-size:12px"><span style="color:var(--muted)">Tage mit Abzug:</span><br><b>'+mitVerpfl.length+'</b></div>';
-  html+='<div style="background:var(--lsoft);padding:8px 12px;border-radius:8px;font-size:12px"><span style="color:var(--muted)">Summe Abzüge:</span><br><b>&minus;'+eur(summeAbzug)+' EUR</b></div>';
-  html+='</div>';
-
-  // Tagestabelle
-  html+='<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">';
-  html+='<table style="width:100%;border-collapse:collapse;font-size:11px;min-width:430px">';
-  html+='<thead><tr style="background:var(--navy);color:#fff">';
-  ['Datum','Tag','Code','Fr&#252;h','Mittag','Abend','Grundlage','EUR'].forEach(c=>{
-    html+='<th style="padding:3px 5px;text-align:left;font-size:9px;border:1px solid rgba(255,255,255,0.2)">'+c+'</th>';});
-  html+='</tr></thead><tbody>';
-  zeilen.forEach((z,i)=>{
-    const zell=m=>{
-      if(!z.anspruch)return'<td style="padding:2px 5px;border:1px solid #eee;text-align:center;color:var(--muted)">&middot;</td>';
-      const st=verpflStatus(z.e,m);
-      const wirkt=st==='ja'&&!z.reisetag;
-      const txt=wirkt?'&minus;'+eur(TG_ABZUG[m]):st===''?'&mdash;':(z.reisetag?'ohne Abzug':'n. eing.');
-      const col=wirkt?'var(--warn)':st===''?'var(--muted)':'var(--ok)';
-      return'<td style="padding:2px 5px;border:1px solid #eee;text-align:center;font-size:9.5px;color:'+col+';font-weight:'+(wirkt?'600':'400')+'">'+txt+'</td>';
-    };
-    const wd=wn[new Date(z.e.date+'T12:00').getDay()];
-    html+='<tr style="background:'+(z.abzug>0?'#fff8ec':(i%2?'#f9f9fb':'#fff'))+'">';
-    html+='<td style="padding:2px 5px;border:1px solid #eee;font-size:10px">'+fmtD(z.e.date)+'</td>';
-    html+='<td style="padding:2px 5px;border:1px solid #eee;font-size:10px;color:var(--muted)">'+wd+'</td>';
-    html+='<td style="padding:2px 5px;border:1px solid #eee;font-weight:600;font-size:10px">'+esc(z.e.dayCode||'')+'</td>';
-    html+=zell('frühstück')+zell('mittag')+zell('abend');
-    html+='<td style="padding:2px 5px;border:1px solid #eee;font-size:9.5px;color:var(--muted)">'+z.grund+'</td>';
-    html+='<td style="padding:2px 5px;border:1px solid #eee;text-align:right;font-weight:600;font-size:10px">'+eur(z.betrag)+'</td>';
-    html+='</tr>';
-  });
-  html+='<tr style="background:var(--navy);color:#fff;font-weight:700;font-size:10px">';
-  html+='<td colspan="6" style="padding:3px 5px;border:1px solid rgba(255,255,255,0.2)">Trennungstagegeld '+String(mo).padStart(2,'0')+'/'+yr+'</td>';
-  html+='<td style="padding:3px 5px;border:1px solid rgba(255,255,255,0.2);text-align:right">'+anspruchsTage+' Tage</td>';
-  html+='<td style="padding:3px 5px;border:1px solid rgba(255,255,255,0.2);text-align:right">'+eur(summe)+'</td>';
-  html+='</tr></tbody></table></div>';
-
-  // Rechenweg
-  html+='<div style="background:var(--oks);border:1px solid var(--ok);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--ok);margin-top:8px">';
-  html+='<b>'+anspruchsTage+' &times; 14,00 = '+eur(anspruchsTage*TG_GRUND)+' EUR</b> &minus; '+eur(summeAbzug)+' EUR Verpflegung = <b>'+eur(summe)+' EUR</b></div>';
-
-  // Hinweis auf nicht erfasste Tage
-  const offen=anspruchsTage-erfasst;
-  if(offen>0)html+='<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:6px 10px;font-size:11px;color:#856404;margin-top:6px"><b>Hinweis:</b> An '+offen+' Anspruchstag(en) ist keine Verpflegung erfasst &ndash; diese Tage rechnen mit dem vollen Satz. Die Angabe steht im Wizard unter <i>Arbeitszeit &rarr; Unentgeltliche Verpflegung</i>.</div>';
-
-  html+='<div style="font-size:9px;color:var(--muted);margin-top:8px">Sätze aus den Monatsabrechnungen 1&ndash;7/2026 abgeleitet: Grundbetrag 14,00 &middot; Frühstück &minus;0,43 &middot; Mittag &minus;1,03 &middot; Abend &minus;1,03 EUR. Gekürzt wird nur, was gestellt <b>und</b> eingenommen wurde. Steuerpflichtig (kein §3b EStG).</div>';
 
   el.innerHTML=html;
 }
@@ -5991,377 +6407,6 @@ async function syncReceiptsDown(){
 </script>
 
 <script>
-/* ── BELEG-ABRUF AUS FIREBASE ─────────────────────────────────────────────
-   Gegenstück zu firebase_belege_sync.py: Das Skript legt die organisierten
-   Belege in users/<uid>/receipts ab — derselben Sammlung und demselben Format,
-   das syncReceiptsUp/Down der App schon benutzt — und führt sie zusätzlich in
-   users/<uid>/belegeIndex auf. Der Katalog ist nötig, weil allReceiptIds() nur
-   Belege kennt, die bereits lokal verknüpft sind.
-
-   Dieser Block liest den Katalog, holt die Belege, legt sie unter derselben ID
-   in IndexedDB ab und hängt sie an die passenden Fahrtsegmente. Dadurch greift
-   anschließend auch die vorhandene Geräte-Synchronisation der App.
-
-   Zuordnung wie im Organizer: erst über den Betrag (0,01 € Toleranz), sonst
-   über das Datum. Flugbelege tragen das Kaufdatum, die Fahrt aber das
-   Reisedatum — ein reiner Datumsabgleich würde sie nie finden.
-   ──────────────────────────────────────────────────────────────────────── */
-(function () {
-  var LAUFT = false;
-
-  function belegeStatus(text, art) {
-    var el = document.getElementById('fbBelegeStatus');
-    if (el) el.textContent = text || '';
-    if (art && typeof toast === 'function') toast(text, art);
-  }
-
-  /* ---- Herunterladen ---------------------------------------------------- */
-
-  window.belegeAbrufen = async function belegeAbrufen() {
-    if (LAUFT) return;
-    if (typeof fbUser === 'undefined' || !fbUser || typeof fbDB === 'undefined' || !fbDB) {
-      belegeStatus('Erst in den Einstellungen bei Firebase anmelden.', 'err');
-      return;
-    }
-
-    LAUFT = true;
-    belegeStatus('Belege werden abgerufen…');
-    var neu = 0, schonDa = 0, fehler = 0;
-
-    try {
-      // Katalog lesen — er nennt die IDs, die das Skript abgelegt hat.
-      var snap = await fbDB.collection('users').doc(fbUser.uid)
-                           .collection('belegeIndex').get();
-      var belegeCol = fbDB.collection('users').doc(fbUser.uid)
-                          .collection('receipts');
-
-      if (!snap.docs.length) {
-        belegeStatus('Noch keine Belege in Firebase — zuerst am Mac '
-                   + 'firebase_belege_sync.py ausführen.', 'err');
-        LAUFT = false;
-        return;
-      }
-
-      for (var i = 0; i < snap.docs.length; i++) {
-        var d = snap.docs[i].data();
-        if (!d || !d.rid) continue;
-
-        // Die ID ist zugleich der Schlüssel in IndexedDB und in receipts —
-        // dadurch bleibt die vorhandene Geräte-Synchronisation der App gültig.
-        var vorhandenerBeleg = await idbGetF(d.rid);
-        if (vorhandenerBeleg) { schonDa++; verknuepfe(d.rid, d); continue; }
-
-        try {
-          var doc = await belegeCol.doc(d.rid).get();
-          if (!doc.exists) throw new Error('Beleg fehlt in receipts');
-          var inhalt = doc.data();
-          if (!inhalt || !inhalt.data) throw new Error('Kein Inhalt');
-
-          var blob = await (await fetch(inhalt.data)).blob();
-
-          await idbFile({
-            id: d.rid, blob: blob, name: inhalt.name || d.name,
-            type: inhalt.type || d.mime || blob.type, size: blob.size,
-            created: Date.now(), filename: inhalt.filename || d.name,
-            sha256: d.sha256, herkunft: 'firebase',
-            monat: d.monat, typ: d.typ, datum: d.datum, betrag: d.betrag
-          });
-          verknuepfe(d.rid, d);
-          neu++;
-        } catch (e) {
-          fehler++;
-          console.error('Beleg', d.name, e);
-        }
-      }
-
-      if (typeof persist === 'function') persist();
-      renderBelegeBox();
-      if (typeof renderOverview === 'function') renderOverview();
-
-      belegeStatus(neu + ' neu, ' + schonDa + ' bereits vorhanden'
-                   + (fehler ? ', ' + fehler + ' Fehler' : ''), fehler ? 'err' : 'ok');
-    } catch (e) {
-      console.error('Beleg-Abruf:', e);
-      belegeStatus('Abruf fehlgeschlagen: ' + e.message, 'err');
-    } finally {
-      LAUFT = false;
-    }
-  };
-
-  /* ---- Aufräumen -------------------------------------------------------- */
-
-  // Der Abruf fügt nur hinzu. Wird ein Beleg am Mac aussortiert und aus
-  // Firebase entfernt, bleibt er ohne diesen Schritt in der App liegen.
-  // alles = true entfernt jeden abgerufenen Beleg, ohne Firebase zu fragen.
-  window.belegeAufraeumen = async function belegeAufraeumen(alles) {
-    if (LAUFT) return;
-    if (!alles && (typeof fbUser === 'undefined' || !fbUser
-                   || typeof fbDB === 'undefined' || !fbDB)) {
-      belegeStatus('Erst in den Einstellungen bei Firebase anmelden.', 'err');
-      return;
-    }
-
-    LAUFT = true;
-    belegeStatus(alles ? 'Wird geleert…' : 'Abgleich läuft…');
-
-    try {
-      var gueltig = {};
-      if (!alles) {
-        var snap = await fbDB.collection('users').doc(fbUser.uid)
-                             .collection('belegeIndex').get();
-        snap.docs.forEach(function (doc) {
-          var d = doc.data();
-          if (d && d.rid) gueltig[d.rid] = true;
-        });
-      }
-
-      var alle = await idbAllF();
-      var veraltet = alle.filter(function (f) {
-        return f.herkunft === 'firebase' && !gueltig[f.id];
-      });
-
-      if (!veraltet.length) {
-        belegeStatus('Nichts zu entfernen — die App ist auf Stand.', 'ok');
-        LAUFT = false;
-        return;
-      }
-
-      if (!confirm(veraltet.length + ' Beleg(e) wurden am Mac aussortiert und '
-                 + 'werden aus der App entfernt. Fortfahren?')) {
-        belegeStatus('Abgebrochen.');
-        LAUFT = false;
-        return;
-      }
-
-      var weg = {};
-      for (var i = 0; i < veraltet.length; i++) {
-        weg[veraltet[i].id] = true;
-        await idbDelF(veraltet[i].id);
-      }
-
-      // Verweise an Einträgen und Fahrtsegmenten mitentfernen, sonst zeigt die
-      // App Belege an, die es nicht mehr gibt.
-      function saeubern(liste) {
-        return (liste || []).filter(function (id) { return !weg[id]; });
-      }
-      (state.entries || []).forEach(function (e) {
-        e.recIds = saeubern(e.recIds);
-        (e.segs || []).forEach(function (seg) { seg.recIds = saeubern(seg.recIds); });
-      });
-
-      // Auch den Upload-Merker der App zurücksetzen, damit nichts hängen bleibt.
-      var hoch = state.settings.fbUploaded || {};
-      Object.keys(weg).forEach(function (id) { delete hoch[id]; });
-      state.settings.fbUploaded = hoch;
-
-      if (typeof persist === 'function') persist();
-      renderBelegeBox();
-      if (typeof renderOverview === 'function') renderOverview();
-      belegeStatus(veraltet.length + ' Beleg(e) entfernt', 'ok');
-    } catch (e) {
-      console.error('Aufräumen:', e);
-      belegeStatus('Aufräumen fehlgeschlagen: ' + e.message, 'err');
-    } finally {
-      LAUFT = false;
-    }
-  };
-
-  /* ---- Zuordnung zu Fahrten -------------------------------------------- */
-
-  // Ein Beleg wird an GENAU EIN Segment gehängt, nicht an jedes passende.
-  // Betragsgleichheit allein taugt nicht: Dutzende Bahnkarten kosten 5,50 €,
-  // ein reiner Betragsabgleich hängt deshalb jeden Beleg an jede Fahrt.
-  var TAGE_TOLERANZ = 21;   // Kaufdatum vs. Reisedatum bei Flügen
-
-  function tageAbstand(a, b) {
-    if (!a || !b) return null;
-    var d = (new Date(b) - new Date(a)) / 86400000;
-    return isNaN(d) ? null : Math.abs(d);
-  }
-
-  function verknuepfe(dateiId, meta) {
-    if (!meta || typeof state === 'undefined' || !state.entries) return;
-    var betrag = (meta.betrag === null || meta.betrag === undefined)
-               ? null : parseFloat(meta.betrag);
-
-    var kandidaten = [];
-    state.entries.forEach(function (e) {
-      (e.segs || []).forEach(function (seg) {
-        if (!seg.enabled || !seg.costEnabled || !seg.costAmt) return;
-        seg.recIds = seg.recIds || [];
-        if (seg.recIds.indexOf(dateiId) !== -1) return;   // schon dran
-
-        var segBetrag = parseFloat(seg.costAmt);
-        var betragPasst = (betrag !== null && !isNaN(segBetrag)
-                           && Math.abs(segBetrag - betrag) <= 0.01);
-        var datumPasst = (meta.datum && e.date === meta.datum);
-        var abstand = tageAbstand(meta.datum, e.date);
-
-        // Rang: exaktes Datum schlägt Betrag in der Nähe. Ohne beides: nichts.
-        var rang = null;
-        if (datumPasst && betragPasst) rang = 0;
-        else if (datumPasst) rang = 1;
-        else if (betragPasst && abstand !== null && abstand <= TAGE_TOLERANZ) rang = 2;
-        if (rang === null) return;
-
-        kandidaten.push({ seg: seg, rang: rang,
-                          abstand: (abstand === null ? 9999 : abstand),
-                          belegt: seg.recIds.length });
-      });
-    });
-
-    if (!kandidaten.length) return;
-
-    // Bester Treffer: kleinster Rang, dann noch unbelegtes Segment,
-    // dann geringster zeitlicher Abstand.
-    kandidaten.sort(function (a, b) {
-      return a.rang - b.rang || a.belegt - b.belegt || a.abstand - b.abstand;
-    });
-    kandidaten[0].seg.recIds.push(dateiId);
-  }
-
-  /* ---- Box im Reiter »Belege« ------------------------------------------ */
-
-  window.renderBelegeBox = async function renderBelegeBox() {
-    var el = document.getElementById('fbBelegeListe');
-    if (!el) return;
-
-    var alle = await idbAllF();
-    var bezogen = alle.filter(function (f) { return f.herkunft === 'firebase'; });
-
-    if (!bezogen.length) {
-      el.innerHTML = '<p style="font-size:12px;color:var(--muted);margin:0">'
-                   + 'Noch keine Belege abgerufen.</p>';
-      return;
-    }
-
-    var MONATSNAMEN = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
-                       'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-
-    function monatsTitel(m) {
-      var t = /^(\d{4})-(\d{2})$/.exec(m);
-      return t ? MONATSNAMEN[parseInt(t[2], 10) - 1] + ' ' + t[1] : m;
-    }
-
-    // Monat bevorzugt aus dem Belegdatum — der Katalogwert kann bei
-    // Abrechnungen vom Ablagemonat abweichen.
-    function monatVon(f) {
-      if (f.datum && /^\d{4}-\d{2}/.test(f.datum)) return f.datum.slice(0, 7);
-      if (f.monat && /^\d{4}-\d{2}$/.test(f.monat)) return f.monat;
-      return 'Ohne Datum';
-    }
-
-    var nachMonat = {};
-    bezogen.forEach(function (f) {
-      var m = monatVon(f);
-      (nachMonat[m] = nachMonat[m] || []).push(f);
-    });
-
-    // Jüngster Monat oben, »Ohne Datum« ans Ende.
-    var monate = Object.keys(nachMonat).sort(function (a, b) {
-      if (a === 'Ohne Datum') return 1;
-      if (b === 'Ohne Datum') return -1;
-      return b.localeCompare(a);
-    });
-
-    el.innerHTML = monate.map(function (m) {
-      // Innerhalb des Monats chronologisch, ältester Beleg zuerst.
-      var items = nachMonat[m].slice().sort(function (a, b) {
-        return String(a.datum || '').localeCompare(String(b.datum || ''))
-            || String(a.name || '').localeCompare(String(b.name || ''));
-      });
-      var summe = items.reduce(function (a, f) {
-        return a + (parseFloat(f.betrag) || 0);
-      }, 0);
-
-      var zeilen = items.map(function (f) {
-        var tag = /^\d{4}-\d{2}-(\d{2})$/.exec(f.datum || '');
-        return '<div style="display:flex;align-items:baseline;gap:9px;padding:5px 0;'
-          + 'font-size:12px;border-top:1px solid var(--line)">'
-          + '<span style="width:26px;color:var(--muted);font-variant-numeric:tabular-nums">'
-          + (tag ? tag[1] + '.' : '–') + '</span>'
-          + '<span style="flex:1">' + esc(f.typ || 'Beleg') + '</span>'
-          + '<span style="color:var(--muted);font-variant-numeric:tabular-nums">'
-          + (f.betrag ? parseFloat(f.betrag).toFixed(2) + ' €' : '') + '</span>'
-          + '</div>';
-      }).join('');
-
-      return '<div style="border:1px solid var(--line);border-radius:var(--r);'
-        + 'padding:10px 12px;margin-bottom:10px;background:#fff">'
-        + '<div style="display:flex;align-items:baseline;justify-content:space-between;'
-        + 'margin-bottom:2px">'
-        + '<b style="font-size:13px;color:var(--navy)">' + esc(monatsTitel(m)) + '</b>'
-        + '<span style="font-size:11px;color:var(--muted)">' + items.length + ' Belege'
-        + (summe ? ' · ' + summe.toFixed(2) + ' €' : '') + '</span>'
-        + '</div>' + zeilen + '</div>';
-    }).join('');
-  };
-
-  /* ---- CheckBox-Prüfung erweitern -------------------------------------- */
-
-  if (typeof checkBoxAnalyze === 'function') {
-    var urspruenglich = checkBoxAnalyze;
-    checkBoxAnalyze = function () {
-      var r = urspruenglich.apply(this, arguments);
-      try {
-        if (!r || !r.findings) return r;
-        (state.entries || []).forEach(function (e) {
-          (e.segs || []).forEach(function (seg) {
-            if (!seg.enabled || !seg.costEnabled || !seg.costAmt) return;
-            if (/Deutschlandticket/i.test(seg.costType || '')) return;
-            if (seg.recIds && seg.recIds.length) return;
-            r.findings.push({
-              sev: 'warn',
-              cat: 'Belege',
-              msg: 'Kein Beleg hinterlegt: ' + (seg.costType || seg.mode || 'Fahrt')
-                   + ' ' + (seg.fromLoc || '') + ' → ' + (seg.toLoc || '')
-                   + ' (' + seg.costAmt + ' ' + (seg.costCurr || 'EUR') + ')',
-              date: e.date || '',
-              id: e.id || ''
-            });
-          });
-        });
-      } catch (err) {
-        console.error('Belegprüfung:', err);
-      }
-      return r;
-    };
-  }
-
-  /* ---- Oberfläche einhängen -------------------------------------------- */
-
-  function baueBox() {
-    var view = document.getElementById('view-export');
-    if (!view || document.getElementById('fbBelegeBox')) return;
-
-    var box = document.createElement('div');
-    box.className = 'card';
-    box.id = 'fbBelegeBox';
-    box.style.marginTop = '14px';
-    box.innerHTML =
-      '<h3 style="margin:0 0 4px">&#128229; Abgerufene Belege</h3>'
-      + '<p style="color:var(--muted);font-size:12px;margin:0 0 10px">'
-      + 'Belege, die der Reisekosten-Organizer nach Firebase geladen hat, '
-      + 'nach Monat gruppiert.</p>'
-      + '<div style="display:flex;gap:9px;align-items:center;margin-bottom:10px">'
-      + '<button class="btn btn-s" onclick="belegeAbrufen()">Belege abrufen</button>'
-      + '<button class="btn btn-s" onclick="belegeAufraeumen()">Aussortierte entfernen</button>'
-      + '<button class="btn btn-s" onclick="belegeAufraeumen(true)" '
-      + 'style="border-color:var(--err);color:var(--err)">Alle abgerufenen löschen</button>'
-      + '<span id="fbBelegeStatus" style="font-size:12px;color:var(--muted)"></span>'
-      + '</div><div id="fbBelegeListe"></div>';
-
-    view.appendChild(box);
-    renderBelegeBox();
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', baueBox);
-  } else {
-    baueBox();
-  }
-})();
-
 /* ==================== SERVICE WORKER & UPDATE SYSTEM ==================== */
 
 // Inline Service Worker (Auto-registering)
@@ -6386,13 +6431,7 @@ async function syncReceiptsDown(){
   // Changelog-Definitionen (kurz, 3-5 Punkte pro Version)
   // Schlüssel = APP_BUILD-Nummer, nicht mehr das Datum — siehe currentVersion
   // weiter unten. Beispiel: 26: ['Kurzer Punkt zur Änderung', 'Zweiter Punkt'].
-  const changelogs = {
-    26: [
-      'Trennungsgeld nach § 3(2) TGV: neue Box in Zeiterfassung',
-      'Je Mahlzeit erfassbar — gestellt/gegessen/nicht gegessen',
-      'Automatische Berechnung aus Tageseinträgen'
-    ]
-  };
+  const changelogs = {};
   
   // APP_BUILD ist die einzige Quelle für die Update-Erkennung — bereits die
   // bestehende Konvention (»bei jeder Änderung APP_BUILD hochzählen«). Das
@@ -6497,7 +6536,557 @@ async function syncReceiptsDown(){
   setInterval(() => {
     checkForUpdates(false); // false = automatisch, kein visuelles Feedback
   }, 60 * 60 * 1000);
+
 })();
+</script>
+
+<!-- DRAG & DROP IMPORT FUNCTIONS -->
+<script>
+let pendingImports = [];
+
+window.onDragOver = function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.getElementById('dropZone')?.classList.add('dragover');
+};
+
+window.onDragLeave = function(e) {
+  if (e.target.id === 'dropZone') {
+    document.getElementById('dropZone')?.classList.remove('dragover');
+  }
+};
+
+window.onDrop = async function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.getElementById('dropZone')?.classList.remove('dragover');
+  const files = Array.from(e.dataTransfer?.files || []);
+  await window.processUploadedFiles(files);
+};
+
+window.onFilesSelected = function(e) {
+  const files = Array.from(e.target.files || []);
+  e.target.value = '';
+  window.processUploadedFiles(files);
+};
+
+document.getElementById('dropZone')?.addEventListener('click', () => {
+  document.getElementById('fileInputPrimary')?.click();
+});
+
+window.extractPdfText = async function(file) {
+  if (file.type !== 'application/pdf') return null;
+  if (file.size > 700000) throw new Error('PDF > 700 KB: ' + file.name);
+  try {
+    await loadPdfJs();
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+    let fullText = '';
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      try {
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        const text = textContent.items.map(item => item.str).join(' ');
+        fullText += text + '\n';
+      } catch (e) {
+        console.warn('Seite ' + pageNum + ' konnte nicht gelesen werden', e);
+      }
+    }
+    return fullText || null;
+  } catch (e) {
+    console.error('PDF-Extraktion fehlgeschlagen:', file.name, e);
+    throw new Error('PDF konnte nicht gelesen werden: ' + e.message);
+  }
+}
+
+// Extrahiere Metadaten aus Dateiname und PDF-Text
+window.extractMetadata = function(file, pdfText) {
+  const metadata = {
+    dateiname: file.name,
+    belegart: null,
+    datum: null,
+    gesamtkosten: null
+  };
+
+  // Extrahiere Belegart aus Dateiname: JJJJ_MM_TT_Beleg_XXX.pdf oder direkt TG/RK
+  const fnMatch = file.name.match(/Beleg_(.+?)\./i);
+  if (fnMatch) {
+    metadata.belegart = fnMatch[1].replace(/_/g, ' ');
+  }
+
+  // Extrahiere Datum aus Dateiname (JJJJ_MM_TT_...)
+  const dateMatch = file.name.match(/(\d{4})_(\d{2})_(\d{2})/);
+  if (dateMatch) {
+    metadata.datum = dateMatch[1] + '-' + dateMatch[2] + '-' + dateMatch[3];
+  }
+
+  // Extrahiere Gesamtkosten aus PDF-Text
+  if (pdfText) {
+    const t = pdfText || '';
+    // Suche nach "Gesamtbetrag" (wichtig für Eurowings/DB) - mit flexiblem Whitespace
+    let costMatch = t.match(/Gesamtbetrag[\s\n]*(\d+[.,]\d{2})\s*€/i);
+    // Oder "Entrichteter Betrag" (Eurowings Alternative)
+    if (!costMatch) costMatch = t.match(/Entrichteter Betrag[\s\n]*(\d+[.,]\d{2})\s*€/i);
+    // Oder "Rechnungsbetrag" (wichtig für Salzburg Verkehr)
+    if (!costMatch) costMatch = t.match(/Rechnungsbetrag[\s\n]*(?:in Euro[\s\n]*)?(\d+[.,]\d{2})\s*€/i);
+    // Oder "Gesamtpreis"
+    if (!costMatch) costMatch = t.match(/Gesamtpreis[\s\n]*(\d+[.,]\d{2})\s*€/i);
+
+    if (costMatch) {
+      // Nur Komma zu Punkt konvertieren (deutsches Format "259,98" -> "259.98").
+      // Punkt-Dezimalzahlen (englisches Format "259.98", z.B. bei Eurowings) bleiben unverändert.
+      const cost = costMatch[1].replace(',', '.');
+      metadata.gesamtkosten = parseFloat(cost);
+    }
+  }
+
+  return metadata;
+};
+
+window.analyzeImportFile = function(file, pdfText) {
+  const metadata = window.extractMetadata(file, pdfText);
+
+  const result = {
+    id: uid(),
+    file: file,
+    pdfText: pdfText,
+    typ: null,
+    daten: null,
+    validierungsFehler: [],
+    ...metadata
+  };
+
+  // Wenn Belegart bereits aus Dateinamen extrahiert wurde (z.B. "Flugkarte"), skip PDF-Analyse für Belegart
+  const belegarntFromFilename = result.belegart;
+
+  if (file.type === 'application/pdf' && pdfText) {
+    try {
+      const bwParsed = parseBwBescheid(pdfText);
+      if (bwParsed && bwParsed.id) {
+        result.typ = bwParsed.typ === 'TG' ? 'TG' : 'RK';
+        result.daten = bwParsed;
+        result.belegart = bwParsed.typ;
+        return result;
+      }
+    } catch (e) {}
+
+    // Nur Typ-Erkennung für TG/RK, nicht Belegart überschreiben
+    const t = (pdfText || '').toLowerCase();
+    if (!belegarntFromFilename) {
+      if (t.includes('trennungsgeld') || t.includes('tg')) {
+        result.typ = 'TG';
+        result.belegart = 'TG';
+        result.validierungsFehler.push('Trennungsgeld erkannt, aber nicht vollständig geparst');
+      } else if (t.includes('reisekostenabrechnung') || t.includes('rk')) {
+        result.typ = 'RK';
+        result.belegart = 'RK';
+        result.validierungsFehler.push('Reisekostenabrechnung erkannt, aber nicht vollständig geparst');
+      } else {
+        result.typ = 'UNBEKANNT';
+        result.validierungsFehler.push('Bescheid-Typ konnte nicht erkannt werden');
+      }
+    } else {
+      result.typ = 'BELEG';
+    }
+  } else if (file.type && (file.type.startsWith('image/') || file.type === 'application/pdf')) {
+    result.typ = 'BELEG';
+  }
+  return result;
+};
+
+window.processUploadedFiles = async function(files) {
+  if (!files.length) return;
+  window.showProgressBar();
+  pendingImports = [];
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    window.updateProgressBar(i, files.length);
+    try {
+      let pdfText = null;
+      if (file.type === 'application/pdf') {
+        pdfText = await window.extractPdfText(file);
+      }
+      const analysis = window.analyzeImportFile(file, pdfText);
+      pendingImports.push(analysis);
+    } catch (e) {
+      toast('Fehler bei ' + file.name + ': ' + e.message, 'err');
+    }
+  }
+  window.hideProgressBar();
+  window.renderImportPreview();
+};
+
+window.showProgressBar = function() {
+  document.getElementById('uploadProgress').style.display = 'block';
+};
+
+window.hideProgressBar = function() {
+  document.getElementById('uploadProgress').style.display = 'none';
+  document.getElementById('progressBar').style.width = '0%';
+};
+
+window.updateProgressBar = function(current, total) {
+  const pct = Math.round((current / total) * 100);
+  document.getElementById('uploadStatus').textContent = (current + 1) + ' / ' + total;
+  document.getElementById('progressBar').style.width = pct + '%';
+};
+
+window.renderImportPreview = function() {
+  const previewDiv = document.getElementById('importPreview');
+  if (!previewDiv) return;
+  previewDiv.innerHTML = '';
+  if (!pendingImports.length) return;
+
+  const e = v => (v || 0).toLocaleString('de-DE', {minimumFractionDigits: 2});
+  const kachel = (n, l, farbe, bg) => `<div style="flex:1;min-width:88px;background:${bg};border-radius:8px;padding:8px;text-align:center"><div style="font-size:15px;font-weight:800;color:${farbe}">${n}</div><div style="font-size:10px;color:var(--muted)">${l}</div></div>`;
+  const zeile = (k, v, hl) => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--lsoft)"><span style="color:var(--muted)">${k}</span><b style="${hl?'color:var(--ok)':''}">${v}</b></div>`;
+
+  for (const imp of pendingImports) {
+    let html = '';
+
+    // Detaillierte Preview für erfolgreich geparste Bescheide (TG/RK)
+    if (imp.daten && (imp.typ === 'TG' || imp.typ === 'RK')) {
+      const b = imp.daten;
+      const vorh = bwList().find(x => x.id === b.id);
+      let rows = '';
+
+      if (b.typ === 'TG') {
+        rows = zeile('Zeitraum', b.periode || '?')
+          + zeile('Auslagenersatz Unterkunft', e(b.unterkunft) + ' €')
+          + zeile('Trennungstagegeld', e(b.tagegeld) + ' €')
+          + zeile('Fahrkosten Familienheimfahrten', e(b.fahrkosten) + ' €')
+          + zeile('steuerfreier Höchstbetrag', e(b.fkSteuerfrei) + ' €')
+          + zeile('Festgesetzt gesamt', e(b.gesamt) + ' €', 1)
+          + zeile('Auszahlung', e(b.auszahlung) + ' €', 1);
+      } else {
+        rows = zeile('Reise', (b.von ? fmtD(b.von) : '?') + ' – ' + (b.bis ? fmtD(b.bis) : '?'))
+          + zeile('Ziel', esc(b.ziel || '—'))
+          + zeile('Fahrt-/sonstige Kosten', e(b.fahrkosten) + ' €')
+          + zeile('Tagegeld', e(b.tagegeld) + ' €')
+          + zeile('Festgesetzt gesamt', e(b.gesamt) + ' €', 1)
+          + zeile('Auszahlung', e(b.auszahlung) + ' €', 1);
+      }
+
+      const vergP = (b.posten || []).filter(x => x.verguetet && x.km > 0);
+      const kmBlock = vergP.length ? `<div style="margin-top:8px;padding:7px 9px;background:var(--lsoft);border-radius:8px"><div style="font-size:10px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Vergütete Wegstrecke</div>${vergP.map(x=>`<div style="font-size:11px;padding:1px 0">${x.km} km × ${x.satz.toFixed(2).replace('.',',')} €/km = <b>${e(x.betrag)} €</b> <span style="color:var(--muted)">(${esc(x.rg || '')})</span></div>`).join('')}</div>` : '';
+
+      const stBlock = b.km && b.km.length ? `<div style="margin-top:6px;padding:7px 9px;background:#fff8e1;border-radius:8px"><div style="font-size:10px;font-weight:700;color:#8D6E00;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Steuerlich relevante Angaben</div>${b.km.map(k=>`<div style="font-size:11px;padding:1px 0">${esc(k.art)}${k.km?': '+k.km+' km':''} · steuerfrei <b>${e(k.steuerfrei)} €</b></div>`).join('')}</div>` : '';
+
+      html = `<div style="margin-bottom:12px;padding:11px;background:var(--lsoft);border-radius:8px;border-left:3px solid ${vorh?'var(--warn)':'var(--ok)'}">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--line)">
+          📄 ${esc(imp.dateiname || '')} • ${imp.belegart || '?'}
+        </div>
+        <div style="display:flex;gap:7px;margin-bottom:9px;flex-wrap:wrap">
+          ${kachel(b.typ==='TG'?'Trennungsgeld':'Reisekosten','Bescheidart','var(--navy)','var(--lsoft)')}
+          ${kachel(esc(b.nr),'Nummer','var(--navy)','var(--lsoft)')}
+          ${kachel(vorh?'Update':'Neu',vorh?'ersetzt vorhandenen':'noch nicht erfasst',vorh?'var(--warn)':'var(--ok)',vorh?'#fffdf5':'var(--oks)')}
+        </div>
+        ${vorh?'<div style="font-size:11px;color:var(--warn);margin-bottom:7px">⚠ Bescheid Nr. '+esc(b.nr)+' ist bereits erfasst und wird überschrieben.</div>':''}
+        <div style="border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:white">${rows}${kmBlock}${stBlock}</div>
+        <div style="display:flex;gap:8px;margin-top:9px">
+          <button class="btn" style="flex:1" onclick="window.confirmSingleImport('${imp.id}')">✓ Übernehmen</button>
+          <button class="btn-xs" onclick="window.removeImport('${imp.id}')" style="flex-shrink:0">✕ Entfernen</button>
+        </div>
+      </div>`;
+    } else {
+      // Editierbare Preview für Belege, Bilder & unbekannte Dokumente (Metadaten manuell nachtragbar)
+      const warnMsg = imp.validierungsFehler.length ? `<div style="font-size:10px;margin-bottom:7px;color:var(--warn)">⚠️ ${esc(imp.validierungsFehler.join(', '))}</div>` : '';
+      const feld = (label, inputHtml) => `<label style="font-size:11px;color:var(--muted);display:block">${label}${inputHtml}</label>`;
+      const inputStyle = 'width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:12px;margin-top:2px;box-sizing:border-box';
+
+      html = `<div style="margin-bottom:12px;padding:11px;background:var(--lsoft);border-radius:8px;border-left:3px solid var(--ok)">
+        <div style="display:flex;gap:7px;margin-bottom:9px;flex-wrap:wrap">
+          ${kachel(esc(imp.belegart || 'Beleg'),'Belegart','var(--navy)','var(--lsoft)')}
+          ${kachel(imp.datum ? imp.datum.split('-')[2] : '?','Tag','var(--navy)','var(--lsoft)')}
+          ${kachel(imp.gesamtkosten != null ? e(imp.gesamtkosten) + ' €' : '?','Betrag','var(--ok)','var(--oks)')}
+        </div>
+        ${warnMsg}
+        <div style="border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:white;display:flex;flex-direction:column;gap:8px">
+          ${feld('Dateiname', `<input type="text" value="${esc(imp.dateiname || imp.file.name)}" oninput="window.updateImportField('${imp.id}','dateiname',this.value)" onchange="window.renderImportPreview()" style="${inputStyle}">`)}
+          ${feld('Belegart', `<input type="text" placeholder="z.B. Rechnung, Taxi, Parkgebühr" value="${esc(imp.belegart || '')}" oninput="window.updateImportField('${imp.id}','belegart',this.value)" onchange="window.renderImportPreview()" style="${inputStyle}">`)}
+          ${feld('Datum', `<input type="date" value="${imp.datum || ''}" oninput="window.updateImportField('${imp.id}','datum',this.value)" onchange="window.renderImportPreview()" style="${inputStyle}">`)}
+          ${feld('Betrag (€)', `<input type="number" step="0.01" min="0" placeholder="0.00" value="${imp.gesamtkosten != null ? imp.gesamtkosten : ''}" oninput="window.updateImportField('${imp.id}','gesamtkosten',this.value)" onchange="window.renderImportPreview()" style="${inputStyle}">`)}
+        </div>
+        <div style="margin-top:9px">
+          <button class="btn-xs" onclick="window.removeImport('${imp.id}')">✕ Entfernen</button>
+        </div>
+      </div>`;
+    }
+
+    previewDiv.innerHTML += html;
+  }
+
+  // Buttons nur zeigen wenn es nicht nur detaillierte Previews gibt
+  const hasDetailedOnly = pendingImports.every(imp => imp.daten && (imp.typ === 'TG' || imp.typ === 'RK'));
+  if (pendingImports.length && !hasDetailedOnly) {
+    document.getElementById('importActions').style.display = 'flex';
+  }
+};
+
+window.removeImport = function(id) {
+  pendingImports = pendingImports.filter(x => x.id !== id);
+  window.renderImportPreview();
+  if (!pendingImports.length) {
+    document.getElementById('importActions').style.display = 'none';
+  }
+};
+
+window.clearImports = function() {
+  pendingImports = [];
+  document.getElementById('importPreview').innerHTML = '';
+  document.getElementById('importActions').style.display = 'none';
+};
+
+window.showSuccessMessage = function(text) {
+  document.getElementById('importPreview').innerHTML =
+    '<div style="background:var(--oks);border:1px solid var(--ok);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--ok);font-weight:600">' +
+    '✓ ' + text + '</div>';
+};
+
+window.updateImportField = function(id, field, value) {
+  const imp = pendingImports.find(x => x.id === id);
+  if (!imp) return;
+  if (field === 'gesamtkosten') {
+    imp.gesamtkosten = value !== '' ? parseFloat(value) : null;
+  } else {
+    imp[field] = value;
+  }
+};
+
+window.confirmSingleImport = async function(impId) {
+  const imp = pendingImports.find(x => x.id === impId);
+  if (!imp) return;
+
+  window.showProgressBar();
+  try {
+    const isBescheid = imp.daten && (imp.typ === 'TG' || imp.typ === 'RK');
+    const monat = imp.datum ? imp.datum.slice(0, 7) : ((isBescheid && imp.daten.periode) || null);
+    const betrag = isBescheid ? (imp.daten.gesamt != null ? imp.daten.gesamt : imp.gesamtkosten) : imp.gesamtkosten;
+    const id = await storeOriginalFile(imp.file, {
+      prefix: imp.typ.toLowerCase() + '_import',
+      monat: monat,
+      typ: imp.typ,
+      belegart: imp.belegart,
+      datum: imp.datum,
+      betrag: betrag
+    });
+
+    if (isBescheid) {
+      // TG/RK Bescheid
+      imp.daten.fileId = id;
+      imp.daten.dateiname = imp.dateiname;
+      imp.daten.belegart = imp.belegart;
+      const l = bwList();
+      const ix = l.findIndex(x => x.id === imp.daten.id);
+      const neu = ix < 0;
+      if (neu) l.push(imp.daten);
+      else l[ix] = imp.daten;
+      persist();
+      scheduleCloudPush();
+      window.hideProgressBar();
+      pendingImports = pendingImports.filter(x => x.id !== impId);
+      window.renderImportPreview();
+      toast((neu ? 'Übernommen' : 'Aktualisiert') + ': ' + imp.daten.typ + ' Nr. ' + (imp.daten.nr || imp.daten.id), 'ok');
+      renderBwList();
+      renderOverview();
+      window.renderBelegeablage();
+    } else if (imp.typ === 'BELEG') {
+      // Beleg
+      if (!state.settings.mbReceipts) state.settings.mbReceipts = {};
+      if (!state.settings.mbReceipts['unassigned']) state.settings.mbReceipts['unassigned'] = [];
+      state.settings.mbReceipts['unassigned'].push({
+        id: id,
+        dateiname: imp.dateiname,
+        belegart: imp.belegart,
+        datum: imp.datum,
+        gesamtkosten: imp.gesamtkosten
+      });
+      persist();
+      scheduleCloudPush();
+      window.hideProgressBar();
+      pendingImports = pendingImports.filter(x => x.id !== impId);
+      window.renderImportPreview();
+      toast('Beleg übernommen: ' + (imp.belegart || 'unbekannt'), 'ok');
+      renderOverview();
+      window.renderBelegeablage();
+    }
+  } catch (e) {
+    window.hideProgressBar();
+    toast('Fehler: ' + e.message, 'err');
+  }
+};
+
+window.confirmImports = async function() {
+  if (!pendingImports.length) return;
+  window.showProgressBar();
+  const imported = [];
+  for (let i = 0; i < pendingImports.length; i++) {
+    const imp = pendingImports[i];
+    window.updateProgressBar(i, pendingImports.length);
+    try {
+      const isBescheid = imp.daten && (imp.typ === 'TG' || imp.typ === 'RK');
+      const monat = imp.datum ? imp.datum.slice(0, 7) : ((isBescheid && imp.daten.periode) || null);
+      const betrag = isBescheid ? (imp.daten.gesamt != null ? imp.daten.gesamt : imp.gesamtkosten) : imp.gesamtkosten;
+      const id = await storeOriginalFile(imp.file, {
+        prefix: imp.typ.toLowerCase() + '_import',
+        monat: monat,
+        typ: imp.typ,
+        belegart: imp.belegart,
+        datum: imp.datum,
+        betrag: betrag
+      });
+
+      if (isBescheid) {
+        // TG/RK Bescheid — wie beim einzelnen Übernehmen in bwList() eintragen
+        imp.daten.fileId = id;
+        imp.daten.dateiname = imp.dateiname;
+        imp.daten.belegart = imp.belegart;
+        const l = bwList();
+        const ix = l.findIndex(x => x.id === imp.daten.id);
+        if (ix < 0) l.push(imp.daten);
+        else l[ix] = imp.daten;
+      } else if (imp.typ === 'BELEG' || imp.typ === 'UNBEKANNT') {
+        if (!state.settings.mbReceipts) state.settings.mbReceipts = {};
+        if (!state.settings.mbReceipts['unassigned']) state.settings.mbReceipts['unassigned'] = [];
+        const liste = state.settings.mbReceipts['unassigned'];
+        // Duplikat vermeiden: gleicher Dateiname + Datum + Betrag bereits vorhanden
+        const dupIx = liste.findIndex(r =>
+          r.dateiname === imp.dateiname && r.datum === imp.datum && r.gesamtkosten === imp.gesamtkosten);
+        const eintrag = { id: id, dateiname: imp.dateiname, belegart: imp.belegart, datum: imp.datum, gesamtkosten: imp.gesamtkosten };
+        if (dupIx < 0) liste.push(eintrag);
+        else liste[dupIx] = eintrag;
+      }
+      imported.push(imp.file.name);
+    } catch (e) {
+      toast('Fehler bei ' + imp.file.name + ': ' + e.message, 'err');
+    }
+  }
+  persist();
+  scheduleCloudPush();
+  renderBwList();
+  window.hideProgressBar();
+  window.clearImports();
+  toast(imported.length + ' Dateien importiert', 'ok');
+  renderOverview();
+  window.renderBelegeablage();
+};
+
+/* ── Belegeablage: alle über Drag & Drop hochgeladenen Originaldateien, nach Monat ── */
+window.renderBelegeablage = async function() {
+  const el = document.getElementById('belegeablageListe');
+  if (!el) return;
+
+  const alle = await idbAllF();
+  const dateien = alle.filter(f => f.herkunft === 'upload');
+
+  if (!dateien.length) {
+    el.innerHTML = '<p style="font-size:12px;color:var(--muted);margin:0">Noch keine Dateien hochgeladen.</p>';
+    return;
+  }
+
+  const MONATSNAMEN = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  const monatsTitel = m => {
+    const t = /^(\d{4})-(\d{2})$/.exec(m);
+    return t ? MONATSNAMEN[parseInt(t[2], 10) - 1] + ' ' + t[1] : m;
+  };
+  const monatVon = f => {
+    if (f.monat && /^\d{4}-\d{2}$/.test(f.monat)) return f.monat;
+    if (f.datum && /^\d{4}-\d{2}/.test(f.datum)) return f.datum.slice(0, 7);
+    return 'Ohne Datum';
+  };
+
+  const nachMonat = {};
+  dateien.forEach(f => { const m = monatVon(f); (nachMonat[m] = nachMonat[m] || []).push(f); });
+
+  const monate = Object.keys(nachMonat).sort((a, b) => {
+    if (a === 'Ohne Datum') return 1;
+    if (b === 'Ohne Datum') return -1;
+    return b.localeCompare(a);
+  });
+
+  el.innerHTML = monate.map(m => {
+    const items = nachMonat[m].slice().sort((a, b) =>
+      String(a.datum || '').localeCompare(String(b.datum || '')) || String(a.name || '').localeCompare(String(b.name || '')));
+    const summe = items.reduce((a, f) => a + (parseFloat(f.betrag) || 0), 0);
+
+    const zeilen = items.map(f => {
+      const tag = /^\d{4}-\d{2}-(\d{2})$/.exec(f.datum || '');
+      return '<div style="display:flex;align-items:baseline;gap:9px;padding:5px 0;font-size:12px;border-top:1px solid var(--line)">'
+        + '<span style="width:26px;color:var(--muted);font-variant-numeric:tabular-nums">' + (tag ? tag[1] + '.' : '–') + '</span>'
+        + '<span style="flex:1;cursor:pointer" onclick="viewRec(\'' + f.id + '\')" title="Öffnen">' + esc(f.belegart || f.typ || 'Beleg')
+        + ' <span style="color:var(--muted);font-size:10px">' + esc(f.name || '') + '</span></span>'
+        + '<span style="color:var(--muted);font-variant-numeric:tabular-nums">' + (f.betrag ? parseFloat(f.betrag).toFixed(2) + ' €' : '') + '</span>'
+        + '<button class="btn-xs" onclick="dlRec(\'' + f.id + '\')" title="Download">⬇</button>'
+        + '<button class="btn-xs" onclick="window.deleteBelegeablageFile(\'' + f.id + '\')" style="border-color:var(--err);color:var(--err)" title="Löschen">✕</button>'
+        + '</div>';
+    }).join('');
+
+    return '<div style="border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;background:#fff">'
+      + '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px">'
+      + '<b style="font-size:13px;color:var(--navy)">' + esc(monatsTitel(m)) + '</b>'
+      + '<span style="font-size:11px;color:var(--muted)">' + items.length + ' Datei' + (items.length !== 1 ? 'en' : '')
+      + (summe ? ' · ' + summe.toFixed(2) + ' €' : '') + '</span>'
+      + '</div>' + zeilen + '</div>';
+  }).join('');
+};
+
+window.deleteBelegeablageFile = async function(id) {
+  if (!confirm('Diese Datei wirklich löschen?')) return;
+  await idbDelF(id);
+
+  // Verweise in mbReceipts (Belege ohne feste Monatszuordnung) entfernen
+  if (state.settings.mbReceipts) {
+    Object.keys(state.settings.mbReceipts).forEach(key => {
+      state.settings.mbReceipts[key] = (state.settings.mbReceipts[key] || []).filter(r => (r && r.id ? r.id : r) !== id);
+    });
+  }
+  // fileId-Referenz in TG/RK-Bescheiden entfernen, falls die gelöschte Datei dort verknüpft war
+  bwList().forEach(b => { if (b.fileId === id) b.fileId = null; });
+
+  persist();
+  scheduleCloudPush();
+  window.renderBelegeablage();
+  renderOverview();
+  toast('Datei gelöscht', 'ok');
+};
+
+/* Kompletter Reset: alle über Drag & Drop importierten Bescheide + Belege, lokal UND in der Cloud.
+   Stoppt kurz den Auto-Sync-Listener, damit ein noch nicht abgeglichener Cloud-Stand die Löschung
+   nicht per Realtime-Sync wieder zurückholt, bevor der neue (leere) Stand hochgeladen ist. */
+window.resetBelegeKomplett = async function() {
+  const alle = await idbAllF();
+  const dateien = alle.filter(f => f.herkunft === 'upload');
+  const anzBescheide = bwList().length;
+  const anzBelege = Object.values(state.settings.mbReceipts || {}).reduce((a, l) => a + (l ? l.length : 0), 0);
+
+  const sicher = confirm(
+    'Wirklich ALLE über Drag & Drop importierten Daten löschen?\n\n' +
+    '- ' + anzBescheide + ' TG/RK-Bescheid(e)\n' +
+    '- ' + anzBelege + ' sonstige(r) Beleg(e)\n' +
+    '- ' + dateien.length + ' gespeicherte Datei(en)\n\n' +
+    'Dies wird auch in der Cloud überschrieben und kann nicht rückgängig gemacht werden.'
+  );
+  if (!sicher) return;
+
+  const autoSyncWarLaufend = !!fbUnsub;
+  if (autoSyncWarLaufend) stopAutoSync();
+
+  for (const f of dateien) { try { await idbDelF(f.id); } catch (e) {} }
+
+  state.settings.bwBescheide = [];
+  state.settings.mbReceipts = {};
+  persist();
+
+  if (fbUser && fbDB) {
+    try { await cloudPush(true); } catch (e) { toast('Cloud-Upload fehlgeschlagen: ' + e.message, 'err'); }
+  }
+  if (autoSyncWarLaufend) startAutoSync();
+
+  renderBwList();
+  renderOverview();
+  window.renderBelegeablage();
+  toast('Alle Bescheide & Belege gelöscht', 'ok');
+};
 </script>
 </body>
 </html>
