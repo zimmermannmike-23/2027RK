@@ -6281,10 +6281,18 @@ async function mergeRemote(remote,remoteTs){
 // Alle im State referenzierten Beleg-IDs sammeln
 function allReceiptIds(){
   const ids=new Set();
-  const grab=obj=>{if(!obj)return;Object.values(obj).forEach(arr=>{if(Array.isArray(arr))arr.forEach(id=>ids.add(id));});};
+  // Manche Namensräume (z. B. mbReceipts['unassigned'] aus der Belegeablage) enthalten
+  // Objekte {id,...} statt reiner ID-Strings — beide Formen abfangen.
+  const grab=obj=>{if(!obj)return;Object.values(obj).forEach(arr=>{
+    if(!Array.isArray(arr))return;
+    arr.forEach(x=>{const id=(x&&typeof x==='object')?x.id:x;if(id)ids.add(id);});
+  });};
   const s=state.settings;
   grab(s.bwReceipts);grab(s.mbReceipts);grab(s.drReceipts);grab(s.fkReceipts);grab(s.abReceipts);grab(s.daReceipts);
   state.entries.forEach(e=>{(e.recIds||[]).forEach(id=>ids.add(id));(e.segs||[]).forEach(sg=>(sg.recIds||[]).forEach(id=>ids.add(id)));});
+  // TG/RK-Bescheid-Original-PDFs (Drag & Drop-Ablage) — bwBescheide selbst hat keinen
+  // eigenen receipt-Namensraum, die Datei-ID steckt nur in fileId je Bescheid.
+  bwList().forEach(b=>{if(b.fileId)ids.add(b.fileId);});
   return [...ids];
 }
 async function syncReceiptsUp(){
