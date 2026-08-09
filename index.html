@@ -6430,7 +6430,8 @@ async function cloudPush(manual){
       if(r.hochgeladen)probleme.push(r.hochgeladen+' Beleg(e) neu hochgeladen');
       if(r.uebersprungenGross.length)probleme.push(r.uebersprungenGross.length+' zu gro\u00df \u00fcbersprungen ('
         +r.uebersprungenGross.map(x=>x.name+', '+(x.size/1024).toFixed(0)+' KB').join('; ')+')');
-      if(r.fehlendLokal.length)probleme.push(r.fehlendLokal.length+' lokal nicht gefunden (ID: '+r.fehlendLokal.join(', ')+')');
+      if(r.fehlendLokal.length)probleme.push(r.fehlendLokal.length+' lokal nicht gefunden: '
+        +r.fehlendLokal.map(x=>x.id+' ['+x.quellen.join(', ')+']').join('; '));
       if(r.fehler.length)probleme.push(r.fehler.length+' Fehler ('+r.fehler.map(x=>x.message).join('; ')+')');
       toast(probleme.length?'Daten hochgeladen \u2014 '+probleme.join(' \u00b7 '):'Daten hochgeladen',
         (r.uebersprungenGross.length||r.fehlendLokal.length||r.fehler.length)?'err':'ok');
@@ -6519,6 +6520,28 @@ function allReceiptIds(){
   bwList().forEach(b=>{if(b.fileId)ids.add(b.fileId);});
   return [...ids];
 }
+/* Zu welchen Stellen im State eine Beleg-ID gehört — für Fehlermeldungen, damit
+   »lokal nicht gefunden« nicht nur eine ID nennt, sondern auch, wo sie referenziert
+   wird (z. B. ein alter Bescheid-Datensatz ohne jemals hochgeladene Datei). */
+function receiptIdSources(id){
+  const quellen=[];
+  const s=state.settings;
+  ['bwReceipts','mbReceipts','drReceipts','fkReceipts','abReceipts','daReceipts'].forEach(ns=>{
+    const obj=s[ns];if(!obj)return;
+    Object.keys(obj).forEach(k=>{
+      (obj[k]||[]).forEach(x=>{
+        const xid=(x&&typeof x==='object')?x.id:x;
+        if(xid===id)quellen.push(ns+'["'+k+'"]');
+      });
+    });
+  });
+  (state.entries||[]).forEach(e=>{
+    if((e.recIds||[]).includes(id))quellen.push('Eintrag '+e.date);
+    (e.segs||[]).forEach((sg,i)=>{if((sg.recIds||[]).includes(id))quellen.push('Eintrag '+e.date+' Strecke '+(i+1));});
+  });
+  bwList().forEach(b=>{if(b.fileId===id)quellen.push('Bescheid '+b.typ+' Nr. '+(b.nr||b.id));});
+  return quellen.length?quellen:['keine Referenz gefunden (?)'];
+}
 /* Liefert eine Zusammenfassung statt stumm zu scheitern: bisher wurden einzelne
    Beleg-Fehler nur in der Konsole geloggt und der manuelle "Jetzt hochladen"-Button
    meldete trotzdem pauschal Erfolg \u2014 dadurch blieb unsichtbar, warum ein bestimmter
@@ -6532,7 +6555,7 @@ async function syncReceiptsUp(){
     if(uploaded[id])continue;
     try{
       const rec=await idbGetF(id);
-      if(!rec||!rec.blob){res.fehlendLokal.push(id);continue;}
+      if(!rec||!rec.blob){res.fehlendLokal.push({id,quellen:receiptIdSources(id)});continue;}
       // Firestore-Dokument-Limit ~1 MB. base64 vergroessert um ~33% -> Nutzlast < ~720 KB.
       if(rec.blob.size>700000){
         console.warn('Beleg zu gross fuer Firestore-Sync:',id,rec.name,rec.blob.size);
