@@ -775,9 +775,10 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=31;
+const APP_BUILD=32;
 const APP_DATE='10.08.2026';
 const APP_CHANGES=[
+  'Die 3 hartnäckigen „lokal nicht gefunden"-Meldungen sind endgültig weg — sie waren Bescheid-Nummern, die fälschlich als Beleg-Datei eingetragen waren',
   'App-Update wird jetzt zuverlässig übernommen: alter Reload-Befehl wurde von Browsern ignoriert',
   'Bereinigung: prüft jetzt echt gegen Firestore, statt einem fälschlich gesetzten "hochgeladen"-Merker zu vertrauen',
   'Neuer Button: verwaiste Beleg-Verweise finden und bereinigen (Einstellungen → Speicher)',
@@ -1036,6 +1037,25 @@ function migrate(){
   if(!state.settings.abReceipts)state.settings.abReceipts={};if(!state.settings.daReceipts)state.settings.daReceipts={};
   if(!Array.isArray(state.settings.fkRoutes))state.settings.fkRoutes=[];
   state.entries.forEach(e=>{if(!e.nachweis)e.nachweis='';if(!e.bemerkung)e.bemerkung='';if(!e.zeActivity)e.zeActivity='';});
+  /* Altbestand: In den Beleg-Listen steht teils die Bescheid-Kennung (o.id = 'bw_'+typ+'_'+nr)
+     statt einer Datei-ID. So etwas kann nie eine Datei sein — echte Datei-IDs stammen
+     ausschliesslich aus fid() und beginnen mit 'f_'. Diese Verweise landeten sonst dauerhaft
+     als "lokal nicht gefunden" in der Sync-Diagnose und kamen nach jeder Bereinigung ueber
+     die Cloud zurueck (mergeRemote uebernimmt Remote-Settings per Object.assign). Deshalb
+     hier in migrate(): laeuft beim Laden UND nach jedem Merge, heilt sich also selbst. */
+  const istBescheidKennung=x=>/^bw_(TG|RK)_/.test((x&&typeof x==='object')?x.id:x);
+  let zombieWeg=0;
+  ['bwReceipts','mbReceipts','drReceipts','fkReceipts','abReceipts','daReceipts'].forEach(ns=>{
+    const obj=state.settings[ns];if(!obj)return;
+    Object.keys(obj).forEach(k=>{
+      const vorher=obj[k];if(!Array.isArray(vorher))return;
+      const nachher=vorher.filter(x=>!istBescheidKennung(x));
+      if(nachher.length!==vorher.length){zombieWeg+=vorher.length-nachher.length;obj[k]=nachher;}
+    });
+  });
+  if(state.settings.fbUploaded)Object.keys(state.settings.fbUploaded)
+    .forEach(id=>{if(istBescheidKennung(id))delete state.settings.fbUploaded[id];});
+  if(zombieWeg)console.log('migrate: '+zombieWeg+' ungueltige Bescheid-Verweise aus Beleg-Listen entfernt');
 }
 
 
@@ -6772,6 +6792,10 @@ async function syncReceiptsDown(){
     ],
     31: [
       'App-Update wird jetzt zuverlässig übernommen (alter Reload-Befehl wurde von Browsern ignoriert)',
+    ],
+    32: [
+      'Verwaiste Beleg-Verweise werden jetzt beim Laden automatisch entfernt — kein Knopfdruck mehr nötig',
+      'Ursache gefunden: Bescheid-Nummern (bw_TG_…/bw_RK_…) standen fälschlich in der Beleg-Liste',
     ],
   };
   
