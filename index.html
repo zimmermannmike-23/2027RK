@@ -775,9 +775,10 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=33;
+const APP_BUILD=34;
 const APP_DATE='10.08.2026';
 const APP_CHANGES=[
+  'Drag & Drop: Dateien, die als Bescheid-Stichwort erkannt aber nicht vollständig gelesen werden konnten, landen jetzt trotzdem als Beleg in der Ablage statt spurlos zu verschwinden',
   'Sync-Fehler behoben: neue Belege vom anderen Gerät kamen manchmal gar nicht an, wenn dieses Gerät selbst kurz zuvor etwas hochgeladen hatte',
   'Die 3 hartnäckigen „lokal nicht gefunden"-Meldungen sind endgültig weg — sie waren Bescheid-Nummern, die fälschlich als Beleg-Datei eingetragen waren',
   'App-Update wird jetzt zuverlässig übernommen: alter Reload-Befehl wurde von Browsern ignoriert',
@@ -6809,6 +6810,9 @@ async function syncReceiptsDown(){
     33: [
       'Sync repariert: ein Gerät konnte neue Belege vom anderen Gerät verpassen, wenn es selbst kurz zuvor etwas hochgeladen hatte',
     ],
+    34: [
+      'Drag & Drop-Import repariert: ein per Stichwort als Bescheid erkanntes, aber nicht vollständig lesbares PDF wurde bisher lokal gespeichert, aber nirgends verknüpft — dadurch nie synchronisiert',
+    ],
   };
   
   // APP_BUILD ist die einzige Quelle für die Update-Erkennung — bereits die
@@ -7327,7 +7331,14 @@ window.confirmImports = async function() {
         const ix = l.findIndex(x => x.id === imp.daten.id);
         if (ix < 0) l.push(imp.daten);
         else l[ix] = imp.daten;
-      } else if (imp.typ === 'BELEG' || imp.typ === 'UNBEKANNT') {
+      } else {
+        // Deckt auch den Fall ab, dass ein PDF per Stichwort als 'TG'/'RK' erkannt wurde
+        // (z. B. weil der Text "tg"/"rk" enthält), aber parseBwBescheid() daraus keinen
+        // vollständigen Bescheid extrahieren konnte (daten bleibt null, isBescheid also
+        // false). Ohne dieses "else" landete die Datei nur lokal in IndexedDB — mit
+        // Speicherplatz-Eintrag, aber ganz ohne Verweis in mbReceipts/bwList. Damit
+        // ignorierte allReceiptIds() sie komplett: kein Sync-Fehler, kein Upload, keine
+        // Chance, sie je auf einem anderen Gerät zu sehen.
         if (!state.settings.mbReceipts) state.settings.mbReceipts = {};
         if (!state.settings.mbReceipts['unassigned']) state.settings.mbReceipts['unassigned'] = [];
         const liste = state.settings.mbReceipts['unassigned'];
