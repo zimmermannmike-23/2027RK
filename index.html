@@ -735,6 +735,10 @@ datalist{display:none;}
     <div id="stPers" style="font-size:11px;color:var(--muted);margin-top:3px"></div>
     <div id="stBreakdown" style="font-size:11px;color:var(--muted);margin-top:6px"></div>
     <div style="margin-top:12px">
+      <button class="btn-xs" onclick="window.bereinigeVerwaisteBelegVerweise()" style="border-color:var(--err);color:var(--err)">🧹 Verwaiste Beleg-Verweise bereinigen</button>
+      <p style="font-size:10px;color:var(--muted);margin:4px 0 0">Findet Beleg-Referenzen, für die keine Datei lokal existiert UND die nie erfolgreich in die Cloud hochgeladen wurden — z. B. eine versehentlich als Datei-ID gespeicherte Bescheid-Nummer. Zeigt vor dem Entfernen genau, was betroffen ist.</p>
+    </div>
+    <div style="margin-top:12px">
       <button class="btn-xs" onclick="window.loescheAlteBelegQuellen()" style="border-color:var(--err);color:var(--err)">🗑️ Alte Beleg-Verknüpfungen löschen (nur Belegeablage behalten)</button>
       <p style="font-size:10px;color:var(--muted);margin:4px 0 0">Entfernt BW-Beleg-Uploads, Dienstreise-Belege und über 📎 im Wizard angehängte Belege. Die neue Belegeablage (Drag &amp; Drop) sowie generierte Dokumente (Monatsberichte etc.) bleiben erhalten.</p>
     </div>
@@ -771,9 +775,10 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=28;
+const APP_BUILD=29;
 const APP_DATE='09.08.2026';
 const APP_CHANGES=[
+  'Neuer Button: verwaiste Beleg-Verweise finden und bereinigen (Einstellungen → Speicher)',
   'Sync-Diagnose: fehlende Belege zeigen jetzt ihre Quelle (welcher Bescheid/Eintrag referenziert sie)',
   'Trennungsgeld nach § 3(2) TGV: neue Box in Zeiterfassung, je Mahlzeit erfassbar',
   'Neuer Reiter „Jahresübersicht": Jahreszahlen, DHF-Vergleich, Querprüfung und Belegeablage an einem Ort',
@@ -4377,6 +4382,34 @@ window.loescheAlteBelegQuellen=async function(){
   if(typeof renderBwList==='function')renderBwList();
   toast(treffer.length+' alte Beleg-Datei(en) gelöscht','ok');
 };
+/* Findet und entfernt Beleg-Referenzen, die ins Leere zeigen — keine Datei existiert lokal
+   dafür UND sie wurde nie erfolgreich zur Cloud hochgeladen (fbUploaded). Anders als
+   loescheDateiKategorie() gibt es hier keine Datei zu löschen: nur der kaputte Verweis
+   selbst wird entfernt (z. B. eine Bescheid-Nummer, die versehentlich als Datei-ID in
+   bwReceipts gelandet ist, oder eine Beleg-Metadatenzeile ohne je gespeicherte Datei). */
+window.bereinigeVerwaisteBelegVerweise=async function(){
+  const kandidaten=[];
+  for(const id of allReceiptIds()){
+    if((state.settings.fbUploaded||{})[id])continue;   // ist erfolgreich in der Cloud — nicht anfassen
+    const rec=await idbGetF(id);
+    if(!rec)kandidaten.push({id,quellen:receiptIdSources(id)});
+  }
+  if(!kandidaten.length){toast('Keine verwaisten Verweise gefunden','ok');return;}
+  const liste=kandidaten.map(k=>'• '+k.id+'\n  '+k.quellen.join(', ')).join('\n');
+  if(!confirm(kandidaten.length+' verwaiste(r) Beleg-Verweis(e) gefunden — keine Datei lokal vorhanden '
+    +'und nie erfolgreich hochgeladen:\n\n'+liste+'\n\n'
+    +'Nur die Verweise werden entfernt (es gibt keine Datei zu löschen). Das kann nicht rückgängig '
+    +'gemacht werden.'))return;
+  entferneDateiReferenzen(kandidaten.map(k=>k.id));
+  persist();
+  scheduleCloudPush();
+  updStInfo();
+  if(typeof renderReceipts==='function')renderReceipts();
+  if(typeof renderOverview==='function')renderOverview();
+  if(typeof renderBelegeablage==='function')renderBelegeablage();
+  if(typeof renderBwList==='function')renderBwList();
+  toast(kandidaten.length+' verwaiste Verweis(e) entfernt','ok');
+};
 function confirmReset(){showModal('Alle Daten löschen?','ALLE Einträge und Belege werden permanent entfernt!',async()=>{
   const files=await idbAllF();for(const f of files){try{await idbDelF(f.id);}catch(e){}}
   state.entries=[];persist();renderOverview();updStInfo();toast('Alle Daten gelöscht','ok');
@@ -6716,6 +6749,9 @@ async function syncReceiptsDown(){
     ],
     28: [
       'Sync-Diagnose zeigt jetzt die Quelle fehlender Belege',
+    ],
+    29: [
+      'Neuer Button: verwaiste Beleg-Verweise finden und bereinigen',
     ],
   };
   
