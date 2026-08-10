@@ -775,9 +775,10 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=32;
+const APP_BUILD=33;
 const APP_DATE='10.08.2026';
 const APP_CHANGES=[
+  'Sync-Fehler behoben: neue Belege vom anderen Gerät kamen manchmal gar nicht an, wenn dieses Gerät selbst kurz zuvor etwas hochgeladen hatte',
   'Die 3 hartnäckigen „lokal nicht gefunden"-Meldungen sind endgültig weg — sie waren Bescheid-Nummern, die fälschlich als Beleg-Datei eingetragen waren',
   'App-Update wird jetzt zuverlässig übernommen: alter Reload-Befehl wurde von Browsern ignoriert',
   'Bereinigung: prüft jetzt echt gegen Firestore, statt einem fälschlich gesetzten "hochgeladen"-Merker zu vertrauen',
@@ -6530,7 +6531,7 @@ async function cloudPull(manual){
 // Settings-Felder, die geraetegebunden sind und NICHT synchronisiert werden
 function stripLocalOnly(s){
   const c=JSON.parse(JSON.stringify(s));
-  delete c.fbConfig;delete c.fbAutoSync;delete c.fbLastSync;
+  delete c.fbConfig;delete c.fbAutoSync;delete c.fbLastSync;delete c.fbLastAppliedRemoteTs;
   return c;
 }
 
@@ -6551,10 +6552,18 @@ async function mergeRemote(remote,remoteTs){
       }
     });
     state.entries=Object.values(localById);
-    // Settings uebernehmen (ohne lokale Felder), Cloud gilt wenn neuer
-    if(remote.settings&&(!state.settings.fbLastSync||remoteTs>=state.settings.fbLastSync)){
+    // Settings uebernehmen (ohne lokale Felder). Bewusst NICHT gegen fbLastSync (den
+    // eigenen letzten Push-Zeitpunkt dieses Geraets) geprueft — das verglich zwei
+    // voneinander unabhaengige Uhren (eigener Push vs. fremder Dokument-Zeitstempel) und
+    // konnte einen echten, neueren Stand vom anderen Geraet stillschweigend verwerfen,
+    // sobald dieses Geraet selbst zwischenzeitlich (fuer irgendeine änderung) gepusht
+    // hatte. Firestore liefert bei einem Einzeldokument ohnehin immer den serverseitig
+    // aktuellen Stand, daher genuegt ein einfacher Idempotenz-Check gegen den zuletzt
+    // TATSAECHLICH UEBERNOMMENEN Remote-Zeitstempel.
+    if(remote.settings&&(!state.settings.fbLastAppliedRemoteTs||remoteTs>state.settings.fbLastAppliedRemoteTs)){
       const keepFb={fbConfig:state.settings.fbConfig,fbAutoSync:state.settings.fbAutoSync,fbLastSync:state.settings.fbLastSync};
       state.settings=Object.assign(state.settings,remote.settings,keepFb);
+      state.settings.fbLastAppliedRemoteTs=remoteTs;
     }
     migrate();persist();
     // Belege nachladen, die lokal fehlen
@@ -6796,6 +6805,9 @@ async function syncReceiptsDown(){
     32: [
       'Verwaiste Beleg-Verweise werden jetzt beim Laden automatisch entfernt — kein Knopfdruck mehr nötig',
       'Ursache gefunden: Bescheid-Nummern (bw_TG_…/bw_RK_…) standen fälschlich in der Beleg-Liste',
+    ],
+    33: [
+      'Sync repariert: ein Gerät konnte neue Belege vom anderen Gerät verpassen, wenn es selbst kurz zuvor etwas hochgeladen hatte',
     ],
   };
   
