@@ -775,11 +775,11 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=35;
+const APP_BUILD=36;
 const APP_DATE='10.08.2026';
 const APP_CHANGES=[
+  'Falsch einsortierte Belege werden jetzt beim Start automatisch der Belegeablage zugeordnet — ohne Cloud-Abgleich und ohne weiteres Zutun',
   'Belegeablage synct jetzt vollständig: hochgeladene Dateien tauchen auf allen Geräten unter „Originaldateien nach Monat" auf statt als namenloser Alt-Beleg',
-  'Bereits falsch übertragene Dateien werden beim nächsten Laden automatisch richtig zugeordnet',
   'Drag & Drop: Dateien, die als Bescheid-Stichwort erkannt aber nicht vollständig gelesen werden konnten, landen jetzt trotzdem als Beleg in der Ablage statt spurlos zu verschwinden',
   'Sync-Fehler behoben: neue Belege vom anderen Gerät kamen manchmal gar nicht an, wenn dieses Gerät selbst kurz zuvor etwas hochgeladen hatte',
   'Die 3 hartnäckigen „lokal nicht gefunden"-Meldungen sind endgültig weg — sie waren Bescheid-Nummern, die fälschlich als Beleg-Datei eingetragen waren',
@@ -5011,6 +5011,15 @@ async function genMonthPdf(list,yr,mo){
   document.getElementById('exTo').value=toLocal(tm);
   const rcM=document.getElementById('rcM');if(rcM)rcM.value=pad(now.getMonth()+1);
   if(!state.settings.name)setTimeout(()=>toast('Tipp: Einstellungen → Name & Adressen eintragen'),900);
+  // Belegeablage-Kennzeichen vor Build 35 uebertragener Dateien lokal nachziehen —
+  // auch ohne Sync-Vorgang, damit die Ablage direkt nach dem Start vollstaendig ist.
+  setTimeout(async()=>{try{
+    if(typeof repariereBelegMetadaten!=='function')return;
+    if(await repariereBelegMetadaten()){
+      if(typeof renderBelegeablage==='function')renderBelegeablage();
+      if(typeof updStInfo==='function')updStInfo();
+    }
+  }catch(e){console.error('Beleg-Metadaten',e);}},800);
   // Firebase-Sync starten, falls konfiguriert
   if(state.settings.fbConfig&&state.settings.fbConfig.apiKey){setTimeout(()=>{try{initFirebase();}catch(e){console.error('FB init',e);}},600);}
 })();
@@ -6572,6 +6581,9 @@ async function mergeRemote(remote,remoteTs){
     migrate();persist();
     // Belege nachladen, die lokal fehlen
     downRes=await syncReceiptsDown();
+    // Danach: unvollstaendig uebertragene Altbestaende lokal nachkennzeichnen
+    const repN=await repariereBelegMetadaten();
+    if(repN&&downRes)downRes.repariert=(downRes.repariert||0)+repN;
     // UI aktualisieren
     const active=document.querySelector('.tab.on')?.dataset.v;
     if(active==='overview')renderOverview();
@@ -6685,30 +6697,48 @@ async function syncReceiptsDown(){
   for(const id of allReceiptIds()){
     try{
       const existing=await idbGetF(id);
-      if(existing){
-        // Reparatur fuer Altbestand: frueher heruntergeladene Kopien kamen ohne
-        // herkunft/monat/datum an und galten dadurch lokal als Alt-Beleg statt als
-        // Belegeablage-Datei. Einmal pruefen, dann per metaGeprueft dauerhaft merken,
-        // damit daraus kein wiederkehrender Firestore-Read pro Sync wird.
-        if(existing.herkunft||existing.metaGeprueft)continue;
-        const doc=await col.doc(id).get();
-        const d=doc.exists?doc.data():null;
-        const rep=uebernimmMeta(Object.assign({},existing),d||{});
-        rep.metaGeprueft=true;
-        await idbFile(rep);
-        if(d&&d.herkunft)res.repariert++;
-        continue;
-      }
+      // Nachtraegliche Reparatur unvollstaendiger Altbestaende passiert NICHT hier,
+      // sondern lokal in repariereBelegMetadaten(): ein Cloud-Abgleich haette nur
+      // funktioniert, wenn das andere Geraet die Metadaten vorher nachgereicht hat —
+      // lief die Pruefung vorher, war die Chance vertan.
+      if(existing)continue;
       const doc=await col.doc(id).get();
       if(!doc.exists){res.nochNichtInCloud++;continue;}
       const d=doc.data();if(!d||!d.data){res.nochNichtInCloud++;continue;}
       const resp=await fetch(d.data);const blob=await resp.blob();
       await idbFile(uebernimmMeta({id,blob,name:d.name||id,type:d.type||blob.type,size:blob.size,created:Date.now(),
-        filename:d.filename||d.name||id,metaGeprueft:true},d));
+        filename:d.filename||d.name||id},d));
       res.heruntergeladen++;
     }catch(e){res.fehler.push({id,message:e.message||String(e)});}
   }
   return res;
+}
+/* Stellt die Belegeablage-Kennzeichen lokal wieder her. Noetig fuer Dateien, die vor
+   Build 35 ohne herkunft/monat/datum uebertragen wurden: ohne herkunft==='upload'
+   filtert renderBelegeablage() sie heraus und kategorisiereDatei() sortiert sie als
+   Alt-Beleg ein. Die Angaben stehen ohnehin im State (Bescheid-Datensatz bzw.
+   Belegeablage-Eintrag), der zuverlaessig mitsynchronisiert wird — deshalb bewusst
+   OHNE Firestore-Zugriff und damit unabhaengig davon, ob und wann ein anderes Geraet
+   die Metadaten nachgereicht hat. */
+async function repariereBelegMetadaten(){
+  let n=0;
+  const setzen=async(id,meta)=>{
+    if(!id)return;
+    let rec=null;try{rec=await idbGetF(id);}catch(e){return;}
+    if(!rec||rec.herkunft)return;   // Datei nicht lokal, oder bereits korrekt gekennzeichnet
+    Object.keys(meta).forEach(k=>{if(meta[k]!=null&&meta[k]!=='')rec[k]=meta[k];});
+    rec.herkunft='upload';
+    try{await idbFile(rec);n++;}catch(e){}
+  };
+  for(const b of bwList()){
+    await setzen(b.fileId,{typ:b.typ,belegart:b.belegart||b.typ,monat:b.periode,datum:b.von,betrag:b.gesamt});
+  }
+  for(const r of ((state.settings.mbReceipts||{})['unassigned']||[])){
+    if(!r||typeof r!=='object')continue;
+    await setzen(r.id,{belegart:r.belegart,datum:r.datum,betrag:r.gesamtkosten,
+      monat:(r.datum&&/^\d{4}-\d{2}/.test(r.datum))?r.datum.slice(0,7):null});
+  }
+  return n;
 }
 
 /* ═══════════════ END FIREBASE SYNC ═══════════════ */
@@ -6857,6 +6887,10 @@ async function syncReceiptsDown(){
     35: [
       'Belegeablage-Sync repariert: beim Übertragen gingen Herkunft, Monat und Datum verloren — die Datei kam an, galt auf dem anderen Gerät aber als Alt-Beleg und blieb in der Ablage unsichtbar',
       'Bereits falsch übertragene Dateien werden beim nächsten Laden automatisch nachträglich zugeordnet',
+    ],
+    36: [
+      'Die Nachbesserung aus Build 35 lief ins Leere, wenn sie startete, bevor das andere Gerät die Angaben nachgereicht hatte — und merkte sich das dauerhaft',
+      'Zuordnung läuft jetzt rein lokal aus den ohnehin vorhandenen Bescheid- und Beleg-Daten und wiederholt sich bei jedem Start, bis sie greift',
     ],
   };
   
