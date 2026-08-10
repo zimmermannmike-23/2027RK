@@ -775,9 +775,10 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=37;
+const APP_BUILD=38;
 const APP_DATE='10.08.2026';
 const APP_CHANGES=[
+  'Neue automatische Gegenprobe: erkennt künftig selbstständig, wenn ein TG-Bescheid ein noch unbekanntes Textmuster für Fahrtkosten nutzt, statt es wie bisher stillschweigend zu übergehen',
   'TG-Bescheid-Einlesen repariert: Flug-/Bahnkosten mit der Formulierung „Reisebeihilfe" statt „Fahrkosten" wurden bisher gar nicht erkannt — Querprüfung zeigte 0,00 € obwohl der Bescheid Beträge auswies',
   'Falsch einsortierte Belege werden jetzt beim Start automatisch der Belegeablage zugeordnet — ohne Cloud-Abgleich und ohne weiteres Zutun',
   'Belegeablage synct jetzt vollständig: hochgeladene Dateien tauchen auf allen Geräten unter „Originaldateien nach Monat" auf statt als namenloser Alt-Beleg',
@@ -2361,6 +2362,18 @@ function parseBwBescheid(txt){
              :Math.abs(satz-0.20)<0.005?'\u00a7 5 Abs. 1 BRKG':'abweichender Satz';
       o.posten.push({art:'Wegstrecke Kfz',km,betrag:bt,satz,rg,verguetet:true});
     }
+    // Gegenprobe: Summe der Einzelposten (Fahrkosten/Reisebeihilfe DB/Flugzeug/Bus +
+    // Wegstrecke Kfz) muss der Bescheid-Kopfzeile "Fahrkosten aus Familienheimfahrten"
+    // entsprechen — die zeigt den tatsaechlich ausgezahlten (ggf. gedeckelten) Gesamtbetrag
+    // ueber alle Verkehrsmittel einer Familienheimfahrt hinweg. Weicht das ab, wurde
+    // vermutlich (wie beim "Reisebeihilfe"-Textmuster zuvor) ein Kostenposten mit einer
+    // dritten, noch unbekannten Formulierung nicht erkannt — Geld wuerde sonst wieder
+    // unbemerkt in der Querpruefung fehlen. Nur informativ, greift in keine Berechnung ein.
+    if(fk){
+      const postenSumme=o.posten.filter(p=>/^Fahrkosten (DB|Flugzeug|Bus)$/.test(p.art)||p.art==='Wegstrecke Kfz')
+        .reduce((a,p)=>a+(p.betrag||0),0);
+      if(Math.abs(o.fahrkosten-postenSumme)>0.01)o.fahrkostenAbweichung=+(o.fahrkosten-postenSumme).toFixed(2);
+    }
     // Reiseabschnitte: Dienstreise | Familienheimfahrt | Familienheimfahrt ohne Reisebeihilfe
     const reR=/(\d{2}\.\d{2}\.\d{2})\s+(\d{2}:\d{2})\s*Uhr bis\s+(\d{2}\.\d{2}\.\d{2})\s+(\d{2}:\d{2})\s*Uhr\s+(Dienstreise|Familienheimfahrt(?:\s+ohne\s+Reisebeihilfe)?)/g;
     // Zuerst alle Treffer sammeln, damit jeder Abschnitt exakt bis zum naechsten reicht
@@ -3268,6 +3281,14 @@ function checkBoxAnalyze(){
       const monTG=new Set(bj.filter(b=>b.typ==='TG').map(b=>b.periode));
       const fehlt=monEnt.filter(m=>!monTG.has(m));
       if(fehlt.length)add('info','Bw-Abgleich','Kein Trennungsgeldbescheid eingelesen für: '+fehlt.join(', '),'','');
+      // Gegenprobe Fahrkosten: erkennt automatisch, wenn ein Bescheid ein noch unbekanntes
+      // Textmuster fuer Fahrtkosten verwendet (wie zuvor "Reisebeihilfe" statt "Fahrkosten")
+      // — sonst faellt ein fehlender Betrag in der Querpruefung nicht auf.
+      bj.filter(b=>b.typ==='TG'&&b.fahrkostenAbweichung).forEach(b=>{
+        add('warn','Bw-Abgleich','Bescheid '+b.periode+': Einzelaufstellung der Fahrtkosten ('
+          +(b.fahrkosten-b.fahrkostenAbweichung).toFixed(2).replace('.',',')+' €) weicht von der Bescheid-Summe ('
+          +b.fahrkosten.toFixed(2).replace('.',',')+' €) ab — evtl. ein unbekanntes Textmuster, Querprüfung könnte unvollständig sein','','');
+      });
       // Familienheimfahrten: MIT und OHNE Reisebeihilfe getrennt vergleichen.
       // Mit Reisebeihilfe  -> App-Eintrag HF mit gesetztem FHF-Haken
       // Ohne Reisebeihilfe -> App-Eintrag HF/RF OHNE FHF-Haken
@@ -6905,6 +6926,9 @@ async function repariereBelegMetadaten(){
     37: [
       'TG-Bescheid-Erkennung repariert: Fahrtkosten mit der Formulierung „Reisebeihilfe DB/Flugzeug/Bus" wurden bisher gar nicht gefunden — nur „Fahrkosten ..." wurde erkannt',
       'Betroffene Bescheide bitte einmal neu einlesen, damit die Querprüfung die Beträge zeigt',
+    ],
+    38: [
+      'Automatische Gegenprobe: die CheckBox meldet jetzt, wenn die Fahrtkosten-Einzelaufstellung eines TG-Bescheids nicht mit dessen eigener Gesamtsumme übereinstimmt — Schutz gegen künftig unbekannte Textmuster',
     ],
   };
   
