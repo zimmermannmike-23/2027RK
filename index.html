@@ -775,9 +775,10 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=29;
-const APP_DATE='09.08.2026';
+const APP_BUILD=30;
+const APP_DATE='10.08.2026';
 const APP_CHANGES=[
+  'Bereinigung: prüft jetzt echt gegen Firestore, statt einem fälschlich gesetzten "hochgeladen"-Merker zu vertrauen',
   'Neuer Button: verwaiste Beleg-Verweise finden und bereinigen (Einstellungen → Speicher)',
   'Sync-Diagnose: fehlende Belege zeigen jetzt ihre Quelle (welcher Bescheid/Eintrag referenziert sie)',
   'Trennungsgeld nach § 3(2) TGV: neue Box in Zeiterfassung, je Mahlzeit erfassbar',
@@ -4383,16 +4384,28 @@ window.loescheAlteBelegQuellen=async function(){
   toast(treffer.length+' alte Beleg-Datei(en) gelöscht','ok');
 };
 /* Findet und entfernt Beleg-Referenzen, die ins Leere zeigen — keine Datei existiert lokal
-   dafür UND sie wurde nie erfolgreich zur Cloud hochgeladen (fbUploaded). Anders als
-   loescheDateiKategorie() gibt es hier keine Datei zu löschen: nur der kaputte Verweis
-   selbst wird entfernt (z. B. eine Bescheid-Nummer, die versehentlich als Datei-ID in
-   bwReceipts gelandet ist, oder eine Beleg-Metadatenzeile ohne je gespeicherte Datei). */
+   UND (nach Gegenprüfung) auch nicht in der Cloud. Anders als loescheDateiKategorie() gibt
+   es hier keine Datei zu löschen: nur der kaputte Verweis selbst wird entfernt (z. B. eine
+   Bescheid-Nummer, die versehentlich als Datei-ID in bwReceipts gelandet ist, oder eine
+   Beleg-Metadatenzeile ohne je gespeicherte Datei).
+   Das lokale fbUploaded-Flag allein reicht NICHT als Nachweis: aus einem alten Sync-Stand
+   kann eine ID fälschlich als "hochgeladen" markiert sein, obwohl nie eine Datei existierte
+   — deshalb wird bei gesetztem Flag zusätzlich direkt in Firestore nachgeschaut. */
 window.bereinigeVerwaisteBelegVerweise=async function(){
   const kandidaten=[];
+  const uploaded=state.settings.fbUploaded||{};
+  const col=(fbDB&&fbUser)?fbDB.collection('users').doc(fbUser.uid).collection('receipts'):null;
   for(const id of allReceiptIds()){
-    if((state.settings.fbUploaded||{})[id])continue;   // ist erfolgreich in der Cloud — nicht anfassen
     const rec=await idbGetF(id);
-    if(!rec)kandidaten.push({id,quellen:receiptIdSources(id)});
+    if(rec)continue;   // Datei existiert lokal — nichts zu tun
+    if(uploaded[id]){
+      if(!col)continue;   // nicht angemeldet: kann nicht gegenprüfen, im Zweifel unberührt lassen
+      try{
+        const doc=await col.doc(id).get();
+        if(doc.exists)continue;   // liegt wirklich in der Cloud, nur lokal noch nicht heruntergeladen
+      }catch(e){continue;}   // Gegenprüfung fehlgeschlagen — im Zweifel nichts löschen
+    }
+    kandidaten.push({id,quellen:receiptIdSources(id)});
   }
   if(!kandidaten.length){toast('Keine verwaisten Verweise gefunden','ok');return;}
   const liste=kandidaten.map(k=>'• '+k.id+'\n  '+k.quellen.join(', ')).join('\n');
@@ -6752,6 +6765,9 @@ async function syncReceiptsDown(){
     ],
     29: [
       'Neuer Button: verwaiste Beleg-Verweise finden und bereinigen',
+    ],
+    30: [
+      'Bereinigung prüft jetzt echt gegen Firestore statt einem fälschlichen Merker zu vertrauen',
     ],
   };
   
