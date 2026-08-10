@@ -775,9 +775,10 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=36;
+const APP_BUILD=37;
 const APP_DATE='10.08.2026';
 const APP_CHANGES=[
+  'TG-Bescheid-Einlesen repariert: Flug-/Bahnkosten mit der Formulierung „Reisebeihilfe" statt „Fahrkosten" wurden bisher gar nicht erkannt — Querprüfung zeigte 0,00 € obwohl der Bescheid Beträge auswies',
   'Falsch einsortierte Belege werden jetzt beim Start automatisch der Belegeablage zugeordnet — ohne Cloud-Abgleich und ohne weiteres Zutun',
   'Belegeablage synct jetzt vollständig: hochgeladene Dateien tauchen auf allen Geräten unter „Originaldateien nach Monat" auf statt als namenloser Alt-Beleg',
   'Drag & Drop: Dateien, die als Bescheid-Stichwort erkannt aber nicht vollständig gelesen werden konnten, landen jetzt trotzdem als Beleg in der Ablage statt spurlos zu verschwinden',
@@ -2342,6 +2343,15 @@ function parseBwBescheid(txt){
     while((m=reFlug.exec(t)))o.km.push({art:'Flugzeug',km:0,kosten:bwNum(m[1]),steuerfrei:bwNum(m[2])});
     const reP=/Fahrkosten (DB|Flugzeug|Bus)\s+([\d.,]+)\s*EUR/g;
     while((m=reP.exec(t)))o.posten.push({art:'Fahrkosten '+m[1],betrag:bwNum(m[2])});
+    // Zweite, gleichwertige Formulierung: bei Familienheimfahrten steht die Kosten-
+    // aufstellung je Verkehrsmittel direkt unter dem Reiseabschnitt als "Reisebeihilfe
+    // DB/Flugzeug/Bus X EUR" statt "Fahrkosten ...". Ohne dieses Muster blieb die
+    // Querpruefung fuer Monate, die ausschliesslich diese Formulierung nutzen, komplett
+    // leer, obwohl der Betrag im Bescheid stand (z. B. "Reisebeihilfe Flugzeug 119,98 EUR").
+    // Bewusst in dieselbe o.posten-Struktur ('Fahrkosten '+Art) eingetragen, damit
+    // tgQuerpruefungMonat() und alle anderen Leser ohne Aenderung beide Formen abdecken.
+    const reRB=/Reisebeihilfe (DB|Flugzeug|Bus)\s+([\d.,]+)\s*EUR/g;
+    while((m=reRB.exec(t)))o.posten.push({art:'Fahrkosten '+m[1],betrag:bwNum(m[2])});
     const reW=/Wegstrecke KFZ[^\n]*?([\d.,]+)\s*km\s+([\d.,]+)\s*EUR/g;
     while((m=reW.exec(t))){
       const km=bwNum(m[1]),bt=bwNum(m[2]);
@@ -2365,7 +2375,7 @@ function parseBwBescheid(txt){
       const art=/Dienstreise/i.test(roh)?'Dienstreise':'Familienheimfahrt';
       // Einzelkosten dieses Abschnitts
       const kost=[];
-      let k;const reK=/Fahrkosten (DB|Flugzeug|Bus)\s+([\d.,]+)\s*EUR/g;
+      let k;const reK=/(?:Fahrkosten|Reisebeihilfe) (DB|Flugzeug|Bus)\s+([\d.,]+)\s*EUR/g;
       while((k=reK.exec(seg)))kost.push({art:'Fahrkosten '+k[1],betrag:bwNum(k[2])});
       const wM=/Wegstrecke KFZ[^\n]*?([\d.,]+)\s*km\s+([\d.,]+)\s*EUR/.exec(seg);
       const anM=/Ankunft Wohnung:\s*(\d{2}\.\d{2}\.\d{2})\s*(\d{2}:\d{2})/.exec(seg);
@@ -6891,6 +6901,10 @@ async function repariereBelegMetadaten(){
     36: [
       'Die Nachbesserung aus Build 35 lief ins Leere, wenn sie startete, bevor das andere Gerät die Angaben nachgereicht hatte — und merkte sich das dauerhaft',
       'Zuordnung läuft jetzt rein lokal aus den ohnehin vorhandenen Bescheid- und Beleg-Daten und wiederholt sich bei jedem Start, bis sie greift',
+    ],
+    37: [
+      'TG-Bescheid-Erkennung repariert: Fahrtkosten mit der Formulierung „Reisebeihilfe DB/Flugzeug/Bus" wurden bisher gar nicht gefunden — nur „Fahrkosten ..." wurde erkannt',
+      'Betroffene Bescheide bitte einmal neu einlesen, damit die Querprüfung die Beträge zeigt',
     ],
   };
   
