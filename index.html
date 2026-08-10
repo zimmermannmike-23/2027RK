@@ -787,9 +787,10 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=41;
+const APP_BUILD=42;
 const APP_DATE='10.08.2026';
 const APP_CHANGES=[
+  'PDF-Import Zeiterfassung: erkennt jetzt auch Blätter mit anderem Seitenformat/anderer Tabellenbreite korrekt (nicht mehr nur eine feste Spaltenbreite) — behebt „keine Tageszeile erkannt" bei manchen Monaten',
   'Import-Fehler behoben: Zeiterfassungs-Tage (Excel- und PDF-Import) bekamen keine eigene ID — beim nächsten Cloud-Abgleich fielen dadurch fast alle importierten Tage wieder weg. Bitte betroffene Monate einmal neu importieren',
   'PDF-Import Zeiterfassung repariert: importierte Tage landeten korrekt in der App, waren aber unsichtbar, weil die Ansicht auf dem vorherigen Monat/Jahr blieb — springt jetzt automatisch zum importierten Monat',
   'Familienheimfahrten-Karte und 14-Tage-Blöcke folgen jetzt ebenfalls dem Jahresschalter (waren noch fest auf das echte aktuelle Kalenderjahr eingestellt)',
@@ -7068,6 +7069,9 @@ async function repariereBelegMetadaten(){
     41: [
       'Wurzel des "Import verschwindet"-Problems gefunden: importierte Zeiterfassungs-Tage bekamen keine eindeutige ID, wodurch der Cloud-Abgleich fast alle bis auf einen zusammenfasste — jetzt bekommt jeder importierte Tag eine eigene ID',
     ],
+    42: [
+      'PDF-Import Zeiterfassung: die Spaltenerkennung kalibriert sich jetzt pro Blatt neu (Position UND Breite), statt eine feste Tabellenbreite vorauszusetzen — behebt "keine Tageszeile erkannt" bei Blättern mit anderem Seitenformat',
+    ],
   };
   
   // APP_BUILD ist die einzige Quelle für die Update-Erkennung — bereits die
@@ -7264,31 +7268,52 @@ window.extractZePositions = async function(file) {
   return pages;
 };
 
-// Spaltengrenzen (x-Bereiche in PDF.js-Koordinaten — WICHTIG: PDF.js' item.transform
-// liefert andere x-Werte als z. B. PyMuPDF/fitz fuer dieselbe Datei (bei den beiden
-// Referenzblaettern konstant ca. 12pt Unterschied, vermutlich CropBox-bedingt). Diese
-// Werte sind deshalb direkt aus echten pdfjsLib.getTextContent()-Aufrufen gegen zwei
-// reale Zeiterfassungsblaetter (Dez-2024, Mai-2025) im Browser kalibriert, nicht aus
-// einer Kommandozeilen-Bibliothek uebernommen:
-// Datum@43 Tag@89 Std Soll@112 von1@170 bis1@196 von2@224(*) bis2@251(*) Tätigkeit@295-305
-// Stunden@370 Mehr/Minder@420 Wochen h Ø@479 Bemerkung@548-609 (breite Spalte, Text
-// nicht immer am linken Rand). (*) von2/bis2 kamen in beiden Referenzblaettern nie
-// belegt vor — Position aus der Kopfzeile abgeleitet, nicht an echten Werten verifiziert.
-const ZE_PDF_SPALTEN = [
-  { name: 'datum', xMin: 30, xMax: 66 },
-  { name: 'tag', xMin: 66, xMax: 101 },
-  { name: 'sollH', xMin: 101, xMax: 128 },
-  { name: 'sonderdienst', xMin: 128, xMax: 163 },
-  { name: 'von1', xMin: 163, xMax: 183 },
-  { name: 'bis1', xMin: 183, xMax: 210 },
-  { name: 'von2', xMin: 210, xMax: 238 },
-  { name: 'bis2', xMin: 238, xMax: 273 },
-  { name: 'taetigkeit', xMin: 273, xMax: 337 },
-  { name: 'stundenH', xMin: 337, xMax: 395 },
-  { name: 'mehrminderH', xMin: 395, xMax: 449 },
-  { name: 'wochenOe', xMin: 449, xMax: 514 },
-  { name: 'bemerkung', xMin: 514, xMax: 9999 },
+// Spaltengrenzen (x-Bereiche in PDF.js-Koordinaten), kalibriert an zwei echten
+// Zeiterfassungsblaettern (Dez-2024, Mai-2025) ueber echte pdfjsLib.getTextContent()-
+// Aufrufe im Browser (PyMuPDF/fitz liefert andere x-Werte fuer dieselbe Datei, ca. 12pt
+// Differenz — daher NICHT aus einer Kommandozeilen-Bibliothek uebernommen).
+// WICHTIG: ein drittes reales Blatt (Okt-2025) hatte nicht nur eine verschobene, sondern
+// eine um Faktor ~1,44 BREITERE Tabelle (Datum bei x=83.5 statt 43.4, Tag bei x=149 statt
+// 89 — das Verhaeltnis der beiden Abstaende ist keine reine Verschiebung, sondern eine
+// echte Skalierung, vermutlich Portrait/Landscape oder ein anderes Seitenformat je nach
+// Export). Eine reine additive Verschiebung reicht deshalb NICHT — parseZeitblattSeite()
+// kalibriert pro Dokument sowohl Position (anhand der Datum-Spalte) als auch Skalierung
+// (anhand des Abstands Datum→Tag, da die Tag-Werte Mo/Di/.../So/FT eindeutig per Text
+// erkennbar sind, unabhaengig von jeder Spalten-Annahme).
+// Referenz-Positionen (Dez-2024/Mai-2025): Datum@43 Tag@89 Std Soll@112 von1@170 bis1@196
+// von2@224(*) bis2@251(*) Tätigkeit@295-305 Stunden@370 Mehr/Minder@420 Wochen h Ø@479
+// Bemerkung@548-609 (breite Spalte, Text nicht immer am linken Rand). (*) von2/bis2 kamen
+// in keinem der drei Referenzblaetter belegt vor — Position aus der Kopfzeile
+// abgeleitet, nicht an echten Werten verifiziert.
+const ZE_REFERENZ_DATUM_X = 43.4;
+const ZE_REFERENZ_TAG_X = 89.0;
+const ZE_TAG_TOKENS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So', 'FT'];
+const ZE_PDF_SPALTEN_OFFSETS = [
+  { name: 'datum', dMin: -13.4, dMax: 22.6 },
+  { name: 'tag', dMin: 22.6, dMax: 57.6 },
+  { name: 'sollH', dMin: 57.6, dMax: 84.6 },
+  { name: 'sonderdienst', dMin: 84.6, dMax: 119.6 },
+  { name: 'von1', dMin: 119.6, dMax: 139.6 },
+  { name: 'bis1', dMin: 139.6, dMax: 166.6 },
+  { name: 'von2', dMin: 166.6, dMax: 194.6 },
+  { name: 'bis2', dMin: 194.6, dMax: 229.6 },
+  { name: 'taetigkeit', dMin: 229.6, dMax: 293.6 },
+  { name: 'stundenH', dMin: 293.6, dMax: 351.6 },
+  { name: 'mehrminderH', dMin: 351.6, dMax: 405.6 },
+  { name: 'wochenOe', dMin: 405.6, dMax: 470.6 },
+  { name: 'bemerkung', dMin: 470.6, dMax: 9999 },
 ];
+// Baut aus den Offsets konkrete xMin/xMax fuer eine im Dokument tatsaechlich gefundene
+// Datum-Spalten-x-Position (datumX) und einen Skalierungsfaktor (scale, Verhaeltnis
+// dieses Dokuments zur Referenz-Spaltenbreite). Ohne Argumente identisch zu den
+// urspruenglichen Referenzwerten (Rueckwaertskompatibilitaet fuer Debug/Tests).
+function zePdfSpalten(datumX, scale) {
+  const basis = datumX == null ? ZE_REFERENZ_DATUM_X : datumX;
+  const s = scale == null ? 1 : scale;
+  return ZE_PDF_SPALTEN_OFFSETS.map(c => ({ name: c.name, xMin: basis + c.dMin * s, xMax: basis + c.dMax * s }));
+}
+window.zePdfSpalten = zePdfSpalten;
+const ZE_PDF_SPALTEN = zePdfSpalten();
 window.ZE_PDF_SPALTEN = ZE_PDF_SPALTEN;
 const ZE_MONATSNAMEN = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 
@@ -7303,17 +7328,66 @@ const ZE_MONATSNAMEN = ['Januar','Februar','März','April','Mai','Juni','Juli','
    Tages fehlinterpretiert. */
 function parseZeitblattSeite(items) {
   const dateRe = /^(\d{2})\.(\d{2})\.(\d{4})$/;
-  const findCol = x => ZE_PDF_SPALTEN.find(c => x >= c.xMin && x < c.xMax);
 
+  // Datums-Anker OHNE Spalten-Einschraenkung suchen — das Muster DD.MM.YYYY ist
+  // spezifisch genug, um auch ohne bekannte x-Position zuverlaessig zu treffen. Aus den
+  // tatsaechlich gefundenen x-Positionen wird anschliessend die Datum-Spalte DIESES
+  // Dokuments kalibriert (siehe Kommentar bei ZE_PDF_SPALTEN_OFFSETS: die absolute
+  // Position kann von Blatt zu Blatt um mehrere Dutzend Punkte abweichen).
   const ankerRoh = items
-    .filter(it => { const c = findCol(it.x); return c && c.name === 'datum' && dateRe.test(it.str); })
-    .map(it => { const m = dateRe.exec(it.str); return { y: it.y, date: m[3] + '-' + m[2] + '-' + m[1] }; });
+    .filter(it => dateRe.test(it.str))
+    .map(it => { const m = dateRe.exec(it.str); return { y: it.y, x: it.x, date: m[3] + '-' + m[2] + '-' + m[1] }; });
   if (!ankerRoh.length) return { rows: [], monatsSumme: null };
   // Chronologisch sortieren (unabhaengig von der y-Richtungskonvention) UND Duplikate
   // (z. B. eine versehentlich zweimal erkannte Datumsangabe) auf den ersten Treffer reduzieren.
   ankerRoh.sort((a, b) => a.date.localeCompare(b.date));
   const gesehen = new Set();
   const anker = ankerRoh.filter(a => { if (gesehen.has(a.date)) return false; gesehen.add(a.date); return true; });
+
+  const xSortiert = anker.map(a => a.x).sort((a, b) => a - b);
+  const datumX = xSortiert[Math.floor(xSortiert.length / 2)]; // Median — robust gegen einzelne Ausreisser
+
+  // Zweiter Kalibrierungspunkt (Tag-Spalte): die Werte Mo/Di/.../So/FT sind per Text
+  // eindeutig erkennbar, unabhaengig von jeder Spalten-Annahme — dadurch laesst sich
+  // neben der Position auch die SKALIERUNG der Tabelle in diesem Dokument bestimmen
+  // (siehe Kommentar bei ZE_PDF_SPALTEN_OFFSETS). Nahe der y-Position jedes Datums-
+  // Ankers nach einem Tag-Token suchen (enger Toleranzbereich reicht, das liegt in
+  // derselben Tabellenzeile).
+  const tagXWerte = [];
+  anker.forEach(a => {
+    items.forEach(it => {
+      if (Math.abs(it.y - a.y) < 5 && ZE_TAG_TOKENS.includes(it.str)) tagXWerte.push(it.x);
+    });
+  });
+  let scale = 1;
+  if (tagXWerte.length >= 3) {
+    tagXWerte.sort((a, b) => a - b);
+    const tagX = tagXWerte[Math.floor(tagXWerte.length / 2)];
+    const berechnet = (tagX - datumX) / (ZE_REFERENZ_TAG_X - ZE_REFERENZ_DATUM_X);
+    // Plausibilitaetsgrenze: eine Tabelle wird nicht auf weniger als die Haelfte oder
+    // mehr als das Doppelte der Referenzbreite skaliert sein — ein Wert ausserhalb
+    // deutet auf einen Fehltreffer bei der Tag-Erkennung hin, dann lieber scale=1.
+    if (berechnet > 0.5 && berechnet < 2) scale = berechnet;
+  }
+
+  const spalten = zePdfSpalten(datumX, scale);
+  const zeitSpalten = new Set(['sollH', 'von1', 'bis1', 'von2', 'bis2', 'stundenH', 'mehrminderH', 'wochenOe']);
+  const istZeit = s => /^-?\d{1,2}:\d{2}$/.test(s);
+  // Lange Tätigkeit-Texte (z. B. "Tätigkeit nach §30c Abs.4 SG") sind nicht immer streng
+  // linksbuendig und koennen deshalb weiter links beginnen als kurze Woerter wie
+  // "Grundbetrieb" — bei einem eng bemessenen Blatt reicht das bis in die (in allen drei
+  // Referenzblaettern nie belegte) von2/bis2-Zone hinein. Reine Zeit-Spalten duerfen
+  // deshalb nur echte HH:MM-Werte aufnehmen; alles andere faellt auf 'taetigkeit' zurueck,
+  // sofern es nicht eindeutig in einer anderen (Text-)Spalte liegt.
+  const findCol = x => spalten.find(c => x >= c.xMin && x < c.xMax);
+  const findColFuer = it => {
+    const c = findCol(it.x);
+    if (c && zeitSpalten.has(c.name) && !istZeit(it.str)) {
+      const t = spalten.find(s => s.name === 'taetigkeit');
+      if (t && it.x < t.xMax) return t;
+    }
+    return c;
+  };
 
   const yWerte = anker.map(a => a.y);
   const yMin = Math.min(...yWerte), yMax = Math.max(...yWerte);
@@ -7323,8 +7397,8 @@ function parseZeitblattSeite(items) {
   let monatsSummeKandidat = null;
 
   items.forEach(it => {
-    if (dateRe.test(it.str) && findCol(it.x)?.name === 'datum') return; // ist selbst ein Anker
-    const col = findCol(it.x); if (!col || col.name === 'datum') return;
+    if (dateRe.test(it.str)) return; // ist selbst ein Datums-Anker, kein Zelleninhalt
+    const col = findColFuer(it); if (!col || col.name === 'datum') return;
     let best = null, bestDist = Infinity;
     anker.forEach(a => { const d = Math.abs(a.y - it.y); if (d < bestDist) { bestDist = d; best = a; } });
     if (!best) return;
