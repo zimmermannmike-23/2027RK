@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tgrb-nachweis-v1';
+const CACHE_NAME = 'tgrb-nachweis-v2';
 const URLS_TO_CACHE = ['./index.html', './'];
 
 self.addEventListener('install', (event) => {
@@ -31,7 +31,10 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
-    fetch(event.request)
+    // {cache:'no-store'} umgeht den HTTP-Cache des Browsers — sonst kann diese "network-first"
+    // Strategie trotzdem eine veraltete, per Cache-Control zwischengespeicherte Antwort liefern,
+    // ohne dass der Server je erneut gefragt wird.
+    fetch(event.request, {cache: 'no-store'})
       .then((response) => {
         if (!response || response.status !== 200) return response;
         const responseClone = response.clone();

@@ -775,9 +775,10 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=30;
+const APP_BUILD=31;
 const APP_DATE='10.08.2026';
 const APP_CHANGES=[
+  'App-Update wird jetzt zuverlässig übernommen: alter Reload-Befehl wurde von Browsern ignoriert',
   'Bereinigung: prüft jetzt echt gegen Firestore, statt einem fälschlich gesetzten "hochgeladen"-Merker zu vertrauen',
   'Neuer Button: verwaiste Beleg-Verweise finden und bereinigen (Einstellungen → Speicher)',
   'Sync-Diagnose: fehlende Belege zeigen jetzt ihre Quelle (welcher Bescheid/Eintrag referenziert sie)',
@@ -6769,6 +6770,9 @@ async function syncReceiptsDown(){
     30: [
       'Bereinigung prüft jetzt echt gegen Firestore statt einem fälschlichen Merker zu vertrauen',
     ],
+    31: [
+      'App-Update wird jetzt zuverlässig übernommen (alter Reload-Befehl wurde von Browsern ignoriert)',
+    ],
   };
   
   // APP_BUILD ist die einzige Quelle für die Update-Erkennung — bereits die
@@ -6852,12 +6856,16 @@ async function syncReceiptsDown(){
     localStorage.setItem('lastSeenUpdateVersion', window.onlineVersion);
   }
   
-  // App neu laden
+  // App neu laden — location.reload(true) wird von modernen Browsern (inkl. Safari/iOS)
+  // ignoriert, das ist eine veraltete API. Ein normaler Reload kann deshalb weiterhin eine
+  // vom HTTP-Cache ausgelieferte alte Version zeigen. Eine Navigation zu einer neuen URL
+  // (mit Cache-Buster) erzwingt dagegen zuverlässig einen frischen Abruf vom Server.
   window.reloadApp = function reloadApp() {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.controller?.postMessage({ type: 'SKIP_WAITING' });
-    }
-    window.location.reload(true);
+    // location.reload(true) wird von modernen Browsern (u.a. Safari/iOS) als
+    // Cache-Bypass-Signal ignoriert — echter Cache-Bust nur über neue URL.
+    const url = new URL(window.location.href);
+    url.searchParams.set('_r', Date.now());
+    window.location.replace(url.toString());
   };
   
   // Banner schließen
