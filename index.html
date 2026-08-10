@@ -775,9 +775,11 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=34;
+const APP_BUILD=35;
 const APP_DATE='10.08.2026';
 const APP_CHANGES=[
+  'Belegeablage synct jetzt vollständig: hochgeladene Dateien tauchen auf allen Geräten unter „Originaldateien nach Monat" auf statt als namenloser Alt-Beleg',
+  'Bereits falsch übertragene Dateien werden beim nächsten Laden automatisch richtig zugeordnet',
   'Drag & Drop: Dateien, die als Bescheid-Stichwort erkannt aber nicht vollständig gelesen werden konnten, landen jetzt trotzdem als Beleg in der Ablage statt spurlos zu verschwinden',
   'Sync-Fehler behoben: neue Belege vom anderen Gerät kamen manchmal gar nicht an, wenn dieses Gerät selbst kurz zuvor etwas hochgeladen hatte',
   'Die 3 hartnäckigen „lokal nicht gefunden"-Meldungen sind endgültig weg — sie waren Bescheid-Nummern, die fälschlich als Beleg-Datei eingetragen waren',
@@ -6521,6 +6523,7 @@ async function cloudPull(manual){
       fbStatusUI('ok','Geladen',fbUser.email);
       const probleme=[];
       if(r?.heruntergeladen)probleme.push(r.heruntergeladen+' Beleg(e) heruntergeladen');
+      if(r?.repariert)probleme.push(r.repariert+' Beleg(e) der Belegeablage zugeordnet');
       if(r?.nochNichtInCloud)probleme.push(r.nochNichtInCloud+' Beleg(e) sind lokal noch nicht in der Cloud (erst auf dem anderen Gerät „Jetzt hochladen" klicken)');
       if(r?.fehler?.length)probleme.push(r.fehler.length+' Fehler ('+r.fehler.map(x=>x.message).join('; ')+')');
       toast(probleme.length?'Daten geladen — '+probleme.join(' · '):'Daten geladen',
@@ -6532,7 +6535,7 @@ async function cloudPull(manual){
 // Settings-Felder, die geraetegebunden sind und NICHT synchronisiert werden
 function stripLocalOnly(s){
   const c=JSON.parse(JSON.stringify(s));
-  delete c.fbConfig;delete c.fbAutoSync;delete c.fbLastSync;delete c.fbLastAppliedRemoteTs;
+  delete c.fbConfig;delete c.fbAutoSync;delete c.fbLastSync;delete c.fbLastAppliedRemoteTs;delete c.belegMetaSyncV2;
   return c;
 }
 
@@ -6627,6 +6630,12 @@ function receiptIdSources(id){
 async function syncReceiptsUp(){
   const res={hochgeladen:0,uebersprungenGross:[],fehlendLokal:[],fehler:[]};
   if(!fbDB||!fbUser)return res;
+  // Einmalige Nachmigration: frueher hochgeladene Belege liegen ohne Belegeablage-
+  // Metadaten in der Cloud. Ohne diesen Reset wuerden sie wegen fbUploaded nie wieder
+  // angefasst und blieben auf allen anderen Geraeten dauerhaft unsichtbar. Bewusst
+  // geraetelokal (siehe stripLocalOnly), damit jedes Geraet seine eigenen Dateien
+  // einmal nachreicht — dank merge:true kann dabei nichts Gutes ueberschrieben werden.
+  if(!state.settings.belegMetaSyncV2){state.settings.fbUploaded={};state.settings.belegMetaSyncV2=true;}
   const uploaded=state.settings.fbUploaded||{};
   const col=fbDB.collection('users').doc(fbUser.uid).collection('receipts');
   for(const id of allReceiptIds()){
@@ -6641,7 +6650,18 @@ async function syncReceiptsUp(){
         continue;
       }
       const dataUrl=await blobToDataURL(rec.blob);
-      await col.doc(id).set({data:dataUrl,name:rec.name||'',type:rec.type||'',filename:rec.filename||'',size:rec.blob.size,uploadedAt:Date.now()});
+      // Die Belegeablage-Metadaten MUESSEN mit: renderBelegeablage() filtert auf
+      // herkunft==='upload' und gruppiert nach monat/datum, kategorisiereDatei() ordnet
+      // ueber herkunft zu. Ohne diese Felder kommt die Datei zwar an, gilt auf dem
+      // Zielgeraet aber als namenloser Alt-Beleg und taucht in der Ablage nie auf.
+      // Nur tatsaechlich vorhandene Felder schreiben + merge:true — sonst wuerde ein
+      // Geraet, dessen lokale Kopie die Metadaten (noch) nicht hat, die guten Werte
+      // eines anderen Geraets in der Cloud mit leeren Werten ueberbuegeln.
+      const meta={};
+      ['herkunft','monat','typ','belegart','datum'].forEach(k=>{if(rec[k])meta[k]=rec[k];});
+      if(rec.betrag!=null)meta.betrag=rec.betrag;
+      await col.doc(id).set(Object.assign({data:dataUrl,name:rec.name||'',type:rec.type||'',filename:rec.filename||'',
+        size:rec.blob.size,uploadedAt:Date.now()},meta),{merge:true});
       uploaded[id]=true;
       res.hochgeladen++;
     }catch(e){
@@ -6653,17 +6673,38 @@ async function syncReceiptsUp(){
   return res;
 }
 async function syncReceiptsDown(){
-  const res={heruntergeladen:0,nochNichtInCloud:0,fehler:[]};
+  const res={heruntergeladen:0,nochNichtInCloud:0,repariert:0,fehler:[]};
   if(!fbDB||!fbUser)return res;
   const col=fbDB.collection('users').doc(fbUser.uid).collection('receipts');
+  // Uebertraegt die Belegeablage-Felder aus dem Cloud-Dokument auf einen lokalen Datensatz.
+  const uebernimmMeta=(ziel,d)=>{
+    ['herkunft','monat','typ','belegart','datum'].forEach(k=>{if(d[k])ziel[k]=d[k];});
+    if(d.betrag!=null)ziel.betrag=d.betrag;
+    return ziel;
+  };
   for(const id of allReceiptIds()){
     try{
-      const existing=await idbGetF(id);if(existing)continue;
+      const existing=await idbGetF(id);
+      if(existing){
+        // Reparatur fuer Altbestand: frueher heruntergeladene Kopien kamen ohne
+        // herkunft/monat/datum an und galten dadurch lokal als Alt-Beleg statt als
+        // Belegeablage-Datei. Einmal pruefen, dann per metaGeprueft dauerhaft merken,
+        // damit daraus kein wiederkehrender Firestore-Read pro Sync wird.
+        if(existing.herkunft||existing.metaGeprueft)continue;
+        const doc=await col.doc(id).get();
+        const d=doc.exists?doc.data():null;
+        const rep=uebernimmMeta(Object.assign({},existing),d||{});
+        rep.metaGeprueft=true;
+        await idbFile(rep);
+        if(d&&d.herkunft)res.repariert++;
+        continue;
+      }
       const doc=await col.doc(id).get();
       if(!doc.exists){res.nochNichtInCloud++;continue;}
       const d=doc.data();if(!d||!d.data){res.nochNichtInCloud++;continue;}
       const resp=await fetch(d.data);const blob=await resp.blob();
-      await idbFile({id,blob,name:d.name||id,type:d.type||blob.type,size:blob.size,created:Date.now(),filename:d.filename||d.name||id});
+      await idbFile(uebernimmMeta({id,blob,name:d.name||id,type:d.type||blob.type,size:blob.size,created:Date.now(),
+        filename:d.filename||d.name||id,metaGeprueft:true},d));
       res.heruntergeladen++;
     }catch(e){res.fehler.push({id,message:e.message||String(e)});}
   }
@@ -6812,6 +6853,10 @@ async function syncReceiptsDown(){
     ],
     34: [
       'Drag & Drop-Import repariert: ein per Stichwort als Bescheid erkanntes, aber nicht vollständig lesbares PDF wurde bisher lokal gespeichert, aber nirgends verknüpft — dadurch nie synchronisiert',
+    ],
+    35: [
+      'Belegeablage-Sync repariert: beim Übertragen gingen Herkunft, Monat und Datum verloren — die Datei kam an, galt auf dem anderen Gerät aber als Alt-Beleg und blieb in der Ablage unsichtbar',
+      'Bereits falsch übertragene Dateien werden beim nächsten Laden automatisch nachträglich zugeordnet',
     ],
   };
   
