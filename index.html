@@ -787,9 +787,10 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=40;
+const APP_BUILD=41;
 const APP_DATE='10.08.2026';
 const APP_CHANGES=[
+  'Import-Fehler behoben: Zeiterfassungs-Tage (Excel- und PDF-Import) bekamen keine eigene ID — beim nächsten Cloud-Abgleich fielen dadurch fast alle importierten Tage wieder weg. Bitte betroffene Monate einmal neu importieren',
   'PDF-Import Zeiterfassung repariert: importierte Tage landeten korrekt in der App, waren aber unsichtbar, weil die Ansicht auf dem vorherigen Monat/Jahr blieb — springt jetzt automatisch zum importierten Monat',
   'Familienheimfahrten-Karte und 14-Tage-Blöcke folgen jetzt ebenfalls dem Jahresschalter (waren noch fest auf das echte aktuelle Kalenderjahr eingestellt)',
   'Neu: zentraler Jahresschalter in den Einstellungen (2024–2045) — steuert jetzt app-weit, welches Jahr in Übersicht, Jahresübersicht, Zeiterfassung, Belegen und der CheckBox angezeigt wird',
@@ -6445,8 +6446,14 @@ function importZeRows(rows){
     const dtCode=ZE_MAP[row.taetigkeit]||'AW';
     const isWE=['Sa','So','FT'].includes(row.tag);
     const dtDef=DT[dtCode]||DT.AW;
-    // Build entry
+    // Build entry — id/updated/created MUESSEN gesetzt sein: mergeRemote() baut beim
+    // Firebase-Abgleich eine Map ueber state.entries.forEach(e=>{localById[e.id]=e;});
+    // ohne eindeutige id fielen mehrere importierte Tage auf denselben Map-Key
+    // (undefined), wodurch der naechste Sync-Zyklus alle bis auf den letzten wieder
+    // verwarf — der Import "verschwand" kurz nach dem Uebernehmen wieder.
+    const now=Date.now();
     const entry={
+      id:uid(),created:now,updated:now,
       costEnabled:!dtDef.noT,useFahrt:false,useAufenthalt:false,
       date:row.date,
       dayCode:isWE&&!row.taetigkeit?'WF':dtCode,
@@ -7057,6 +7064,9 @@ async function repariereBelegMetadaten(){
     40: [
       'PDF-Import Zeiterfassung: springt nach dem Übernehmen jetzt automatisch zum importierten Monat, statt die Daten unsichtbar auf der bisherigen Monatsansicht liegen zu lassen',
       'Familienheimfahrten-Karte und 14-Tage-Blöcke folgen jetzt dem Jahresschalter',
+    ],
+    41: [
+      'Wurzel des "Import verschwindet"-Problems gefunden: importierte Zeiterfassungs-Tage bekamen keine eindeutige ID, wodurch der Cloud-Abgleich fast alle bis auf einen zusammenfasste — jetzt bekommt jeder importierte Tag eine eigene ID',
     ],
   };
   
