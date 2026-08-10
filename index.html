@@ -787,9 +787,11 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=39;
+const APP_BUILD=40;
 const APP_DATE='10.08.2026';
 const APP_CHANGES=[
+  'PDF-Import Zeiterfassung repariert: importierte Tage landeten korrekt in der App, waren aber unsichtbar, weil die Ansicht auf dem vorherigen Monat/Jahr blieb — springt jetzt automatisch zum importierten Monat',
+  'Familienheimfahrten-Karte und 14-Tage-Blöcke folgen jetzt ebenfalls dem Jahresschalter (waren noch fest auf das echte aktuelle Kalenderjahr eingestellt)',
   'Neu: zentraler Jahresschalter in den Einstellungen (2024–2045) — steuert jetzt app-weit, welches Jahr in Übersicht, Jahresübersicht, Zeiterfassung, Belegen und der CheckBox angezeigt wird',
   'Neu: echter PDF-Import für Zeiterfassungsblätter (Button in der Zeiterfassung, neben „Excel-Daten importieren") — mit Vorschau und automatischer Gegenprobe gegen die Monats-Summe im Blatt',
   'CheckBox prüft beim Jahreswechsel jetzt immer auch den Dezember des Vorjahres mit, damit Familienheimfahrten/Bescheide über den 31.12. hinweg nicht aus dem Abgleich fallen',
@@ -2041,7 +2043,7 @@ function fhfStatus(){
   const start=fhfStartDate();
   if(!start)return null;
   const today=new Date();today.setHours(12,0,0,0);
-  const yr=today.getFullYear();
+  const yr=parseInt(aktivesJahr(),10);
   const yearEnd=new Date(yr,11,31,12,0,0);
   const entitledNow=fhfEntitledUpTo(today);
   const entitledYearEnd=fhfEntitledUpTo(yearEnd);
@@ -3764,7 +3766,7 @@ function renderFhfBlocks(){  const el=document.getElementById('fhfBlocks');if(!e
   if(!start){el.innerHTML='';return;}
   const ende=fhfEndDate();
   const today=new Date();today.setHours(12,0,0,0);
-  const yr=today.getFullYear();
+  const yr=parseInt(aktivesJahr(),10);
   const yearEnd=new Date(yr,11,31,12,0,0);
   // Blöcke bis Jahresende erzeugen
   const blocks=[];
@@ -6537,8 +6539,19 @@ function confirmZePdfImport(){
   const rows=zePdfPending.flatMap(p=>p.rows);
   const r=importZeRows(rows);
   toast(r.imported+' Tage importiert, '+r.skipped+' übersprungen (bereits vorhanden)','ok');
+  // Zum importierten Monat springen: sonst blieb die Zeiterfassungs-Ansicht auf dem
+  // zuvor gewaehlten Monat/Jahr stehen und die frisch importierten Tage waren zwar in
+  // state.entries angelegt, aber wegen des Jahresschalters (zeMonth zeigt nur die 12
+  // Monate von aktivesJahr()) nirgends sichtbar — sie "verschwanden" nach dem Uebernehmen.
+  const zielMonat=(zePdfPending[0].erkannterMonat)||(zePdfPending[0].rows[0]&&zePdfPending[0].rows[0].date.slice(0,7));
   clearZePdfPending();
-  initZeMonth();renderZE();renderOverview();
+  if(zielMonat){
+    const zielJahr=zielMonat.slice(0,4);
+    if(zielJahr!==aktivesJahr())setAktivesJahr(zielJahr);
+    else{initZeMonth();renderZE();renderOverview();}
+    const sel=document.getElementById('zeMonth');
+    if(sel&&[...sel.options].some(o=>o.value===zielMonat)){sel.value=zielMonat;renderZE();}
+  }else{initZeMonth();renderZE();renderOverview();}
 }
 /* ─── END ZEITERFASSUNG ─── */
 /* ═══════════════ FIREBASE CLOUD SYNC ═══════════════ */
@@ -7040,6 +7053,10 @@ async function repariereBelegMetadaten(){
       'Neuer zentraler Jahresschalter (2024–2045) in den Einstellungen ersetzt die einzelnen Jahres-Dropdowns in Übersicht, Jahresübersicht und Belegen',
       'Echter PDF-Import für Zeiterfassungsblätter, mit Vorschau und Gegenprobe gegen die Monats-Summe',
       'CheckBox berücksichtigt beim Jahreswechsel jetzt auch den Dezember des Vorjahres',
+    ],
+    40: [
+      'PDF-Import Zeiterfassung: springt nach dem Übernehmen jetzt automatisch zum importierten Monat, statt die Daten unsichtbar auf der bisherigen Monatsansicht liegen zu lassen',
+      'Familienheimfahrten-Karte und 14-Tage-Blöcke folgen jetzt dem Jahresschalter',
     ],
   };
   
