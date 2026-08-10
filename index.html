@@ -392,7 +392,7 @@ datalist{display:none;}
   <div id="costDupCheck"></div>
   <div id="fhfBlocks"></div>
   <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
-    <select id="ovY" style="font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:#fff;"></select>
+    <span id="ovYLabel" style="font:inherit;font-size:13px;font-weight:700;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--lsoft);color:var(--navy)" title="Jahr wird in den Einstellungen umgeschaltet"></span>
     <select id="ovM" style="font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:#fff;">
       <option value="">Alle Monate</option>
       <option value="01">Januar</option><option value="02">Februar</option><option value="03">März</option>
@@ -424,7 +424,7 @@ datalist{display:none;}
       <h2 style="font-size:22px;color:var(--navy);font-weight:700;letter-spacing:-0.4px">Jahres&#252;bersicht</h2>
       <p style="color:var(--muted);font-size:13px;margin:2px 0 0">Jahreszahlen, steuerlicher Vergleich und Beleg-Ablage an einem Ort.</p>
     </div>
-    <select id="jahrY" style="font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:#fff;"></select>
+    <span id="jahrYLabel" style="font:inherit;font-size:13px;font-weight:700;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--lsoft);color:var(--navy)" title="Jahr wird in den Einstellungen umgeschaltet"></span>
   </div>
   <div id="jahresCard"></div>
   <div id="dhfCard"></div>
@@ -485,7 +485,9 @@ datalist{display:none;}
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
       <select id="zeMonth" onchange="renderZE()" style="padding:7px 10px;border-radius:8px;border:1px solid var(--line);font-size:14px"></select>
       <button class="btn btn-gold btn-sm" onclick="importXlsmData()">&#128228; Excel-Daten importieren</button>
+      <label class="btn btn-s btn-sm" style="cursor:pointer">&#128196; PDF importieren<input type="file" id="zePdfInput" accept="application/pdf" multiple onchange="onZePdfSelected(event)" style="display:none"></label>
     </div>
+    <div id="zePdfPreview" style="margin-bottom:14px"></div>
     <div id="zeTable" style="overflow-x:auto;-webkit-overflow-scrolling:touch"></div>
   </div>
   <div class="card" style="margin-top:12px">
@@ -504,7 +506,7 @@ datalist{display:none;}
   <h2 style="font-size:20px;color:var(--navy);font-weight:700;letter-spacing:-0.4px;margin:0 0 4px">&#220;bersichten &amp; Belege</h2>
   <p style="color:var(--muted);font-size:13px;margin-bottom:14px">PDF-Erstellung, Druck und alle gespeicherten Belege an einem Ort.</p>
   <div style="display:flex;gap:9px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
-    <select id="rcY" style="font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:#fff;"></select>
+    <span id="rcYLabel" style="font:inherit;font-size:13px;font-weight:700;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--lsoft);color:var(--navy)" title="Jahr wird in den Einstellungen umgeschaltet"></span>
     <select id="rcM" style="font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:#fff;">
       <option value="01">Januar</option><option value="02">Februar</option><option value="03">März</option>
       <option value="04">April</option><option value="05">Mai</option><option value="06">Juni</option>
@@ -605,6 +607,16 @@ datalist{display:none;}
 <!-- SETTINGS -->
 <section class="view" id="view-settings">
   <div style="margin-bottom:14px"><h2 style="font-size:22px;color:var(--navy);font-weight:700;letter-spacing:-0.4px">Einstellungen</h2></div>
+
+  <div class="card" style="max-width:680px;margin-bottom:14px;border-left:3px solid var(--navy)">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div>
+        <h3 style="margin-bottom:2px">&#128197; Aktives Jahr</h3>
+        <p style="font-size:11px;color:var(--muted);margin:0">Steuert, welches Jahr in &#220;bersicht, Jahres&#252;bersicht, Zeiterfassung, Belegen und der CheckBox angezeigt wird.</p>
+      </div>
+      <select id="sAktivesJahr" onchange="setAktivesJahr(this.value)" style="font:inherit;font-size:16px;font-weight:700;padding:9px 14px;border:1px solid var(--line);border-radius:var(--r);background:#fff;color:var(--navy)"></select>
+    </div>
+  </div>
 
   <div class="card" style="max-width:680px;margin-bottom:14px;border-left:3px solid var(--gold)">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
@@ -775,9 +787,12 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=38;
+const APP_BUILD=39;
 const APP_DATE='10.08.2026';
 const APP_CHANGES=[
+  'Neu: zentraler Jahresschalter in den Einstellungen (2024–2045) — steuert jetzt app-weit, welches Jahr in Übersicht, Jahresübersicht, Zeiterfassung, Belegen und der CheckBox angezeigt wird',
+  'Neu: echter PDF-Import für Zeiterfassungsblätter (Button in der Zeiterfassung, neben „Excel-Daten importieren") — mit Vorschau und automatischer Gegenprobe gegen die Monats-Summe im Blatt',
+  'CheckBox prüft beim Jahreswechsel jetzt immer auch den Dezember des Vorjahres mit, damit Familienheimfahrten/Bescheide über den 31.12. hinweg nicht aus dem Abgleich fallen',
   'Neue automatische Gegenprobe: erkennt künftig selbstständig, wenn ein TG-Bescheid ein noch unbekanntes Textmuster für Fahrtkosten nutzt, statt es wie bisher stillschweigend zu übergehen',
   'TG-Bescheid-Einlesen repariert: Flug-/Bahnkosten mit der Formulierung „Reisebeihilfe" statt „Fahrkosten" wurden bisher gar nicht erkannt — Querprüfung zeigte 0,00 € obwohl der Bescheid Beträge auswies',
   'Falsch einsortierte Belege werden jetzt beim Start automatisch der Belegeablage zugeordnet — ohne Cloud-Abgleich und ohne weiteres Zutun',
@@ -1042,6 +1057,7 @@ function migrate(){
   if(!state.settings.fkReceipts)state.settings.fkReceipts={};
   if(!state.settings.abReceipts)state.settings.abReceipts={};if(!state.settings.daReceipts)state.settings.daReceipts={};
   if(!Array.isArray(state.settings.fkRoutes))state.settings.fkRoutes=[];
+  if(!state.settings.aktivesJahr)state.settings.aktivesJahr=String(new Date().getFullYear());
   state.entries.forEach(e=>{if(!e.nachweis)e.nachweis='';if(!e.bemerkung)e.bemerkung='';if(!e.zeActivity)e.zeActivity='';});
   /* Altbestand: In den Beleg-Listen steht teils die Bescheid-Kennung (o.id = 'bw_'+typ+'_'+nr)
      statt einer Datei-ID. So etwas kann nie eine Datei sein — echte Datei-IDs stammen
@@ -1160,7 +1176,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>goto
 function gotoView(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.v===v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
-  if(v==='overview'){fillYrSel('ovY');const _n=new Date();const _oy=document.getElementById('ovY');if(_oy)_oy.value=String(_n.getFullYear());const _om=document.getElementById('ovM');if(_om)_om.value=String(_n.getMonth()+1).padStart(2,'0');renderOverview();}if(v==='zeiterfassung'){initZeMonth();const _z=document.getElementById('zeMonth');const _n2=new Date();if(_z)_z.value=_n2.getFullYear()+'-'+String(_n2.getMonth()+1).padStart(2,'0');renderZE();}if(v==='export'){updExStats();renderFhf();initCatGrid();renderExportPdfs();renderReceipts();}
+  if(v==='overview'){const _ol=document.getElementById('ovYLabel');if(_ol)_ol.textContent=aktivesJahr();const _n=new Date();const _om=document.getElementById('ovM');if(_om)_om.value=String(_n.getMonth()+1).padStart(2,'0');renderOverview();}if(v==='zeiterfassung'){initZeMonth();const _z=document.getElementById('zeMonth');const _n2=new Date();if(_z)_z.value=aktivesJahr()+'-'+String(_n2.getMonth()+1).padStart(2,'0');renderZE();}if(v==='export'){updExStats();renderFhf();initCatGrid();renderExportPdfs();renderReceipts();}
   if(v==='jahr'){renderJahresView();if(typeof renderBelegeablage==='function')renderBelegeablage();}
   if(v==='settings'){loadSettings();renderVersion();}
   if(v==='wizard'){renderCal();}
@@ -2048,8 +2064,8 @@ function fhfOhneKostenListe(yr){
   }).sort((a,b)=>a.date.localeCompare(b.date));
 }
 function renderOverview(){
-  fillYrSel('ovY');
-  const yr=document.getElementById('ovY')?.value||'';
+  const ovLbl=document.getElementById('ovYLabel');if(ovLbl)ovLbl.textContent=aktivesJahr();
+  const yr=aktivesJahr();
   const mo=document.getElementById('ovM')?.value||'';
   const q=(document.getElementById('ovQ')?.value||'').toLowerCase();
   let list=[...state.entries].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
@@ -2242,8 +2258,7 @@ function urlaubFvdStatus(year){
 }
 function renderUrlaubCard(){
   const el=document.getElementById('urlaubCard');if(!el)return;
-  const yrSel=document.getElementById('ovY')?.value;
-  const yr=(yrSel&&yrSel!=='all')?yrSel:String(new Date().getFullYear());
+  const yr=aktivesJahr();
   const st=urlaubFvdStatus(yr);
   if(!st.urGesamt&&!st.fvdGesamt&&!st.urGenommen&&!st.fvdGenommen){
     el.innerHTML=`<div class="card" style="margin-bottom:12px;border-left:3px solid var(--gold)">
@@ -2858,17 +2873,39 @@ function dhfVergleich(yr){
 }
 /* Maßgebliches Jahr für den Reiter „Jahresübersicht". Eigener Filter (jahrY); solange dort
    nichts gewählt ist, greift ersatzweise der Jahresfilter der Übersicht, sonst das laufende Jahr. */
-function jahrAuswahl(){
-  const j=document.getElementById('jahrY')?.value;
-  if(j&&j!=='all')return j;
-  const o=document.getElementById('ovY')?.value;
-  if(o&&o!=='all')return o;
-  return String(new Date().getFullYear());
+/* Zentrales, app-weites "aktives Jahr" (Einstellungen-Schalter, 2024-2045) — ersetzt die
+   frueheren pro-Reiter-Dropdowns (#ovY/#jahrY/#rcY), die alle dieselbe Auswahl unabhaengig
+   voneinander vorhielten. jahrAuswahl() bleibt als Funktionsname erhalten (wird an vielen
+   Stellen aufgerufen), ist aber nur noch ein Alias. */
+function aktivesJahr(){ return state.settings.aktivesJahr||String(new Date().getFullYear()); }
+function jahrAuswahl(){ return aktivesJahr(); }
+/* Pruefzeitraum fuer die CheckBox: aktives Jahr PLUS Dezember des Vorjahres, damit
+   Jahreswechsel-Abhaengigkeiten (z. B. eine Familienheimfahrt oder ein TG-Bescheid, die
+   sich ueber den 31.12. erstrecken) nicht aus dem Abgleich herausfallen, nur weil das
+   betroffene Jahr gerade nicht aktiv ist. Nimmt sowohl ein Eintrags-Datum (YYYY-MM-DD)
+   als auch eine Bescheid-Periode (YYYY-MM) entgegen. */
+function imCheckBoxZeitraum(dateOderPeriode){
+  if(!dateOderPeriode)return false;
+  if(dateOderPeriode.startsWith(aktivesJahr()))return true;
+  return dateOderPeriode.startsWith(String(Number(aktivesJahr())-1)+'-12');
+}
+/* Setzt das aktive Jahr und aktualisiert alle davon abhaengigen Ansichten. */
+function setAktivesJahr(j){
+  state.settings.aktivesJahr=String(j);persist();
+  const ovLbl=document.getElementById('ovYLabel');if(ovLbl)ovLbl.textContent=aktivesJahr();
+  const jaLbl=document.getElementById('jahrYLabel');if(jaLbl)jaLbl.textContent=aktivesJahr();
+  const rcLbl=document.getElementById('rcYLabel');if(rcLbl)rcLbl.textContent=aktivesJahr();
+  if(typeof renderOverview==='function')renderOverview();
+  if(typeof renderJahresView==='function')renderJahresView();
+  if(typeof renderReceipts==='function')renderReceipts();
+  if(typeof initZeMonth==='function'){initZeMonth();if(typeof renderZE==='function')renderZE();}
+  const cbEl=document.getElementById('checkBoxResult');
+  if(cbEl&&cbEl.innerHTML.trim()&&typeof runCheckBox==='function')runCheckBox();
 }
 /* Rendert alle Karten des Reiters „Jahresübersicht" gemeinsam. Die Belegeablage-Liste
    liest aus IndexedDB und wird deshalb nur beim Tab-Wechsel bzw. nach Änderungen erneuert. */
 function renderJahresView(){
-  fillYrSel('jahrY');
+  const jaLbl=document.getElementById('jahrYLabel');if(jaLbl)jaLbl.textContent=aktivesJahr();
   renderJahresCard();renderDhfCard();renderQuerCard();
   if(typeof renderBwList==='function')renderBwList();
 }
@@ -3101,7 +3138,7 @@ function renderVersion(){
 function checkBoxAnalyze(){
   const F=[]; // {sev:'err'|'warn'|'info', cat, msg, date, id}
   const add=(sev,cat,msg,date,id)=>F.push({sev,cat,msg,date:date||'',id:id||''});
-  const ents=[...state.entries].filter(e=>e.date).sort((a,b)=>a.date.localeCompare(b.date));
+  const ents=[...state.entries].filter(e=>e.date&&imCheckBoxZeitraum(e.date)).sort((a,b)=>a.date.localeCompare(b.date));
   if(!ents.length)return{findings:[],checked:0,days:0};
 
   // Feiertage aller betroffenen Jahre
@@ -3271,7 +3308,7 @@ function checkBoxAnalyze(){
 
   // ── H2. Abgleich mit den eingelesenen Bw-Bescheiden ──
   {
-    const bl=bwList();
+    const bl=bwList().filter(b=>imCheckBoxZeitraum(b.periode));
     const jahre=[...new Set(ents.map(e=>e.date.slice(0,4)))];
     jahre.forEach(y=>{
       const bj=bl.filter(b=>(b.periode||'').startsWith(y));
@@ -3829,8 +3866,7 @@ function renderFhfCard(){
       <span>Anspruch ${st.yr} gesamt: <b style="color:var(--navy)">${st.perYear}</b></span>
     </div>
     ${(()=>{
-      const ySel=document.getElementById('ovY')?.value;
-      const listYr=(ySel&&ySel!=='all')?ySel:String(st.yr);
+      const listYr=aktivesJahr();
       const ohne=fhfOhneKostenListe(listYr);
       if(!ohne.length)return'';
       return `<div style="margin-top:10px;padding:9px 11px;background:#fffdf5;border:1px solid var(--warn);border-radius:8px;font-size:11px">
@@ -3870,11 +3906,11 @@ function renderOvStats(list){
 }
 let ovDetailType=null;
 function ovCurrentList(){
-  const yr=document.getElementById('ovY')?.value||'';
+  const yr=aktivesJahr();
   const mo=document.getElementById('ovM')?.value||'';
   const q=(document.getElementById('ovQ')?.value||'').toLowerCase();
   let list=[...state.entries].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-  if(yr&&yr!=='all')list=list.filter(e=>e.date&&e.date.startsWith(yr));
+  if(yr)list=list.filter(e=>e.date&&e.date.startsWith(yr));
   if(mo)list=list.filter(e=>e.date&&e.date.slice(5,7)===mo);
   if(q)list=list.filter(e=>JSON.stringify(e).toLowerCase().includes(q));
   return list;
@@ -4043,14 +4079,12 @@ function renderWSSummary(list){
     <div style="display:flex;flex-wrap:wrap;gap:5px">${wdays.map(e=>`<span style="background:var(--oks);color:var(--ok);padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600">${fmtD(e.date)} ${e.dayCode}</span>`).join('')}</div>
   </div>`;
 }
-['ovY','ovM','ovQ'].forEach(id=>{const el=document.getElementById(id);if(el){el.addEventListener('change',renderOverview);if(id==='ovQ')el.addEventListener('input',renderOverview);}});
-// Eigener Jahresfilter des Reiters „Jahresübersicht"
-{const jy=document.getElementById('jahrY');if(jy)jy.addEventListener('change',()=>{renderJahresCard();renderDhfCard();renderQuerCard();});}
-['rcY','rcM'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',renderReceipts);});
+['ovM','ovQ'].forEach(id=>{const el=document.getElementById(id);if(el){el.addEventListener('change',renderOverview);if(id==='ovQ')el.addEventListener('input',renderOverview);}});
+['rcM'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',renderReceipts);});
 /* RECEIPTS VIEW */
 async function renderReceipts(){
-  fillYrSel('rcY');
-  const yr=document.getElementById('rcY')?.value||String(new Date().getFullYear());
+  const rcLbl=document.getElementById('rcYLabel');if(rcLbl)rcLbl.textContent=aktivesJahr();
+  const yr=aktivesJahr();
   const mo=document.getElementById('rcM')?.value||pad(new Date().getMonth()+1);
   const key=`${yr}-${mo}`;
   const bwEl=document.getElementById('bwArea');
@@ -4085,7 +4119,7 @@ async function renderReceipts(){
     if(sel&&!sel.options.length){const now=new Date();const yr2=now.getFullYear();
       const mN2=['Jan','Feb','Mrz','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
       for(let m=0;m<12;m++){const o=document.createElement('option');o.value=yr2+'-'+String(m+1).padStart(2,'0');o.textContent=mN2[m]+' '+yr2;if(m===now.getMonth())o.selected=true;sel.appendChild(o);}}
-    const rcYr=document.getElementById('rcY')?.value||String(new Date().getFullYear());
+    const rcYr=aktivesJahr();
     const allDa=Object.keys(state.settings.daReceipts||{}).filter(k=>k.startsWith('DA-'+rcYr)).sort();
     const dp=[];
     for(const daKey of allDa){const rids=(state.settings.daReceipts||{})[daKey]||[];
@@ -4120,7 +4154,7 @@ async function renderReceipts(){
 }
 async function handleBwUpload(ev){
   const files=Array.from(ev.target.files||[]);ev.target.value='';if(!files.length)return;
-  const yr=document.getElementById('rcY')?.value||String(new Date().getFullYear());
+  const yr=aktivesJahr();
   const mo=document.getElementById('rcM')?.value||pad(new Date().getMonth()+1);
   const key=`${yr}-${mo}`;
   if(!state.settings.bwReceipts)state.settings.bwReceipts={};
@@ -4272,15 +4306,13 @@ function renderFhf(){
 function resetFhfCtr(){const yr=parseInt(document.getElementById('sFY')?.value)||new Date().getFullYear();showModal('FHF-Zähler zurücksetzen?',`Zähler → 0. Nächste: FHF-${yr}-001.pdf`,()=>{state.settings.fhfCounter=0;state.settings.fhfYear=yr;persist();renderFhf();toast('Zähler zurückgesetzt','ok');});}
 
 /* SETTINGS */
-function fillYrSel(id){
-  const sel=document.getElementById(id);if(!sel)return;const cur=sel.value;
-  const yrs=new Set();state.entries.forEach(e=>{if(e.date)yrs.add(e.date.slice(0,4));});yrs.add(String(new Date().getFullYear()));
-  const sorted=[...yrs].sort().reverse();
-  sel.innerHTML=sorted.map(y=>`<option${cur===y?' selected':''}>${y}</option>`).join('');
-  if(cur&&!sorted.includes(cur))sel.value=sorted[0];
-}
 function loadSettings(){
   const s=state.settings;
+  const jSel=document.getElementById('sAktivesJahr');
+  if(jSel&&!jSel.options.length){
+    for(let y=2024;y<=2045;y++){const o=document.createElement('option');o.value=String(y);o.textContent=String(y);jSel.appendChild(o);}
+  }
+  if(jSel)jSel.value=aktivesJahr();
   ['sName','sRank','sUnit','sPNr','sAP','sAS','sAW'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.value=[s.name,s.rank,s.unit,s.persNr,s.addrPrimary,s.addrSecondary,s.addrWork][i]||'';});
   document.getElementById('sDT').value=s.dtKosten||'';document.getElementById('sDTd').value=s.dtStart||'';
   const fhfS=document.getElementById('sFhfStart');if(fhfS)fhfS.value=s.fhfStart||'';
@@ -4829,8 +4861,8 @@ async function saveLandscape(){
     document.querySelector('[data-v="export"]')?.classList.add('on');
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
     document.getElementById('view-export')?.classList.add('on');
-    const rcY=document.getElementById('rcY');const rcM2=document.getElementById('rcM');
-    if(rcY)rcY.value=String(yr);if(rcM2)rcM2.value=mo;
+    if(String(yr)!==aktivesJahr())setAktivesJahr(yr);
+    const rcM2=document.getElementById('rcM');if(rcM2)rcM2.value=mo;
     await renderReceipts();
     toast(`${fname} gespeichert`,'ok');
   }catch(e){toast('PDF-Fehler: '+e.message,'err');console.error(e);}
@@ -5875,7 +5907,8 @@ const ZE_MAP={'Grundbetrieb':'AW','Urlaub':'UR','Sonderurlaub':'UR','Zusatzurlau
 function initZeMonth(){
   const sel=document.getElementById('zeMonth');if(!sel)return;
   const prev=sel.value; // bestehende Auswahl merken
-  const now=new Date();const yr=now.getFullYear();
+  const yr=aktivesJahr();
+  const now=new Date();
   const mNames=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
   sel.innerHTML='';
   for(let m=0;m<12;m++){
@@ -5884,14 +5917,7 @@ function initZeMonth(){
     opt.textContent=mNames[m]+' '+yr;
     sel.appendChild(opt);
   }
-  // Add previous year
-  for(let m=0;m<12;m++){
-    const opt=document.createElement('option');
-    opt.value=(yr-1)+'-'+String(m+1).padStart(2,'0');
-    opt.textContent=mNames[m]+' '+(yr-1);
-    sel.appendChild(opt);
-  }
-  // Auswahl wiederherstellen, sonst aktuellen Monat
+  // Auswahl wiederherstellen, sonst aktueller Monat im aktiven Jahr
   const cur=yr+'-'+String(now.getMonth()+1).padStart(2,'0');
   sel.value=(prev&&[...sel.options].some(o=>o.value===prev))?prev:cur;
 }
@@ -6402,13 +6428,18 @@ function calcTG(yr,mo){
   el.innerHTML=html;
 }
 
-function importXlsmData(){
-  if(!ZE_IMPORT_DATA.length){toast('Keine Import-Daten vorhanden','err');return;}
+/* Baut aus Zeiterfassungs-Zeilen (Format: {date,tag,sollH,sonderdienst,von1,bis1,von2,bis2,
+   taetigkeit,stundenH,mehrminderH,bemerkung}) Wizard-Eintraege. Gemeinsame Kernlogik fuer den
+   Excel-Import (ZE_IMPORT_DATA, fest im Code hinterlegt) und den PDF-Import (aus echten
+   Zeiterfassungsblaettern geparst) — beide liefern Zeilen im selben Format, damit hier nur
+   einmal Dedup + Tagescode-Ableitung + Entry-Bau stehen muss. */
+function importZeRows(rows){
+  if(!rows||!rows.length){toast('Keine Import-Daten vorhanden','err');return{imported:0,skipped:0};}
   const existing=new Set(state.entries.map(e=>e.date));
   let imported=0,skipped=0;
-  ZE_IMPORT_DATA.forEach(row=>{
+  rows.forEach(row=>{
     if(existing.has(row.date)){skipped++;return;}
-    // Map Excel Tätigkeit to DT code
+    // Map Tätigkeit to DT code
     const dtCode=ZE_MAP[row.taetigkeit]||'AW';
     const isWE=['Sa','So','FT'].includes(row.tag);
     const dtDef=DT[dtCode]||DT.AW;
@@ -6431,8 +6462,83 @@ function importXlsmData(){
     imported++;
   });
   persist();
-  toast(imported+' Tage importiert, '+skipped+' übersprungen (bereits vorhanden)','ok');
+  return{imported,skipped};
+}
+function importXlsmData(){
+  const r=importZeRows(ZE_IMPORT_DATA);
+  toast(r.imported+' Tage importiert, '+r.skipped+' übersprungen (bereits vorhanden)','ok');
   renderZE();renderOverview();
+}
+
+/* ── PDF-Import fuer Zeiterfassungsblaetter ──────────────────────────────────────
+   Anders als der Excel-Knopf (der nur ein fest hinterlegtes Array importiert) liest
+   dieser Import tatsaechlich hochgeladene Dateien. Vorschau vor dem Uebernehmen,
+   analog zum bestehenden Bescheid/Beleg-Import (confirmImports/pendingImports). */
+let zePdfPending=[]; // [{filename, rows, monatsSumme, erkannterMonat, abweichung}]
+function zeMinToStr(min){
+  if(min==null)return'?';
+  const neg=min<0;const a=Math.abs(min);
+  return(neg?'-':'')+String(Math.floor(a/60)).padStart(2,'0')+':'+String(a%60).padStart(2,'0');
+}
+function zeTimeToMin(s){
+  const m=/^(-?)(\d{1,3}):(\d{2})$/.exec((s||'').trim());
+  if(!m)return 0;
+  return(m[1]==='-'?-1:1)*(parseInt(m[2],10)*60+parseInt(m[3],10));
+}
+async function onZePdfSelected(ev){
+  const files=Array.from(ev.target.files||[]);ev.target.value='';
+  if(!files.length)return;
+  for(const file of files){
+    try{
+      const pages=await window.extractZePositions(file);
+      if(!pages||!pages.length){toast('Kein Text in '+file.name+' gefunden','err');continue;}
+      const res=window.parseZeitblatt(pages);
+      if(!res.rows.length){toast('Keine Tageszeilen in '+file.name+' erkannt','err');continue;}
+      // Gegenprobe: Summe der erkannten Mehr/Minder-Werte gegen die Monats-Summe aus
+      // dem Blatt selbst — Sicherheitsnetz nach demselben Prinzip wie die
+      // fahrkostenAbweichung-Gegenprobe bei den TG-Bescheiden.
+      const summe=res.rows.reduce((a,r)=>a+zeTimeToMin(r.mehrminderH),0);
+      const abweichung=(res.monatsSumme!=null&&Math.abs(summe-res.monatsSumme)>0)?(summe-res.monatsSumme):null;
+      zePdfPending.push({filename:file.name,rows:res.rows,monatsSumme:res.monatsSumme,
+        erkannterMonat:res.erkannterMonat,summe,abweichung});
+    }catch(e){toast('Fehler bei '+file.name+': '+e.message,'err');}
+  }
+  renderZePdfPreview();
+}
+function renderZePdfPreview(){
+  const el=document.getElementById('zePdfPreview');if(!el)return;
+  if(!zePdfPending.length){el.innerHTML='';return;}
+  const MN=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  const monLabel=m=>{const t=/^(\d{4})-(\d{2})$/.exec(m||'');return t?MN[parseInt(t[2],10)-1]+' '+t[1]:'unbekannt';};
+  const items=zePdfPending.map((p,i)=>{
+    const warn=p.abweichung?`<div style="font-size:11px;color:var(--warn);margin-top:3px">&#9888;&#65039; Summe der Tage (${zeMinToStr(p.summe)}) weicht von der Monats-Summe im Blatt (${zeMinToStr(p.monatsSumme)}) ab &ndash; bitte pr&uuml;fen</div>`:'';
+    return`<div class="import-item" style="display:flex;gap:10px;padding:10px 12px;background:#f5f7fa;border-radius:9px;margin-bottom:6px;border-left:3px solid ${p.abweichung?'var(--warn)':'var(--ok)'}">
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13px">${esc(p.filename)}</div>
+        <div style="font-size:11px;color:var(--muted)">${monLabel(p.erkannterMonat)} &middot; ${p.rows.length} Tage erkannt</div>
+        ${warn}
+      </div>
+      <button class="rec-rm" onclick="removeZePdfPending(${i})" title="Entfernen">&times;</button>
+    </div>`;
+  }).join('');
+  el.innerHTML=`<div class="card" style="margin-bottom:12px;border-left:3px solid var(--blue)">
+    <h4 style="font-size:13px;color:var(--navy);margin:0 0 8px">Vorschau: ${zePdfPending.length} Zeiterfassungsblatt(&#228;tter)</h4>
+    ${items}
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px">
+      <button class="btn btn-gold btn-sm" onclick="confirmZePdfImport()">&#10003; Alle &#252;bernehmen</button>
+      <button class="btn-xs" onclick="clearZePdfPending()">&#128465;&#65039; Verwerfen</button>
+    </div>
+  </div>`;
+}
+function removeZePdfPending(i){zePdfPending.splice(i,1);renderZePdfPreview();}
+function clearZePdfPending(){zePdfPending=[];renderZePdfPreview();}
+function confirmZePdfImport(){
+  if(!zePdfPending.length)return;
+  const rows=zePdfPending.flatMap(p=>p.rows);
+  const r=importZeRows(rows);
+  toast(r.imported+' Tage importiert, '+r.skipped+' übersprungen (bereits vorhanden)','ok');
+  clearZePdfPending();
+  initZeMonth();renderZE();renderOverview();
 }
 /* ─── END ZEITERFASSUNG ─── */
 /* ═══════════════ FIREBASE CLOUD SYNC ═══════════════ */
@@ -6930,6 +7036,11 @@ async function repariereBelegMetadaten(){
     38: [
       'Automatische Gegenprobe: die CheckBox meldet jetzt, wenn die Fahrtkosten-Einzelaufstellung eines TG-Bescheids nicht mit dessen eigener Gesamtsumme übereinstimmt — Schutz gegen künftig unbekannte Textmuster',
     ],
+    39: [
+      'Neuer zentraler Jahresschalter (2024–2045) in den Einstellungen ersetzt die einzelnen Jahres-Dropdowns in Übersicht, Jahresübersicht und Belegen',
+      'Echter PDF-Import für Zeiterfassungsblätter, mit Vorschau und Gegenprobe gegen die Monats-Summe',
+      'CheckBox berücksichtigt beim Jahreswechsel jetzt auch den Dezember des Vorjahres',
+    ],
   };
   
   // APP_BUILD ist die einzige Quelle für die Update-Erkennung — bereits die
@@ -7101,6 +7212,149 @@ window.extractPdfText = async function(file) {
     throw new Error('PDF konnte nicht gelesen werden: ' + e.message);
   }
 }
+
+/* ═══════════════ ZEITERFASSUNGSBLATT-IMPORT (positionsbasiert) ═══════════════
+   Die normale extractPdfText() verkettet pro Seite ALLE Textstuecke mit einem
+   Leerzeichen (PDF.js items.map(i=>i.str).join(' ')) und reisst dabei bei Tabellen
+   die Spalten auseinander — insbesondere landet die Bemerkungen-Spalte gesammelt
+   am Ende, losgeloest von ihrer Zeile. Fuer das Zeiterfassungsblatt wird deshalb
+   zusaetzlich die Position jedes Textstuecks (PDF.js liefert sie ueber
+   item.transform) mitgenommen, um Spalten anhand ihrer x-Koordinate zuzuordnen. */
+window.extractZePositions = async function(file) {
+  if (file.type !== 'application/pdf') return null;
+  if (file.size > 700000) throw new Error('PDF > 700 KB: ' + file.name);
+  await loadPdfJs();
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+  const pages = [];
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const textContent = await page.getTextContent();
+    pages.push(textContent.items
+      .filter(it => (it.str || '').trim())
+      .map(it => ({ str: it.str.trim(), x: it.transform[4], y: it.transform[5] })));
+  }
+  return pages;
+};
+
+// Spaltengrenzen (x-Bereiche in PDF.js-Koordinaten — WICHTIG: PDF.js' item.transform
+// liefert andere x-Werte als z. B. PyMuPDF/fitz fuer dieselbe Datei (bei den beiden
+// Referenzblaettern konstant ca. 12pt Unterschied, vermutlich CropBox-bedingt). Diese
+// Werte sind deshalb direkt aus echten pdfjsLib.getTextContent()-Aufrufen gegen zwei
+// reale Zeiterfassungsblaetter (Dez-2024, Mai-2025) im Browser kalibriert, nicht aus
+// einer Kommandozeilen-Bibliothek uebernommen:
+// Datum@43 Tag@89 Std Soll@112 von1@170 bis1@196 von2@224(*) bis2@251(*) Tätigkeit@295-305
+// Stunden@370 Mehr/Minder@420 Wochen h Ø@479 Bemerkung@548-609 (breite Spalte, Text
+// nicht immer am linken Rand). (*) von2/bis2 kamen in beiden Referenzblaettern nie
+// belegt vor — Position aus der Kopfzeile abgeleitet, nicht an echten Werten verifiziert.
+const ZE_PDF_SPALTEN = [
+  { name: 'datum', xMin: 30, xMax: 66 },
+  { name: 'tag', xMin: 66, xMax: 101 },
+  { name: 'sollH', xMin: 101, xMax: 128 },
+  { name: 'sonderdienst', xMin: 128, xMax: 163 },
+  { name: 'von1', xMin: 163, xMax: 183 },
+  { name: 'bis1', xMin: 183, xMax: 210 },
+  { name: 'von2', xMin: 210, xMax: 238 },
+  { name: 'bis2', xMin: 238, xMax: 273 },
+  { name: 'taetigkeit', xMin: 273, xMax: 337 },
+  { name: 'stundenH', xMin: 337, xMax: 395 },
+  { name: 'mehrminderH', xMin: 395, xMax: 449 },
+  { name: 'wochenOe', xMin: 449, xMax: 514 },
+  { name: 'bemerkung', xMin: 514, xMax: 9999 },
+];
+window.ZE_PDF_SPALTEN = ZE_PDF_SPALTEN;
+const ZE_MONATSNAMEN = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+
+/* Parst EINE Seite (Array von {str,x,y}) eines Zeiterfassungsblatts zu Tages-Zeilen im
+   ZE_IMPORT_DATA-Format. Technik: jede Tabellenzeile beginnt mit einem Datum
+   (DD.MM.YYYY) in der Datum-Spalte — das sind die "Anker". Jedes andere Textstueck wird
+   dem y-naechsten Anker zugeordnet (robust gegen die in echten PDFs beobachteten ca. 1pt
+   Zeilen-internen Versaetze zwischen Spalten). Textstuecke, die ausserhalb der y-Spanne
+   aller Anker liegen (Kopfzeile ueber der Tabelle, Monats-Summenzeile und Unterschriften-
+   block darunter), werden verworfen statt der ersten/letzten Zeile aufgezwungen zu werden
+   — das haette sonst z. B. die Monats-Summe ("31:00") als Mehr/Minder-Wert des letzten
+   Tages fehlinterpretiert. */
+function parseZeitblattSeite(items) {
+  const dateRe = /^(\d{2})\.(\d{2})\.(\d{4})$/;
+  const findCol = x => ZE_PDF_SPALTEN.find(c => x >= c.xMin && x < c.xMax);
+
+  const ankerRoh = items
+    .filter(it => { const c = findCol(it.x); return c && c.name === 'datum' && dateRe.test(it.str); })
+    .map(it => { const m = dateRe.exec(it.str); return { y: it.y, date: m[3] + '-' + m[2] + '-' + m[1] }; });
+  if (!ankerRoh.length) return { rows: [], monatsSumme: null };
+  // Chronologisch sortieren (unabhaengig von der y-Richtungskonvention) UND Duplikate
+  // (z. B. eine versehentlich zweimal erkannte Datumsangabe) auf den ersten Treffer reduzieren.
+  ankerRoh.sort((a, b) => a.date.localeCompare(b.date));
+  const gesehen = new Set();
+  const anker = ankerRoh.filter(a => { if (gesehen.has(a.date)) return false; gesehen.add(a.date); return true; });
+
+  const yWerte = anker.map(a => a.y);
+  const yMin = Math.min(...yWerte), yMax = Math.max(...yWerte);
+  const TOLERANZ = 4; // pt — groesser als der beobachtete Intra-Zeilen-Versatz (~1pt), kleiner als der Zeilenabstand (~9-10pt)
+
+  const zellen = new Map(anker.map(a => [a.date, {}]));
+  let monatsSummeKandidat = null;
+
+  items.forEach(it => {
+    if (dateRe.test(it.str) && findCol(it.x)?.name === 'datum') return; // ist selbst ein Anker
+    const col = findCol(it.x); if (!col || col.name === 'datum') return;
+    let best = null, bestDist = Infinity;
+    anker.forEach(a => { const d = Math.abs(a.y - it.y); if (d < bestDist) { bestDist = d; best = a; } });
+    if (!best) return;
+    const ausserhalb = it.y < yMin - TOLERANZ || it.y > yMax + TOLERANZ;
+    if (ausserhalb) {
+      // Kandidat fuer die Monats-Summenzeile: liegt in der Mehr/Minder- oder
+      // Wochen-Ø-Spalte, aber physisch ausserhalb der eigentlichen Tabelle.
+      if ((col.name === 'mehrminderH' || col.name === 'wochenOe') && monatsSummeKandidat == null) {
+        const m = /^(-?\d{1,3}):(\d{2})$/.exec(it.str);
+        if (m) monatsSummeKandidat = (m[1].startsWith('-') ? -1 : 1) * (Math.abs(+m[1]) * 60 + +m[2]);
+      }
+      return;
+    }
+    const row = zellen.get(best.date);
+    (row[col.name] = row[col.name] || []).push({ x: it.x, str: it.str });
+  });
+
+  const join = arr => (arr || []).sort((a, b) => a.x - b.x).map(w => w.str).join(' ').trim();
+  const rows = anker.map(a => {
+    const c = zellen.get(a.date);
+    return {
+      date: a.date, tag: join(c.tag), sollH: join(c.sollH), sonderdienst: join(c.sonderdienst),
+      von1: join(c.von1), bis1: join(c.bis1), von2: join(c.von2), bis2: join(c.bis2),
+      taetigkeit: join(c.taetigkeit), stundenH: join(c.stundenH), mehrminderH: join(c.mehrminderH),
+      bemerkung: join(c.bemerkung),
+    };
+  });
+  return { rows, monatsSumme: monatsSummeKandidat };
+}
+
+/* Verarbeitet alle Seiten eines Zeiterfassungsblatts. Seiten werden EINZELN geparst (nicht
+   mit gemeinsamen y-Werten vermischt — jede PDF-Seite hat ihr eigenes Koordinatensystem),
+   die Tages-Zeilen anschliessend zusammengefuehrt (Duplikate nach Datum verworfen). */
+function parseZeitblatt(pages) {
+  const rows = [], gesehen = new Set();
+  let monatsSumme = null;
+  pages.forEach(seite => {
+    const r = parseZeitblattSeite(seite);
+    if (r.monatsSumme != null && monatsSumme == null) monatsSumme = r.monatsSumme;
+    r.rows.forEach(row => { if (!gesehen.has(row.date)) { gesehen.add(row.date); rows.push(row); } });
+  });
+  rows.sort((a, b) => a.date.localeCompare(b.date));
+  // Monat/Jahr aus der Kopfzeile ("2025 Mai" bzw. "2024 Dezember") — nur zur Anzeige in
+  // der Vorschau, nicht fuer den Import selbst massgeblich (der nutzt row.date direkt).
+  const flat = pages.flat().map(it => it.str).join(' ');
+  let erkannterMonat = null;
+  const kopfM = new RegExp('(\\d{4})\\s+(' + ZE_MONATSNAMEN.join('|') + ')').exec(flat)
+    || new RegExp('(' + ZE_MONATSNAMEN.join('|') + ')\\s+(\\d{4})').exec(flat);
+  if (kopfM) {
+    const jahr = /^\d{4}$/.test(kopfM[1]) ? kopfM[1] : kopfM[2];
+    const monatName = /^\d{4}$/.test(kopfM[1]) ? kopfM[2] : kopfM[1];
+    const mIdx = ZE_MONATSNAMEN.indexOf(monatName);
+    if (mIdx >= 0) erkannterMonat = jahr + '-' + String(mIdx + 1).padStart(2, '0');
+  }
+  return { rows, monatsSumme, erkannterMonat };
+}
+window.parseZeitblatt = parseZeitblatt;
 
 // Extrahiere Metadaten aus Dateiname und PDF-Text
 window.extractMetadata = function(file, pdfText) {
