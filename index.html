@@ -791,10 +791,10 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=44;
+const APP_BUILD=45;
 const APP_DATE='11.08.2026';
 const APP_CHANGES=[
-  'Querprüfung: neue Jahressumme am Ende der Box — fasst Bezahlt (Beleg)/Erstattet (Bescheid)/Differenz über alle Monate zusammen, statt jeden Monat einzeln addieren zu müssen',
+  'Sync-Fehler behoben: das aktive Jahr (Jahresschalter) wurde bisher mitsynchronisiert und konnte dadurch beim Abgleich unbemerkt auf einem Gerät umspringen — dadurch zeigten CheckBox & Co. auf Handy und Dock-App unterschiedliche Ergebnisse, obwohl die Einträge selbst identisch waren. Das aktive Jahr bleibt jetzt geräteweise getrennt',
 ];
 
 const SK='zc-tgrb-v2', SETK='zc-tgrb-set-v2';
@@ -6775,7 +6775,14 @@ async function cloudPull(manual){
 // Settings-Felder, die geraetegebunden sind und NICHT synchronisiert werden
 function stripLocalOnly(s){
   const c=JSON.parse(JSON.stringify(s));
-  delete c.fbConfig;delete c.fbAutoSync;delete c.fbLastSync;delete c.fbLastAppliedRemoteTs;delete c.belegMetaSyncV2;
+  // aktivesJahr ist eine reine Anzeige-Einstellung dieses Geraets (welches Jahr GERADE
+  // BETRACHTET wird) — kein fachlicher Datenwert. Ohne diesen Ausschluss ueberschreibt
+  // jeder Sync das aktive Jahr des EMPFANGENDEN Geraets mit dem des sendenden: schaut Mike
+  // auf dem Handy z. B. gerade 2025 an, waehrend am Mac noch 2026 aktiv ist, kippt beim
+  // naechsten Abgleich eines der beiden Geraete unbemerkt auf das jeweils andere Jahr um
+  // — und CheckBox/Übersicht/etc. zeigen dadurch auf beiden Geraeten unterschiedliche,
+  // scheinbar "asynchrone" Ergebnisse, obwohl die zugrundeliegenden Eintraege identisch sind.
+  delete c.fbConfig;delete c.fbAutoSync;delete c.fbLastSync;delete c.fbLastAppliedRemoteTs;delete c.belegMetaSyncV2;delete c.aktivesJahr;
   return c;
 }
 
@@ -6805,7 +6812,10 @@ async function mergeRemote(remote,remoteTs){
     // aktuellen Stand, daher genuegt ein einfacher Idempotenz-Check gegen den zuletzt
     // TATSAECHLICH UEBERNOMMENEN Remote-Zeitstempel.
     if(remote.settings&&(!state.settings.fbLastAppliedRemoteTs||remoteTs>state.settings.fbLastAppliedRemoteTs)){
-      const keepFb={fbConfig:state.settings.fbConfig,fbAutoSync:state.settings.fbAutoSync,fbLastSync:state.settings.fbLastSync};
+      // aktivesJahr bleibt geraetelokal (siehe stripLocalOnly) — hier zusaetzlich als
+      // Uebergangsschutz explizit erhalten, falls das SENDENDE Geraet noch auf einem
+      // aelteren Build laeuft und aktivesJahr trotzdem noch mitschickt.
+      const keepFb={fbConfig:state.settings.fbConfig,fbAutoSync:state.settings.fbAutoSync,fbLastSync:state.settings.fbLastSync,aktivesJahr:state.settings.aktivesJahr};
       state.settings=Object.assign(state.settings,remote.settings,keepFb);
       state.settings.fbLastAppliedRemoteTs=remoteTs;
     }
@@ -7152,6 +7162,9 @@ async function repariereBelegMetadaten(){
     ],
     44: [
       'Querprüfung: neue Jahressumme am Ende der Box (Bezahlt/Erstattet/Differenz über alle Monate)',
+    ],
+    45: [
+      'Sync-Fehler behoben: das aktive Jahr sprang beim Geräte-Abgleich unbemerkt um, wodurch CheckBox & Co. auf Handy und Dock-App unterschiedliche Ergebnisse zeigten. Das aktive Jahr bleibt jetzt geräteweise getrennt',
     ],
   };
   
