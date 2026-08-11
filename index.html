@@ -791,14 +791,10 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=43;
+const APP_BUILD=44;
 const APP_DATE='11.08.2026';
 const APP_CHANGES=[
-  'Trennungsgeld/DHF-Berechnung korrigiert: Unterkunftskosten werden jetzt tagesgenau ab dem hinterlegten DHF-Beginn gerechnet, statt jeden Monat mit TG-Bescheid pauschal voll zu zählen (wichtig z. B. für Dezember 2024, wo die DHF erst ab dem 6. gilt)',
-  'Eingelesene Bescheide, Originaldateien nach Monat und die Belegeablage folgen jetzt dem Jahresschalter',
-  'Eingelesene Bescheide, Originaldateien nach Monat und die gesamte Belegeablage lassen sich jetzt auf- und zuklappen',
-  '„Alle Bescheide & Belege löschen (Clean-Up)" ist jetzt in den Einstellungen unter Speicher zu finden',
-  'App-Version-Box zeigt jetzt nur noch die Änderungen des aktuellen Builds statt der kompletten Historie',
+  'Querprüfung: neue Jahressumme am Ende der Box — fasst Bezahlt (Beleg)/Erstattet (Bescheid)/Differenz über alle Monate zusammen, statt jeden Monat einzeln addieren zu müssen',
 ];
 
 const SK='zc-tgrb-v2', SETK='zc-tgrb-set-v2';
@@ -3154,6 +3150,44 @@ function renderQuerCard(){
       </table>
     </div>`;
   }).join('');
+  // Jahressumme ueber alle angezeigten Monate — dieselbe Aufschluesselung wie je Monat,
+  // damit man nicht jeden Monatsblock einzeln addieren muss.
+  const jSumme={flug:{b:0,e:0},bahn:{b:0,e:0},bus:{b:0,e:0},kfzKm:{km:0,e:0},bahnOevKm:{km:0,e:0}};
+  monate.forEach(({q})=>{
+    jSumme.flug.b+=q.flug.bezahlt;jSumme.flug.e+=q.flug.erstattet;
+    jSumme.bahn.b+=q.bahn.bezahlt;jSumme.bahn.e+=q.bahn.erstattet;
+    jSumme.bus.b+=q.bus.bezahlt;jSumme.bus.e+=q.bus.erstattet;
+    jSumme.kfzKm.km+=q.kfzKm.km;jSumme.kfzKm.e+=q.kfzKm.erstattet;
+    jSumme.bahnOevKm.km+=q.bahnOevKm.km;jSumme.bahnOevKm.e+=q.bahnOevKm.steuerfrei;
+  });
+  const jBezahlt=jSumme.flug.b+jSumme.bahn.b+jSumme.bus.b;
+  const jErstattet=jSumme.flug.e+jSumme.bahn.e+jSumme.bus.e;
+  const jDiff=jBezahlt-jErstattet;
+  const jFarbe=Math.abs(jDiff)<0.005?'var(--navy)':(jDiff>0?'var(--err)':'var(--ok)');
+  const jahresSumme=`<div style="margin-top:4px;padding-top:12px;border-top:2px solid var(--navy)">
+    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px">Jahressumme ${yr} (${monate.length} Monat${monate.length!==1?'e':''})</div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:var(--navy);color:#fff">
+        <th style="padding:5px 6px;text-align:left;font-size:10px">Kategorie</th>
+        <th style="padding:5px 6px;text-align:right;font-size:10px">Bezahlt (Beleg)</th>
+        <th style="padding:5px 6px;text-align:right;font-size:10px">Erstattet (Bescheid)</th>
+        <th style="padding:5px 6px;text-align:right;font-size:10px">Differenz</th>
+      </tr></thead>
+      <tbody>
+        ${zeile('&#9992;&#65039; Flugkarte',jSumme.flug.b,jSumme.flug.e)}
+        ${zeile('&#128646; Bahnkarte',jSumme.bahn.b,jSumme.bahn.e)}
+        ${zeile('&#128652; Buskarte',jSumme.bus.b,jSumme.bus.e)}
+        ${jSumme.kfzKm.km?kmZeile('&#128663; Privat-Kfz',jSumme.kfzKm.km,jSumme.kfzKm.e):''}
+        ${jSumme.bahnOevKm.km?kmZeile('&#128647; Bahn/&Ouml;PNV (km)',jSumme.bahnOevKm.km,jSumme.bahnOevKm.e):''}
+        <tr style="background:var(--lsoft);font-weight:700">
+          <td style="padding:6px">Summe Belege (Tickets)</td>
+          <td style="padding:6px;text-align:right">${e(jBezahlt)} &euro;</td>
+          <td style="padding:6px;text-align:right;color:var(--ok)">${e(jErstattet)} &euro;</td>
+          <td style="padding:6px;text-align:right;color:${jFarbe}">${jDiff>0?'+':''}${e(jDiff)} &euro;</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>`;
   el.innerHTML=`<div class="card" style="margin-bottom:12px;border-left:3px solid #0A84FF">
     <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;margin-bottom:8px">
       <h3 style="font-size:15px;margin:0">&#128203; Querpr&#252;fung: Belege &harr; TG-Bescheid ${yr}</h3>
@@ -3166,6 +3200,7 @@ function renderQuerCard(){
       Nur f&#252;r Trennungsgeld-Bescheide verf&#252;gbar &ndash; Reisekostenabrechnungen (RK) enthalten keine Aufschl&#252;sselung je Verkehrsmittel.
     </p>
     ${monatsBloecke}
+    ${jahresSumme}
   </div>`;
 }
 function renderVersion(){
@@ -7114,6 +7149,9 @@ async function repariereBelegMetadaten(){
       'DHF-Unterkunftskosten werden jetzt tagesgenau ab dem hinterlegten Beginn berechnet, nicht mehr pauschal pro TG-Bescheid-Monat',
       'Bescheide, Originaldateien und Belegeablage folgen dem Jahresschalter und lassen sich auf-/zuklappen',
       'Clean-Up-Button in die Einstellungen verschoben, App-Version-Box zeigt nur noch den aktuellen Build',
+    ],
+    44: [
+      'Querprüfung: neue Jahressumme am Ende der Box (Bezahlt/Erstattet/Differenz über alle Monate)',
     ],
   };
   
