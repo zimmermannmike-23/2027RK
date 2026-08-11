@@ -7,14 +7,22 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="TG/RB Nachweis">
 <title>Reisekosten- & Arbeitszeitnachweis</title>
+<script>(function(){try{var t=localStorage.getItem('uiTheme');if(t==='legacy')document.documentElement.setAttribute('data-theme','legacy');}catch(e){}})();</script>
 <style>
 :root{
-  --navy:#0B132B;--navy2:#1C2541;--gold:#E6AF2E;--gold2:#F0C94A;
-  --bg:#F5F5F7;--card:#FFFFFF;--text:#1D1D1F;--muted:#86868B;--line:#E8E8ED;--lsoft:#F5F5F7;
+  --accent:#0F8A80;--accent-rgb:15,138,128;--accent-dark:#136359;--accent-tint:#E3F3F0;
+  --navy:#12262B;--navy2:#1B3A40;--gold:#E6AF2E;--gold2:#F0C94A;
+  --bg:#EFF4F3;--card:#FFFFFF;--text:#1D1D1F;--muted:#86868B;--line:#E3E9E8;--lsoft:#F3F7F6;
   --ok:#2d6a4f;--oks:#e8f5ee;--err:#c0392b;--errs:#fff0ef;--warn:#b7651d;--warns:#fff8ec;
   --sh0:0 2px 12px rgba(0,0,0,0.03);--sh1:0 4px 20px rgba(0,0,0,0.07);--sh2:0 8px 32px rgba(0,0,0,0.13);
-  --r:12px;--rl:16px;
+  --r:14px;--rl:20px;
   --font:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;
+}
+[data-theme="legacy"]{
+  --accent:#0A84FF;--accent-rgb:10,132,255;--accent-dark:#0A84FF;--accent-tint:#eef6ff;
+  --navy:#0B132B;--navy2:#1C2541;
+  --bg:#F5F5F7;--line:#E8E8ED;--lsoft:#F5F5F7;
+  --r:12px;--rl:16px;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{font-family:var(--font);font-size:15px;line-height:1.5;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;}
@@ -59,16 +67,48 @@ body{padding-bottom:env(safe-area-inset-bottom);}
   border:1px solid rgba(255,255,255,.2);border-radius:999px;white-space:nowrap;
   background:rgba(255,255,255,.08);}
 .tabs{
-  background:rgba(255,255,255,.9);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--line);
-  position:sticky;top:0;z-index:40;overflow-x:auto;scrollbar-width:none;
+  position:fixed;left:0;top:0;bottom:0;width:68px;
+  background:rgba(255,255,255,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-right:1px solid var(--line);
+  z-index:45;overflow-y:auto;scrollbar-width:none;
 }
 .tabs::-webkit-scrollbar{display:none;}
-.tabs-i{max-width:1100px;margin:0 auto;display:flex;padding:0 16px;}
-.tab{background:none;border:none;padding:14px 16px;font:inherit;font-size:13px;color:var(--muted);
-  cursor:pointer;font-weight:500;border-bottom:2.5px solid transparent;white-space:nowrap;transition:all .2s;}
-.tab.on{color:#0A84FF;border-bottom-color:#0A84FF;font-weight:600;}
-main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;}
+.tabs-i{display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:calc(84px + env(safe-area-inset-top)) 6px 16px;}
+.tab{all:unset;box-sizing:border-box;width:100%;display:flex;flex-direction:column;align-items:center;
+  gap:3px;padding:9px 2px;border-radius:14px;color:var(--muted);cursor:pointer;font:inherit;
+  text-align:center;transition:background .15s,color .15s;}
+.tab .ic{display:flex;line-height:1;}
+.tab .ic svg{width:21px;height:21px;stroke-width:1.9;flex-shrink:0;}
+.tab .lb{font-size:9.5px;font-weight:600;letter-spacing:.2px;line-height:1.1;}
+.tab:hover{background:var(--lsoft);}
+.tab.on{background:var(--accent-tint);color:var(--accent-dark);font-weight:700;}
+.tab.on .ic svg{stroke-width:2.2;}
+main{margin-left:68px;max-width:1100px;padding:20px 20px 96px;}
+@media(max-width:600px){
+  .tabs{width:58px;}
+  .tabs-i{padding-left:3px;padding-right:3px;}
+  .tab .lb{font-size:8.7px;}
+  .tab .ic svg{width:19px;height:19px;}
+  main{margin-left:58px;padding:16px 14px 96px;}
+}
+[data-theme="legacy"] .tabs{
+  position:sticky;left:auto;top:0;bottom:auto;width:auto;
+  border-right:none;border-bottom:1px solid var(--line);
+  z-index:40;overflow-x:auto;overflow-y:visible;
+}
+[data-theme="legacy"] .tabs-i{max-width:1100px;margin:0 auto;flex-direction:row;padding:0 16px;}
+[data-theme="legacy"] .tab{all:unset;box-sizing:border-box;background:none;border:none;padding:14px 16px;
+  font:inherit;font-size:13px;color:var(--muted);cursor:pointer;font-weight:500;
+  border-bottom:2.5px solid transparent;white-space:nowrap;transition:all .2s;width:auto;
+  flex-direction:row;border-radius:0;}
+[data-theme="legacy"] .tab .ic{display:none;}
+[data-theme="legacy"] .tab .lb{font-size:13px;font-weight:500;letter-spacing:0;}
+[data-theme="legacy"] .tab:hover{background:none;}
+[data-theme="legacy"] .tab.on{background:none;color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+[data-theme="legacy"] .tab.on .lb{font-weight:600;}
+[data-theme="legacy"] main{margin-left:0;max-width:1100px;margin-right:auto;padding:20px 16px 80px;}
+@media(max-width:600px){[data-theme="legacy"] main{margin-left:0;}}
 .view{display:none;}
 .view.on{display:block;animation:fu .3s ease;}
 @keyframes fu{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -86,7 +126,7 @@ main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;}
   transition:border-color .15s,box-shadow .15s;}
 .f textarea{resize:vertical;min-height:65px;}
 .f input:focus,.f select:focus,.f textarea:focus{
-  outline:none;border-color:#0A84FF;box-shadow:0 0 0 3px rgba(10,132,255,.12);background:#fff;}
+  outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.12);background:#fff;}
 .hint{font-size:11px;color:var(--muted);margin-top:2px;}
 .btn{font:inherit;font-weight:600;font-size:13px;padding:10px 18px;border-radius:999px;
   border:1px solid transparent;cursor:pointer;transition:all .18s;display:inline-flex;align-items:center;gap:6px;}
@@ -103,8 +143,8 @@ main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;}
 .chips{display:flex;flex-wrap:wrap;gap:7px;}
 .chip{padding:7px 14px;border:1.5px solid var(--line);background:#fff;border-radius:999px;
   font:inherit;font-size:13px;cursor:pointer;color:var(--text);font-weight:500;transition:all .15s;}
-.chip:hover{border-color:#0A84FF;color:#0A84FF;}
-.chip.on{background:#0A84FF;color:#fff;border-color:#0A84FF;}
+.chip:hover{border-color:var(--accent);color:var(--accent);}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent);}
 /* #view-monat bekommt eine feste, auf den Viewport bezogene Hoehe (statt des normalen
    block-Verhaltens der anderen Reiter) — die Kalender-Kacheln teilen sich darin per
    grid-auto-rows den kompletten verfuegbaren Platz, damit der Monat im Vollbild der
@@ -112,7 +152,8 @@ main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;}
    (4-6 Wochen je nach Monat) wird in renderCal() dynamisch per Inline-Style gesetzt, damit
    kein leerer Platzhalter-Rang die Kacheln unnoetig verkleinert. 156px ist grob Topbar +
    Tab-Leiste + main-Padding — grosszuegig genug fuer beide Zeilen des Update-Banners.*/
-#view-monat.on{display:flex;flex-direction:column;height:calc(100dvh - 156px);min-height:320px;}
+#view-monat.on{display:flex;flex-direction:column;height:calc(100dvh - 110px);min-height:320px;}
+[data-theme="legacy"] #view-monat.on{height:calc(100dvh - 156px);}
 .cal-wrap{background:var(--card);border:1px solid rgba(0,0,0,0.05);border-radius:var(--rl);
   padding:16px;box-shadow:var(--sh0);display:flex;flex-direction:column;flex:1;min-height:0;}
 .cal-head-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;}
@@ -127,7 +168,7 @@ main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;}
   letter-spacing:.5px;text-transform:uppercase;display:flex;align-items:center;justify-content:center;}
 .cal-d{border-radius:10px;display:flex;align-items:center;justify-content:center;min-height:0;
   flex-direction:column;font-size:11px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:all .15s;}
-.cal-d:hover{border-color:#0A84FF;background:rgba(10,132,255,.06);}
+.cal-d:hover{border-color:var(--accent);background:rgba(var(--accent-rgb),.06);}
 .cal-d.today{border-color:var(--gold)!important;background:rgba(201,168,76,.10);box-shadow:0 0 0 2px rgba(201,168,76,.25);}
 .cal-d.has{background:var(--navy);color:#fff;}
 .cal-d.has:hover{background:var(--navy2);}
@@ -137,7 +178,8 @@ main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;}
 .cdot{font-size:8px;font-weight:700;background:rgba(255,255,255,.2);border-radius:3px;padding:0 3px;margin-top:1px;}
 .cal-d:not(.has) .cdot{display:none;}
 .prog-wrap{background:var(--card);border:1px solid rgba(0,0,0,0.05);border-radius:var(--rl);
-  padding:12px 16px;margin-bottom:12px;box-shadow:var(--sh0);}
+  padding:10px 14px;margin-bottom:12px;box-shadow:var(--sh0);
+  position:sticky;top:calc(72px + env(safe-area-inset-top));z-index:30;}
 .sdots{display:flex;align-items:center;gap:0;overflow-x:auto;scrollbar-width:none;}
 .sdots::-webkit-scrollbar{display:none;}
 .sdot{display:flex;align-items:center;gap:5px;flex-shrink:0;cursor:pointer;padding:5px 8px;
@@ -146,37 +188,71 @@ main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;}
 .sdot .sn{width:26px;height:26px;border-radius:999px;display:grid;place-items:center;
   font-size:11px;font-weight:700;background:var(--lsoft);color:var(--muted);
   border:2px solid transparent;transition:all .2s;flex-shrink:0;}
-.sdot .sl{font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap;}
-.sdot.active .sn{background:#0A84FF;color:#fff;border-color:#0A84FF;}
-.sdot.active .sl{color:#0A84FF;font-weight:700;}
+.sdot .sl{font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap;display:none;}
+.sdot.active .sl{display:block;font-size:12px;}
+.sdot.active .sn{background:var(--accent);color:#fff;border-color:var(--accent);}
+.sdot.active .sl{color:var(--accent);font-weight:700;}
 .sdot.done .sn{background:var(--ok);color:#fff;}
 .sdot.done .sl{color:var(--ok);}
 .sline{width:16px;height:2px;background:var(--line);flex-shrink:0;}
 .sline.done{background:var(--ok);}
-.pbar{height:3px;background:var(--lsoft);border-radius:999px;overflow:hidden;margin-top:8px;}
-.pfill{height:100%;background:linear-gradient(90deg,#0A84FF,var(--gold));transition:width .3s;}
+.pbar{height:4px;background:var(--lsoft);border-radius:999px;overflow:hidden;margin-top:8px;}
+.pfill{height:100%;background:var(--accent);transition:width .3s;}
 .wcard{background:var(--card);border:1px solid rgba(0,0,0,0.05);border-radius:var(--rl);
   box-shadow:var(--sh1);overflow:hidden;}
 .wcard-head{padding:12px 18px 9px;border-bottom:1px solid var(--lsoft);}
 .wcard-head h3{font-size:17px;font-weight:600;color:var(--navy);letter-spacing:-0.3px;}
 .wcard-head .sub{color:var(--muted);font-size:12px;margin-top:2px;}
-.wact{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:7px 16px;
-  border-bottom:1px solid var(--lsoft);background:var(--lsoft);}
+.wact{display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+  border-top:1px solid var(--line);background:rgba(255,255,255,.96);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  position:fixed;left:68px;right:0;bottom:0;z-index:40;
+  border-radius:20px 20px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.08);}
+@media(max-width:600px){.wact{left:58px;}}
 .wact .sp{flex:1;}
 .wbody{padding:14px 16px;}
-.dt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin-top:8px;}
-.dt{border:1.5px solid var(--line);border-radius:var(--r);background:#fafafa;cursor:pointer;
-  text-align:left;font:inherit;transition:all .15s;padding:9px;}
-.dt:hover{border-color:#0A84FF;background:rgba(10,132,255,.04);}
-.dt.on{border-color:#0A84FF;background:rgba(10,132,255,.06);box-shadow:0 0 0 3px rgba(10,132,255,.1);}
-.dt .dc{font-weight:700;font-size:13px;color:var(--navy);display:inline-block;padding:1px 7px;
-  background:var(--gold);border-radius:999px;margin-bottom:4px;}
-.dt .dn{font-weight:600;font-size:12px;display:block;margin-bottom:1px;}
-.dt .dd{font-size:10px;color:var(--muted);line-height:1.25;}
+.dt-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px;}
+.dt{border:none;border-radius:18px;background:var(--lsoft);cursor:pointer;
+  text-align:center;font:inherit;transition:background .15s,box-shadow .15s,transform .12s;
+  padding:16px 8px;min-height:84px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;}
+.dt:hover{background:rgba(var(--accent-rgb),.1);}
+.dt:active{transform:scale(.97);}
+.dt.on{background:var(--accent);box-shadow:0 4px 14px rgba(var(--accent-rgb),.35);}
+.dt.on .dc{background:rgba(255,255,255,.25);color:#fff;}
+.dt.on .dn{color:#fff;}
+.dt.on .dd{color:rgba(255,255,255,.85);}
+.dt .dc{font-weight:700;font-size:12px;color:var(--navy);display:inline-block;padding:2px 9px;
+  background:var(--gold);border-radius:999px;}
+.dt .dn{font-weight:700;font-size:13px;display:block;}
+.dt .dd{font-size:10.5px;color:var(--muted);line-height:1.25;}
+.dt-auto{font-size:12px;color:var(--muted);text-align:center;margin-top:12px;}
+[data-theme="legacy"] .dt-auto{display:none;}
+[data-theme="legacy"] .prog-wrap{position:static;padding:12px 16px;}
+[data-theme="legacy"] .pbar{height:3px;}
+[data-theme="legacy"] .pfill{background:linear-gradient(90deg,var(--accent),var(--gold));}
+[data-theme="legacy"] .sdot .sl{display:block;font-size:11px;}
+[data-theme="legacy"] .wact{position:static;left:auto;right:auto;bottom:auto;
+  padding:7px 16px;border-top:none;border-bottom:1px solid var(--lsoft);
+  background:var(--lsoft);backdrop-filter:none;-webkit-backdrop-filter:none;
+  border-radius:0;box-shadow:none;}
+[data-theme="legacy"] .dt-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin-top:8px;}
+[data-theme="legacy"] .dt{border:1.5px solid var(--line);border-radius:var(--r);background:#fafafa;
+  text-align:left;padding:9px;min-height:0;display:block;box-shadow:none;}
+[data-theme="legacy"] .dt:hover{border-color:var(--accent);background:rgba(var(--accent-rgb),.04);}
+[data-theme="legacy"] .dt.on{border-color:var(--accent);background:rgba(var(--accent-rgb),.06);
+  box-shadow:0 0 0 3px rgba(var(--accent-rgb),.1);}
+[data-theme="legacy"] .dt.on .dc{background:var(--gold);color:var(--navy);}
+[data-theme="legacy"] .dt.on .dn{color:var(--text);}
+[data-theme="legacy"] .dt.on .dd{color:var(--muted);}
+[data-theme="legacy"] .dt .dc{font-size:13px;padding:1px 7px;margin-bottom:4px;}
+[data-theme="legacy"] .dt .dn{font-weight:600;font-size:12px;margin-bottom:1px;}
+[data-theme="legacy"] .dt .dd{font-size:10px;}
 .tblock{margin-top:9px;padding:9px 12px;border-radius:12px;}
-.tblock.blue{background:rgba(10,132,255,.06);border:1.5px solid rgba(10,132,255,.25);display:flex;align-items:flex-start;gap:10px;}
+.tblock.blue{background:rgba(var(--accent-rgb),.06);border:1.5px solid rgba(var(--accent-rgb),.25);display:flex;align-items:flex-start;gap:10px;}
 .tblock.gold{background:var(--warns);border:1.5px solid var(--gold);}
-.tblock input[type=checkbox]{width:17px;height:17px;cursor:pointer;margin-top:3px;accent-color:#0A84FF;flex-shrink:0;}
+.tblock input[type=checkbox]{width:17px;height:17px;cursor:pointer;margin-top:3px;accent-color:var(--accent);flex-shrink:0;}
 .tblock .tl{flex:1;cursor:pointer;user-select:none;}
 .tblock .tl b{font-weight:600;color:var(--navy);font-size:13px;display:block;}
 .tblock .tl small{font-size:11px;color:var(--muted);margin-top:1px;display:block;line-height:1.4;}
@@ -192,7 +268,7 @@ main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;}
 .seg-body{padding:13px;}
 .add-seg{width:100%;padding:12px;border:1.5px dashed var(--line);background:transparent;
   border-radius:12px;cursor:pointer;color:var(--muted);font:inherit;font-size:13px;font-weight:600;transition:all .15s;}
-.add-seg:hover{border-color:#0A84FF;color:#0A84FF;background:rgba(10,132,255,.04);}
+.add-seg:hover{border-color:var(--accent);color:var(--accent);background:rgba(var(--accent-rgb),.04);}
 .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:600;}
 .badge.ok{background:var(--oks);color:var(--ok);}
 .badge.err{background:var(--errs);color:var(--err);}
@@ -200,9 +276,9 @@ main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;}
 .badge.ld{background:var(--warns);color:var(--warn);}
 .rbtn{font:inherit;font-size:11px;padding:5px 10px;background:#fff;border:1px solid var(--line);
   border-radius:999px;cursor:pointer;font-weight:600;color:var(--navy);transition:all .15s;white-space:nowrap;}
-.rbtn:hover:not(:disabled){border-color:#0A84FF;color:#0A84FF;}
+.rbtn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
 .rbtn:disabled{opacity:.5;cursor:wait;}
-.rbtn.gm{color:#0A84FF;border-color:rgba(10,132,255,.3);}
+.rbtn.gm{color:var(--accent);border-color:rgba(var(--accent-rgb),.3);}
 .cblock{background:var(--warns);border:1.5px solid var(--gold);border-radius:12px;padding:13px;margin-bottom:10px;}
 .cblock-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;gap:7px;}
 .cblock-t{font-weight:600;color:var(--navy);font-size:13px;}
@@ -212,7 +288,7 @@ main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;}
 .rec-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:5px;}
 .rec-item{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);
   border-radius:9px;padding:4px 7px 4px 4px;font-size:12px;max-width:200px;transition:border-color .15s;}
-.rec-item:hover{border-color:#0A84FF;}
+.rec-item:hover{border-color:var(--accent);}
 .rec-th{width:28px;height:28px;border-radius:5px;overflow:hidden;background:var(--lsoft);
   display:grid;place-items:center;flex-shrink:0;font-size:13px;color:var(--muted);}
 .rec-th img{width:100%;height:100%;object-fit:cover;}
@@ -225,12 +301,12 @@ main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;}
 .fbtn{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border:1px solid var(--line);
   border-radius:999px;background:#fff;cursor:pointer;font:inherit;font-size:11px;font-weight:600;
   color:var(--navy);transition:all .15s;}
-.fbtn:hover{border-color:#0A84FF;color:#0A84FF;}
+.fbtn:hover{border-color:var(--accent);color:var(--accent);}
 .fbtn input{display:none;}
 .achips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
 .achip{font-size:11px;padding:3px 9px;border:1px solid var(--line);background:var(--lsoft);
   border-radius:999px;cursor:pointer;color:var(--navy);font-weight:600;transition:all .15s;font:inherit;}
-.achip:hover{border-color:#0A84FF;color:#0A84FF;}
+.achip:hover{border-color:var(--accent);color:var(--accent);}
 .etbl{background:var(--card);border:1px solid rgba(0,0,0,0.05);border-radius:var(--rl);
   overflow:hidden;box-shadow:var(--sh0);}
 .etbl table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;}
@@ -238,7 +314,7 @@ main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;}
 .etbl th{text-align:left;padding:10px 11px;font-weight:600;font-size:10px;letter-spacing:.6px;
   text-transform:uppercase;white-space:nowrap;}
 .etbl td{padding:9px 10px;border-top:1px solid var(--lsoft);vertical-align:top;}
-.etbl tr:hover td{background:rgba(10,132,255,.03);}
+.etbl tr:hover td{background:rgba(var(--accent-rgb),.03);}
 .dcell{font-weight:600;color:var(--navy);}
 .dcell small{display:block;font-weight:400;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px;}
 .cpill{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--lsoft);
@@ -275,13 +351,13 @@ main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;}
 .cat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:8px;}
 .ccat{display:flex;align-items:center;gap:6px;padding:8px 10px;background:#fff;
   border:1px solid var(--line);border-radius:9px;cursor:pointer;font-size:12px;transition:all .15s;}
-.ccat:hover{border-color:#0A84FF;}
-.ccat.on{background:rgba(10,132,255,.06);border-color:#0A84FF;}
-.ccat input{width:14px;height:14px;cursor:pointer;accent-color:#0A84FF;}
+.ccat:hover{border-color:var(--accent);}
+.ccat.on{background:rgba(var(--accent-rgb),.06);border-color:var(--accent);}
+.ccat input{width:14px;height:14px;cursor:pointer;accent-color:var(--accent);}
 .ccat .cnt{margin-left:auto;background:var(--navy);color:#fff;font-size:10px;padding:1px 6px;
   border-radius:999px;font-weight:700;}
 .sbar{height:4px;background:var(--lsoft);border-radius:999px;overflow:hidden;margin-top:5px;}
-.sfill{height:100%;background:linear-gradient(90deg,#0A84FF,var(--gold));transition:width .4s;}
+.sfill{height:100%;background:linear-gradient(90deg,var(--accent),var(--gold));transition:width .4s;}
 .sfill.warn{background:var(--gold);}
 .sfill.danger{background:var(--err);}
 .rc-row{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--card);
@@ -323,8 +399,8 @@ main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;}
 }
 datalist{display:none;}
 #dropZone{transition:all .2s;}
-#dropZone.dragover{border-color:#0A84FF!important;background:rgba(10,132,255,.08)!important;box-shadow:0 0 0 3px rgba(10,132,255,.1)!important;}
-.import-item{display:flex;gap:12px;padding:12px;background:#f5f7fa;border-radius:9px;margin-bottom:8px;border-left:3px solid #0A84FF;}
+#dropZone.dragover{border-color:var(--accent)!important;background:rgba(var(--accent-rgb),.08)!important;box-shadow:0 0 0 3px rgba(var(--accent-rgb),.1)!important;}
+.import-item{display:flex;gap:12px;padding:12px;background:#f5f7fa;border-radius:9px;margin-bottom:8px;border-left:3px solid var(--accent);}
 .import-item.error{border-left-color:var(--err);background:rgba(255,59,48,.05);}
 .import-item.warning{border-left-color:var(--warn);background:rgba(255,193,7,.05);}
 .import-item.success{border-left-color:var(--ok);background:rgba(76,175,80,.05);}
@@ -357,13 +433,13 @@ datalist{display:none;}
 </div>
 <nav class="tabs no-print">
   <div class="tabs-i">
-    <button class="tab" data-v="monat">Monatsübersicht</button>
-    <button class="tab on" data-v="wizard">Eintrag</button>
-    <button class="tab" data-v="overview">Übersicht</button>
-    <button class="tab" data-v="zeiterfassung">Zeiterfassung</button>
-    <button class="tab" data-v="export">Übersichten &amp; Belege</button>
-    <button class="tab" data-v="jahr">Jahresübersicht</button>
-    <button class="tab" data-v="settings">Einstellungen</button>
+    <button class="tab" data-v="monat" title="Monatsübersicht"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M16 3v4M8 3v4M4 11h16"/></svg></span><span class="lb">Monat</span></button>
+    <button class="tab on" data-v="wizard" title="Eintrag"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1"/><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z"/><path d="M16 5l3 3"/></svg></span><span class="lb">Eintrag</span></button>
+    <button class="tab" data-v="overview" title="Übersicht"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5" rx="1"/><rect x="12" y="8" width="3" height="9" rx="1"/><rect x="17" y="5" width="3" height="12" rx="1"/></svg></span><span class="lb">Übersicht</span></button>
+    <button class="tab" data-v="zeiterfassung" title="Zeiterfassung"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span><span class="lb">Zeit</span></button>
+    <button class="tab" data-v="export" title="Übersichten &amp; Belege"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2"/><path d="M9 8h6M9 12h6"/></svg></span><span class="lb">Belege</span></button>
+    <button class="tab" data-v="jahr" title="Jahresübersicht"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M16 3v4M8 3v4M4 11h16M10 16v-3M14 16v-5M18 16v-1"/></svg></span><span class="lb">Jahr</span></button>
+    <button class="tab" data-v="settings" title="Einstellungen"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="lb">Mehr</span></button>
   </div>
 </nav>
 <main>
@@ -569,7 +645,7 @@ datalist{display:none;}
   <div id="dhfCard"></div>
   <div id="querCard"></div>
 
-  <div class="card" style="margin-top:14px;border-left:3px solid #0A84FF">
+  <div class="card" style="margin-top:14px;border-left:3px solid var(--accent)">
     <h3 style="margin-bottom:4px">📤 Bescheide &amp; Belege hochladen</h3>
     <p style="font-size:11px;color:var(--muted);margin-bottom:8px">
       Ziehe Dateien hierher oder klicke zum Auswählen.
@@ -577,12 +653,12 @@ datalist{display:none;}
     </p>
 
     <div id="dropZone"
-      style="border:2px dashed var(--line);border-radius:12px;padding:40px;text-align:center;background:rgba(10,132,255,.02);cursor:pointer;transition:all .2s"
+      style="border:2px dashed var(--line);border-radius:12px;padding:40px;text-align:center;background:rgba(var(--accent-rgb),.02);cursor:pointer;transition:all .2s"
       ondragover="onDragOver(event)"
       ondragleave="onDragLeave(event)"
       ondrop="onDrop(event)">
       <div style="font-size:40px;margin-bottom:12px">📁</div>
-      <div>Dateien hierher ziehen oder <strong style="color:#0A84FF;cursor:pointer">klicken</strong></div>
+      <div>Dateien hierher ziehen oder <strong style="color:var(--accent);cursor:pointer">klicken</strong></div>
       <div style="font-size:11px;color:var(--muted);margin-top:8px">PDF, JPG, PNG unterstützt</div>
       <input type="file" id="fileInputPrimary" multiple accept="application/pdf,image/*"
         onchange="onFilesSelected(event)" style="display:none">
@@ -591,7 +667,7 @@ datalist{display:none;}
     <div id="uploadProgress" style="margin-top:12px;display:none">
       <div style="font-size:12px;margin-bottom:6px">Verarbeite: <span id="uploadStatus"></span></div>
       <div style="background:var(--lsoft);border-radius:6px;height:6px;overflow:hidden">
-        <div id="progressBar" style="background:#0A84FF;height:100%;width:0%;transition:width .3s"></div>
+        <div id="progressBar" style="background:var(--accent);height:100%;width:0%;transition:width .3s"></div>
       </div>
     </div>
 
@@ -603,7 +679,7 @@ datalist{display:none;}
     </div>
   </div>
 
-  <div class="card" style="margin-top:14px;border-left:3px solid #0A84FF">
+  <div class="card" style="margin-top:14px;border-left:3px solid var(--accent)">
     <h3 style="margin-bottom:4px;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none" onclick="toggleBelegBox()">
       <span id="belegBoxChevron">▾</span> 🗄️ Belegeablage
     </h3>
@@ -620,6 +696,15 @@ datalist{display:none;}
 <!-- SETTINGS -->
 <section class="view" id="view-settings">
   <div style="margin-bottom:14px"><h2 style="font-size:22px;color:var(--navy);font-weight:700;letter-spacing:-0.4px">Einstellungen</h2></div>
+
+  <div class="card" style="max-width:680px;margin-bottom:14px;border-left:3px solid var(--accent)">
+    <h3 style="margin-bottom:2px">🎨 Design</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 12px">Testweise zwischen neuem und altem Aussehen wechseln. Wirkt sich nur auf die Optik aus, keine Daten gehen dabei verloren.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-s btn-sm" id="themeBtnNew" onclick="setUiTheme('')">✨ Neues Design</button>
+      <button class="btn btn-s btn-sm" id="themeBtnLegacy" onclick="setUiTheme('legacy')">↩️ Altes Design</button>
+    </div>
+  </div>
 
   <div class="card" style="max-width:680px;margin-bottom:14px;border-left:3px solid var(--navy)">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
@@ -709,7 +794,7 @@ datalist{display:none;}
     <h3 style="margin-top:22px;margin-bottom:8px">&#9888;&#65039; Kostenpr&#252;fung</h3>
     <p style="font-size:11px;color:var(--muted);margin-bottom:8px">Warnt in der &#220;bersicht bei m&#246;glicher Doppelerfassung von <b>Flugkosten</b> (gleicher Betrag innerhalb 45 Tagen). Bahn, Bus und &#214;PNV werden nicht gepr&#252;ft.</p>
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;margin-bottom:4px">
-      <input type="checkbox" id="sDupCheck" style="accent-color:#0A84FF"> Doppelerfassungs-Pr&#252;fung anzeigen
+      <input type="checkbox" id="sDupCheck" style="accent-color:var(--accent)"> Doppelerfassungs-Pr&#252;fung anzeigen
     </label>
     <h3 style="margin-top:22px;margin-bottom:8px">&#128176; Zulagens&#228;tze &amp; Steuer</h3>
     <p style="font-size:11px;color:var(--muted);margin-bottom:8px">Alle S&#228;tze verifiziert gegen Bez&#252;geabrechnungen 12/2025&ndash;07/2026. Grenzsteuersatz aus Differenzmethode (&Delta;Brutto 154,99 &rarr; &Delta;LSt 53,84 = 34,74&nbsp;%). Bei gro&#223;en Nachzahlungen (&gt;2.000&nbsp;&euro;) liegt der effektive Satz progressionsbedingt h&#246;her (~37&nbsp;%).</p>
@@ -803,12 +888,12 @@ datalist{display:none;}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.1.0';
-const APP_BUILD=48;
+const APP_VERSION='5.2.0';
+const APP_BUILD=49;
 const APP_DATE='11.08.2026';
 const APP_CHANGES=[
-  '„Verpflegung" ist jetzt ein eigener Schritt im Eintrag-Wizard (vorher Teil von „Arbeitszeit" bzw. „Fahrt & Aufenthalt")',
-  'Eintrag-Wizard kompakter gestaltet, damit möglichst jeder Schritt ohne Scrollen auf eine Seite passt (Dock-Vollbild)',
+  'Neues Design (Petrol/Teal, seitliche Navigation, große Kacheln im Eintrag-Wizard) hinzugefügt — Auswahl in „Wie war der Tag?" springt jetzt automatisch zum nächsten Schritt',
+  'Design-Umschalter in den Einstellungen: jederzeit reversibel zwischen neuem und altem Aussehen wechseln, betrifft nur die Optik',
 ];
 
 const SK='zc-tgrb-v2', SETK='zc-tgrb-set-v2';
@@ -1171,6 +1256,23 @@ function refreshAddrList(){
   (state.settings.addressHistory||[]).forEach(a=>opts.push(`<option value="${esc(a)}">`));
   dl.innerHTML=opts.join('');
 }
+/* DESIGN-UMSCHALTER — rein optisch, betrifft keine Daten. Wert liegt in localStorage,
+   damit die Wahl beim nächsten Laden erhalten bleibt (siehe Setter-Script im <head>,
+   das data-theme schon vor dem ersten Render setzt, um Aufblitzen zu vermeiden). */
+function setUiTheme(t){
+  try{if(t==='legacy')localStorage.setItem('uiTheme','legacy');else localStorage.removeItem('uiTheme');}catch(e){}
+  if(t==='legacy')document.documentElement.setAttribute('data-theme','legacy');
+  else document.documentElement.removeAttribute('data-theme');
+  updateThemeSwitchUI();
+  cancelAutoAdv();
+}
+function updateThemeSwitchUI(){
+  const legacy=document.documentElement.getAttribute('data-theme')==='legacy';
+  const bn=document.getElementById('themeBtnNew'),bl=document.getElementById('themeBtnLegacy');
+  if(bn)bn.style.cssText+=';background:'+(!legacy?'var(--accent)':'var(--lsoft)')+';color:'+(!legacy?'#fff':'var(--text)')+';border-color:'+(!legacy?'var(--accent)':'var(--line)');
+  if(bl)bl.style.cssText+=';background:'+(legacy?'var(--accent)':'var(--lsoft)')+';color:'+(legacy?'#fff':'var(--text)')+';border-color:'+(legacy?'var(--accent)':'var(--line)');
+}
+document.addEventListener('DOMContentLoaded',updateThemeSwitchUI);
 /* TABS */
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>gotoView(t.dataset.v)));
 function gotoView(v){
@@ -1260,8 +1362,8 @@ function startWizard(stepIdx){
 }
 function wizScroll(){const sb=document.getElementById('stepBox');if(sb){const y=sb.getBoundingClientRect().top+window.scrollY-70;window.scrollTo({top:Math.max(0,y),behavior:'smooth'});}}
 function nextStep(){collectCur();const steps=getSteps(wiz.dayCode);if(curStep<steps.length-1){curStep++;renderProg();renderStep(steps[curStep].id);}wizScroll();}
-function prevStep(){if(curStep>0){collectCur();curStep--;renderProg();renderStep(getSteps(wiz.dayCode)[curStep].id);}wizScroll();}
-function gotoStep(i){collectCur();curStep=i;renderProg();renderStep(getSteps(wiz.dayCode)[curStep].id);wizScroll();}
+function prevStep(){cancelAutoAdv();if(curStep>0){collectCur();curStep--;renderProg();renderStep(getSteps(wiz.dayCode)[curStep].id);}wizScroll();}
+function gotoStep(i){cancelAutoAdv();collectCur();curStep=i;renderProg();renderStep(getSteps(wiz.dayCode)[curStep].id);wizScroll();}
 function skipStep(){nextStep();}
 
 const RZ_NOTE='während der RZ Arbeit a. PC';
@@ -1371,6 +1473,9 @@ function buildDaytype(){
         </div>
       </div>
       <div class="dt-grid">${grid}</div>
+      <div class="dt-auto">${codeHasExtras(wiz.dayCode)
+        ? 'Diese Tagesart hat Zusatzoptionen — mit „Weiter → “ bestätigen.'
+        : 'Auswahl springt automatisch weiter zu „'+(getSteps(wiz.dayCode)[1]?.l||'Weiter')+'“'}</div>
       ${fhf}${urBlock}
       ${['DR','LG','\u00dcB','ES','EGV'].includes(wiz.dayCode)?`
       <div class="tblock" style="margin-top:9px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--lsoft)">
@@ -1388,10 +1493,32 @@ function buildDaytype(){
     </div>
   </div>`;
 }
+/* ═══ AUTO-ADVANCE (Design-Option 1a) ═══
+   Greift ausschließlich im neuen Design. Im Legacy-Design bleibt der Wizard
+   Zeile für Zeile identisch zum bisherigen Verhalten. */
+function isNewTheme(){return document.documentElement.getAttribute('data-theme')!=='legacy';}
+/* Tagesarten, die auf Schritt 1 eine Zusatzoption einblenden (FHF-Haken,
+   Urlaubsanrechnung, Nachweis-Auswahl), springen NICHT automatisch weiter —
+   sonst verschwände die gerade erschienene Option ungesehen. */
+function codeHasExtras(code){
+  const dt=DT[code]||{};
+  return !!dt.noW||code==='HF'||code==='RF'||code==='UR'||['DR','LG','ÜB','ES','EGV'].includes(code);
+}
+let autoAdvTimer=null;
+function cancelAutoAdv(){if(autoAdvTimer){clearTimeout(autoAdvTimer);autoAdvTimer=null;}}
 function selectCode(code){
   wiz.dayCode=code;
   if(code==='AW'){wiz.segs=[];autoFillTrip();}
   renderStep('daytype');
+  renderProg();
+  cancelAutoAdv();
+  if(isNewTheme()&&!codeHasExtras(code)){
+    autoAdvTimer=setTimeout(()=>{
+      autoAdvTimer=null;
+      const view=document.getElementById('view-wizard');
+      if(wiz.dayCode===code&&curStep===0&&view&&view.classList.contains('on'))nextStep();
+    },420);
+  }
 }
 function autoFillTrip(){
   const s=state.settings;if(!s.addrSecondary||!s.addrWork){return;}
@@ -1415,7 +1542,7 @@ function buildTravel(){
   const aufenthaltSection=`
     <div style="border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;background:var(--card)">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:13px;color:var(--navy);margin-bottom:8px">
-        <input type="checkbox" id="cbAuf" ${useAuf?'checked':''} onchange="wiz.useAufenthalt=this.checked;buildTravelToggle()" style="width:17px;height:17px;accent-color:#0A84FF">
+        <input type="checkbox" id="cbAuf" ${useAuf?'checked':''} onchange="wiz.useAufenthalt=this.checked;buildTravelToggle()" style="width:17px;height:17px;accent-color:var(--accent)">
         Aufenthaltsort
       </label>
       <div id="aufBody" style="display:${useAuf?'block':'none'}">
@@ -1432,7 +1559,7 @@ function buildTravel(){
   const fahrtSection=`
     <div style="border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;background:var(--card)">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:13px;color:var(--navy);margin-bottom:8px">
-        <input type="checkbox" id="cbFahrt" ${(!noT&&useFahrt)?'checked':noT?'':''} ${noT?'disabled':''} onchange="wiz.useFahrt=this.checked;buildTravelToggle()" style="width:17px;height:17px;accent-color:#0A84FF">
+        <input type="checkbox" id="cbFahrt" ${(!noT&&useFahrt)?'checked':noT?'':''} ${noT?'disabled':''} onchange="wiz.useFahrt=this.checked;buildTravelToggle()" style="width:17px;height:17px;accent-color:var(--accent)">
         Fahrt & Reisemittel
       </label>
       <div id="fahrtBody" style="display:${(!noT&&useFahrt)||noT?'block':'none'}">
@@ -1664,7 +1791,7 @@ function buildSeg(s,i){
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <span style="font-weight:600;font-size:12px;color:var(--navy);text-transform:uppercase;letter-spacing:.4px">Kosten & Beleg</span>
         <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
-          <input type="checkbox" ${s.costEnabled!==false?'checked':''} style="accent-color:#0A84FF" onchange="setSeg(${i},'costEnabled',this.checked);document.getElementById('segCostInline_${i}').style.display=this.checked?'':'none'">
+          <input type="checkbox" ${s.costEnabled!==false?'checked':''} style="accent-color:var(--accent)" onchange="setSeg(${i},'costEnabled',this.checked);document.getElementById('segCostInline_${i}').style.display=this.checked?'':'none'">
           aktiv
         </label>
       </div>
@@ -3060,12 +3187,12 @@ function renderJahresCard(){
         :'<div style="font-size:11px;color:var(--muted)">Noch keine Bescheide eingelesen. Im Reiter <b>Belege</b> unter „Bundeswehr-Bescheid einlesen" einf&#252;gen.</div>'}
       </div>
       <div style="flex:1;min-width:210px">
-        <div style="font-size:11px;font-weight:700;color:#0A84FF;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Sonstige Belege (hochgeladen)</div>
+        <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Sonstige Belege (hochgeladen)</div>
         ${mb.anzahl?`
           ${liste(mb.nachArt,v=>e(v)+' €','Keine Belege')}
           <div style="margin-top:8px;padding:7px 9px;background:#E3F2FD;border-radius:8px">
             <div style="font-size:10px;color:var(--muted)">${mb.anzahl} Beleg${mb.anzahl!==1?'e':''} &middot; Summe</div>
-            <div style="font-size:16px;font-weight:800;color:#0A84FF">${e(mb.gesamt)} €</div>
+            <div style="font-size:16px;font-weight:800;color:var(--accent)">${e(mb.gesamt)} €</div>
           </div>`
         :'<div style="font-size:11px;color:var(--muted)">Noch keine Belege hochgeladen. Im Reiter <b>Belege</b> unter „Bescheide &amp; Belege hochladen" ablegen.</div>'}
       </div>
@@ -3237,7 +3364,7 @@ function renderQuerCard(){
       </tbody>
     </table>
   </div>`;
-  el.innerHTML=`<div class="card" style="margin-bottom:12px;border-left:3px solid #0A84FF">
+  el.innerHTML=`<div class="card" style="margin-bottom:12px;border-left:3px solid var(--accent)">
     <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;margin-bottom:8px">
       <h3 style="font-size:15px;margin:0">&#128203; Querpr&#252;fung: Belege &harr; TG-Bescheid ${yr}</h3>
       <span style="font-size:11px;color:var(--muted)">was bezahlt &amp; was erstattet wurde</span>
@@ -7225,6 +7352,10 @@ async function repariereBelegMetadaten(){
     48: [
       '„Verpflegung" ist jetzt ein eigener Schritt im Eintrag-Wizard (vorher Teil von „Arbeitszeit" bzw. „Fahrt & Aufenthalt")',
       'Eintrag-Wizard kompakter gestaltet, damit möglichst jeder Schritt ohne Scrollen auf eine Seite passt (Dock-Vollbild)',
+    ],
+    49: [
+      'Neues Design (Petrol/Teal, seitliche Navigation, große Kacheln im Eintrag-Wizard) hinzugefügt — Auswahl in „Wie war der Tag?" springt jetzt automatisch zum nächsten Schritt',
+      'Design-Umschalter in den Einstellungen: jederzeit reversibel zwischen neuem und altem Aussehen wechseln, betrifft nur die Optik',
     ],
   };
   
