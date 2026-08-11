@@ -804,11 +804,10 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=46;
+const APP_BUILD=47;
 const APP_DATE='11.08.2026';
 const APP_CHANGES=[
-  'Neuer Reiter „Monatsübersicht" (ganz vorne): die Monatskalender-Box aus „Eintrag" zeigt hier jetzt den kompletten Monat im Vollbild, ohne Scrollen — auch bei 6-wöchigen Monaten',
-  'Reiter „Jahresübersicht" steht jetzt vor „Einstellungen"',
+  'Absturz behoben: ein komplett neuer Eintrag (z. B. per Klick auf einen leeren Tag) konnte beim Schritt „Allg. Kosten" hängen bleiben, weil dem Eintrag intern eine Beleg-Liste fehlte',
 ];
 
 const SK='zc-tgrb-v2', SETK='zc-tgrb-set-v2';
@@ -916,7 +915,7 @@ function freshW(){return{costEnabled:true,useFahrt:true,useAufenthalt:false,
   date:todayISO(),dayCode:'AW',vorhaben:'',isFHF:false,presentNoWork:false,
   workStart:'',workEnd:'',workLocation:'',workLocation2:'',workLocation3:'',workNotes:'',
   verpflegung:'',verpflegungNE:'',stayLocation:'',nachweis:'',bemerkung:'',zeActivity:'',
-  segs:[],
+  segs:[],recIds:[],
 };}
 function freshSeg(){return{mode:'',fromLoc:'',toLoc:'',fromGeo:null,toGeo:null,
   km:'',kmSrc:'',dep:'',arr:'',detail:'',costEnabled:true,
@@ -7208,6 +7207,9 @@ async function repariereBelegMetadaten(){
     46: [
       'Neuer Reiter „Monatsübersicht" ganz vorne, mit der Monatskalender-Box aus „Eintrag" — passt sich dynamisch an, damit auch 6-wöchige Monate im Vollbild ohne Scrollen sichtbar sind',
       '„Jahresübersicht" steht jetzt vor „Einstellungen"',
+    ],
+    47: [
+      'Absturz behoben: ein komplett neuer Eintrag (z. B. per Klick auf einen leeren Tag) konnte beim Schritt „Allg. Kosten" hängen bleiben, weil dem Eintrag intern eine Beleg-Liste fehlte',
     ],
   };
   
