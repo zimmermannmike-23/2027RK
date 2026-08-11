@@ -465,15 +465,15 @@ datalist{display:none;}
   </div>
 
   <div class="card" style="margin-top:14px;border-left:3px solid #0A84FF">
-    <h3 style="margin-bottom:4px">🗄️ Belegeablage</h3>
-    <p style="font-size:11px;color:var(--muted);margin-bottom:8px">
-      Alle über die Drag &amp; Drop-Ablage hochgeladenen Bescheide &amp; Belege.
-    </p>
-    <div id="bwList" style="margin-bottom:14px"></div>
-    <div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Originaldateien nach Monat</div>
-    <div id="belegeablageListe"></div>
-    <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)">
-      <button class="btn-xs" onclick="window.resetBelegeKomplett()" style="border-color:var(--err);color:var(--err)">🗑️ Alle Bescheide &amp; Belege löschen (Clean-Up)</button>
+    <h3 style="margin-bottom:4px;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none" onclick="toggleBelegBox()">
+      <span id="belegBoxChevron">▾</span> 🗄️ Belegeablage
+    </h3>
+    <div id="belegBoxBody">
+      <p style="font-size:11px;color:var(--muted);margin-bottom:8px">
+        Alle über die Drag &amp; Drop-Ablage hochgeladenen Bescheide &amp; Belege.
+      </p>
+      <div id="bwList" style="margin-bottom:14px"></div>
+      <div id="belegeablageListe"></div>
     </div>
   </div>
 </section>
@@ -754,6 +754,10 @@ datalist{display:none;}
       <button class="btn-xs" onclick="window.loescheAlteBelegQuellen()" style="border-color:var(--err);color:var(--err)">🗑️ Alte Beleg-Verknüpfungen löschen (nur Belegeablage behalten)</button>
       <p style="font-size:10px;color:var(--muted);margin:4px 0 0">Entfernt BW-Beleg-Uploads, Dienstreise-Belege und über 📎 im Wizard angehängte Belege. Die neue Belegeablage (Drag &amp; Drop) sowie generierte Dokumente (Monatsberichte etc.) bleiben erhalten.</p>
     </div>
+    <div style="margin-top:12px">
+      <button class="btn-xs" onclick="window.resetBelegeKomplett()" style="border-color:var(--err);color:var(--err)">🗑️ Alle Bescheide &amp; Belege löschen (Clean-Up)</button>
+      <p style="font-size:10px;color:var(--muted);margin:4px 0 0">Löscht ALLE über Drag &amp; Drop importierten TG/RK-Bescheide, Belege und gespeicherten Dateien (alle Jahre) — auch in der Cloud. Nicht rückgängig zu machen.</p>
+    </div>
     <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--lsoft);display:flex;gap:9px;flex-wrap:wrap;justify-content:space-between">
       <button class="btn btn-d btn-sm" onclick="confirmReset()">Alle Daten l&#246;schen</button>
       <button class="btn btn-p" onclick="saveSettings()">Speichern</button>
@@ -787,33 +791,14 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=42;
-const APP_DATE='10.08.2026';
+const APP_BUILD=43;
+const APP_DATE='11.08.2026';
 const APP_CHANGES=[
-  'PDF-Import Zeiterfassung: erkennt jetzt auch Blätter mit anderem Seitenformat/anderer Tabellenbreite korrekt (nicht mehr nur eine feste Spaltenbreite) — behebt „keine Tageszeile erkannt" bei manchen Monaten',
-  'Import-Fehler behoben: Zeiterfassungs-Tage (Excel- und PDF-Import) bekamen keine eigene ID — beim nächsten Cloud-Abgleich fielen dadurch fast alle importierten Tage wieder weg. Bitte betroffene Monate einmal neu importieren',
-  'PDF-Import Zeiterfassung repariert: importierte Tage landeten korrekt in der App, waren aber unsichtbar, weil die Ansicht auf dem vorherigen Monat/Jahr blieb — springt jetzt automatisch zum importierten Monat',
-  'Familienheimfahrten-Karte und 14-Tage-Blöcke folgen jetzt ebenfalls dem Jahresschalter (waren noch fest auf das echte aktuelle Kalenderjahr eingestellt)',
-  'Neu: zentraler Jahresschalter in den Einstellungen (2024–2045) — steuert jetzt app-weit, welches Jahr in Übersicht, Jahresübersicht, Zeiterfassung, Belegen und der CheckBox angezeigt wird',
-  'Neu: echter PDF-Import für Zeiterfassungsblätter (Button in der Zeiterfassung, neben „Excel-Daten importieren") — mit Vorschau und automatischer Gegenprobe gegen die Monats-Summe im Blatt',
-  'CheckBox prüft beim Jahreswechsel jetzt immer auch den Dezember des Vorjahres mit, damit Familienheimfahrten/Bescheide über den 31.12. hinweg nicht aus dem Abgleich fallen',
-  'Neue automatische Gegenprobe: erkennt künftig selbstständig, wenn ein TG-Bescheid ein noch unbekanntes Textmuster für Fahrtkosten nutzt, statt es wie bisher stillschweigend zu übergehen',
-  'TG-Bescheid-Einlesen repariert: Flug-/Bahnkosten mit der Formulierung „Reisebeihilfe" statt „Fahrkosten" wurden bisher gar nicht erkannt — Querprüfung zeigte 0,00 € obwohl der Bescheid Beträge auswies',
-  'Falsch einsortierte Belege werden jetzt beim Start automatisch der Belegeablage zugeordnet — ohne Cloud-Abgleich und ohne weiteres Zutun',
-  'Belegeablage synct jetzt vollständig: hochgeladene Dateien tauchen auf allen Geräten unter „Originaldateien nach Monat" auf statt als namenloser Alt-Beleg',
-  'Drag & Drop: Dateien, die als Bescheid-Stichwort erkannt aber nicht vollständig gelesen werden konnten, landen jetzt trotzdem als Beleg in der Ablage statt spurlos zu verschwinden',
-  'Sync-Fehler behoben: neue Belege vom anderen Gerät kamen manchmal gar nicht an, wenn dieses Gerät selbst kurz zuvor etwas hochgeladen hatte',
-  'Die 3 hartnäckigen „lokal nicht gefunden"-Meldungen sind endgültig weg — sie waren Bescheid-Nummern, die fälschlich als Beleg-Datei eingetragen waren',
-  'App-Update wird jetzt zuverlässig übernommen: alter Reload-Befehl wurde von Browsern ignoriert',
-  'Bereinigung: prüft jetzt echt gegen Firestore, statt einem fälschlich gesetzten "hochgeladen"-Merker zu vertrauen',
-  'Neuer Button: verwaiste Beleg-Verweise finden und bereinigen (Einstellungen → Speicher)',
-  'Sync-Diagnose: fehlende Belege zeigen jetzt ihre Quelle (welcher Bescheid/Eintrag referenziert sie)',
-  'Trennungsgeld nach § 3(2) TGV: neue Box in Zeiterfassung, je Mahlzeit erfassbar',
-  'Neuer Reiter „Jahresübersicht": Jahreszahlen, DHF-Vergleich, Querprüfung und Belegeablage an einem Ort',
-  'Firebase-Sync repariert: TG/RK-Bescheide und Belegeablage-Dateien wurden bisher nie in die Cloud hochgeladen',
-  'CheckBox: vollständiger Beleg-Abgleich gegen Wizard-Einträge und TG-Bescheide, inkl. Diagnose-Übersicht',
-  'Deutschlandticket-Fahrten und Familienheimfahrt-Enddatum korrekt berücksichtigt',
-  'Beleg-Ordner-Funktion entfernt, Backup in die Einstellungen verschoben',
+  'Trennungsgeld/DHF-Berechnung korrigiert: Unterkunftskosten werden jetzt tagesgenau ab dem hinterlegten DHF-Beginn gerechnet, statt jeden Monat mit TG-Bescheid pauschal voll zu zählen (wichtig z. B. für Dezember 2024, wo die DHF erst ab dem 6. gilt)',
+  'Eingelesene Bescheide, Originaldateien nach Monat und die Belegeablage folgen jetzt dem Jahresschalter',
+  'Eingelesene Bescheide, Originaldateien nach Monat und die gesamte Belegeablage lassen sich jetzt auf- und zuklappen',
+  '„Alle Bescheide & Belege löschen (Clean-Up)" ist jetzt in den Einstellungen unter Speicher zu finden',
+  'App-Version-Box zeigt jetzt nur noch die Änderungen des aktuellen Builds statt der kompletten Historie',
 ];
 
 const SK='zc-tgrb-v2', SETK='zc-tgrb-set-v2';
@@ -2532,19 +2517,40 @@ function bwUebernehmen(){
   renderBwList();renderOverview();
   toast(neu?'Bescheid \u00fcbernommen':'Bescheid aktualisiert','ok');
 }
+/* Auf-/Zuklapp-Zustand der Belegeablage-Box — rein UI-seitig (keine Persistierung),
+   Standard offen wie bisher, damit sich nach dem Update nichts unerwartet versteckt. */
+const belegCollapse={box:true,bescheide:true,dateien:true};
+function toggleBelegBox(){
+  belegCollapse.box=!belegCollapse.box;
+  const body=document.getElementById('belegBoxBody'),chev=document.getElementById('belegBoxChevron');
+  if(body)body.style.display=belegCollapse.box?'block':'none';
+  if(chev)chev.textContent=belegCollapse.box?'▾':'▸';
+}
+function toggleBelegSection(key){
+  belegCollapse[key]=!belegCollapse[key];
+  const body=document.getElementById('beleg_'+key+'_body'),chev=document.getElementById('beleg_'+key+'_chev');
+  if(body)body.style.display=belegCollapse[key]?'block':'none';
+  if(chev)chev.textContent=belegCollapse[key]?'▾':'▸';
+}
+function belegSectionHeader(key,titel){
+  return`<div onclick="toggleBelegSection('${key}')" style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none">
+    <span id="beleg_${key}_chev">${belegCollapse[key]?'▾':'▸'}</span> ${titel}
+  </div>`;
+}
 function renderBwList(){
   const el=document.getElementById('bwList');if(!el)return;
-  const l=[...bwList()].sort((a,b)=>(b.periode||'').localeCompare(a.periode||''));
-  if(!l.length){el.innerHTML='<p style="font-size:11px;color:var(--muted);margin:0">Noch keine Bescheide eingelesen.</p>';return;}
+  const l=bwList().filter(b=>(b.periode||'').startsWith(aktivesJahr())).sort((a,b)=>(b.periode||'').localeCompare(a.periode||''));
   const e=v=>(v||0).toLocaleString('de-DE',{minimumFractionDigits:2});
-  el.innerHTML=`<div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Eingelesene Bescheide (${l.length})</div>`
-   +l.map(b=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--lsoft);font-size:12px">
+  const kopf=belegSectionHeader('bescheide','Eingelesene Bescheide ('+l.length+')');
+  if(!l.length){el.innerHTML=kopf+'<p style="font-size:11px;color:var(--muted);margin:0">Noch keine Bescheide für '+aktivesJahr()+' eingelesen.</p>';return;}
+  const inhalt=l.map(b=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--lsoft);font-size:12px">
       <span class="ftag" style="background:${b.typ==='TG'?'var(--navy)':'var(--gold)'}">${b.typ}</span>
       <div style="flex:1"><b>${esc(b.periode||'?')}</b> · Nr. ${esc(b.nr)}
         <div style="font-size:10px;color:var(--muted)">${esc((b.anlass||b.ziel||'').slice(0,58))}</div></div>
       <span style="font-weight:600;white-space:nowrap">${e(b.gesamt)} €</span>
       <button class="btn-xs" onclick="delBwBescheid('${b.id}')">✕</button>
     </div>`).join('');
+  el.innerHTML=kopf+`<div id="beleg_bescheide_body" style="display:${belegCollapse.bescheide?'block':'none'}">${inhalt}</div>`;
 }
 function delBwBescheid(id){
   showModal('Bescheid entfernen?','Der eingelesene Bescheid wird gelöscht.',()=>{
@@ -2839,6 +2845,37 @@ function dtKostenImJahr(yr){
   const monate=Math.max(0,bis-von+1);
   return{proMonat,monate,gesamt:proMonat*monate,von,bis};
 }
+/* Unterkunftskosten der doppelten Haushaltsfuehrung anteilig nach Tagen, nicht pauschal
+   pro TG-Bescheid-Monat. Frueher wurde jeder Monat mit TG-Bescheid als VOLLER Monat
+   gerechnet (Math.min(miete,1000)*Anzahl-Bescheide) — bei einem unterjaehrigen Beginn
+   (z. B. DHF gilt erst ab 06.12.2024) zaehlte der Anfangsmonat damit faelschlich voll
+   statt nur die tatsaechlich betroffenen Tage. Ohne hinterlegtes dhfStart faellt die
+   Funktion auf die alte, monatsbasierte Naeherung zurueck (Rueckwaertskompatibilitaet). */
+function dhfUnterkunftAnteilig(yr,miete,anzBescheide){
+  const capped=Math.min(miete,1000);
+  if(!capped)return 0;
+  const s=state.settings,y=parseInt(yr);
+  if(!s.dhfStart)return capped*(anzBescheide||12);
+  const start=new Date(s.dhfStart+'T12:00');
+  if(isNaN(start))return capped*(anzBescheide||12);
+  const ende=s.dhfEnde?new Date(s.dhfEnde+'T12:00'):new Date(y,11,31,12);
+  const jA=new Date(y,0,1,12),jE=new Date(y,11,31,12);
+  const von=start>jA?start:jA, bis=ende<jE?ende:jE;
+  if(bis<von)return 0;
+  let summe=0;
+  let cursor=new Date(von.getFullYear(),von.getMonth(),1,12);
+  while(cursor<=bis){
+    const monatsStart=new Date(cursor.getFullYear(),cursor.getMonth(),1,12);
+    const monatsEnde=new Date(cursor.getFullYear(),cursor.getMonth()+1,0,12);
+    const tageImMonat=monatsEnde.getDate();
+    const vonImMonat=von>monatsStart?von:monatsStart;
+    const bisImMonat=bis<monatsEnde?bis:monatsEnde;
+    const tageDrin=Math.round((bisImMonat-vonImMonat)/86400000)+1;
+    summe+=capped*(tageDrin/tageImMonat);
+    cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1,12);
+  }
+  return summe;
+}
 function dhfVergleich(yr){
   const y=String(yr),s=state.settings;
   const U=jahresUebersicht(y),BW=U.bw;
@@ -2850,7 +2887,7 @@ function dhfVergleich(yr){
   const miete=parseFloat(s.mieteZweit)||0;
   const monate=BW.anzTG||0;
   // Absetzbar (doppelte Haushaltsfuehrung)
-  const dhfUnterkunft=Math.min(miete,1000)*(monate||12);
+  const dhfUnterkunft=dhfUnterkunftAnteilig(y,miete,monate);
   // Fahrten Zweitwohnung–Arbeitsstaette: Entfernungspauschale gegen die tatsaechlichen
   // OePNV-Kosten (Deutschlandticket) stellen, der hoehere Betrag zaehlt (§ 9 Abs. 2 S. 2 EStG).
   const fahrtPausch=U.arbTage*epKm(KM_TAG);
@@ -2901,6 +2938,7 @@ function setAktivesJahr(j){
   const rcLbl=document.getElementById('rcYLabel');if(rcLbl)rcLbl.textContent=aktivesJahr();
   if(typeof renderOverview==='function')renderOverview();
   if(typeof renderJahresView==='function')renderJahresView();
+  if(typeof renderBelegeablage==='function')renderBelegeablage();
   if(typeof renderReceipts==='function')renderReceipts();
   if(typeof initZeMonth==='function'){initZeMonth();if(typeof renderZE==='function')renderZE();}
   const cbEl=document.getElementById('checkBoxResult');
@@ -7072,6 +7110,11 @@ async function repariereBelegMetadaten(){
     42: [
       'PDF-Import Zeiterfassung: die Spaltenerkennung kalibriert sich jetzt pro Blatt neu (Position UND Breite), statt eine feste Tabellenbreite vorauszusetzen — behebt "keine Tageszeile erkannt" bei Blättern mit anderem Seitenformat',
     ],
+    43: [
+      'DHF-Unterkunftskosten werden jetzt tagesgenau ab dem hinterlegten Beginn berechnet, nicht mehr pauschal pro TG-Bescheid-Monat',
+      'Bescheide, Originaldateien und Belegeablage folgen dem Jahresschalter und lassen sich auf-/zuklappen',
+      'Clean-Up-Button in die Einstellungen verschoben, App-Version-Box zeigt nur noch den aktuellen Build',
+    ],
   };
   
   // APP_BUILD ist die einzige Quelle für die Update-Erkennung — bereits die
@@ -7842,13 +7885,7 @@ window.renderBelegeablage = async function() {
   if (!el) return;
 
   const alle = await idbAllF();
-  const dateien = alle.filter(f => f.herkunft === 'upload');
-
-  if (!dateien.length) {
-    el.innerHTML = '<p style="font-size:12px;color:var(--muted);margin:0">Noch keine Dateien hochgeladen.</p>';
-    return;
-  }
-
+  const jahr = aktivesJahr();
   const MONATSNAMEN = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
   const monatsTitel = m => {
     const t = /^(\d{4})-(\d{2})$/.exec(m);
@@ -7859,6 +7896,16 @@ window.renderBelegeablage = async function() {
     if (f.datum && /^\d{4}-\d{2}/.test(f.datum)) return f.datum.slice(0, 7);
     return 'Ohne Datum';
   };
+  // Nur Dateien des aktiven Jahres — Dateien ohne bestimmbares Datum bleiben immer
+  // sichtbar (es gibt kein Jahr, gegen das man sie filtern könnte).
+  const dateien = alle.filter(f => f.herkunft === 'upload')
+    .filter(f => { const m = monatVon(f); return m === 'Ohne Datum' || m.startsWith(jahr); });
+
+  const kopf = belegSectionHeader('dateien', 'Originaldateien nach Monat (' + dateien.length + ')');
+  if (!dateien.length) {
+    el.innerHTML = kopf + '<p style="font-size:12px;color:var(--muted);margin:0">Keine Dateien für ' + jahr + ' hochgeladen.</p>';
+    return;
+  }
 
   const nachMonat = {};
   dateien.forEach(f => { const m = monatVon(f); (nachMonat[m] = nachMonat[m] || []).push(f); });
@@ -7869,7 +7916,7 @@ window.renderBelegeablage = async function() {
     return b.localeCompare(a);
   });
 
-  el.innerHTML = monate.map(m => {
+  const inhalt = monate.map(m => {
     const items = nachMonat[m].slice().sort((a, b) =>
       String(a.datum || '').localeCompare(String(b.datum || '')) || String(a.name || '').localeCompare(String(b.name || '')));
     const summe = items.reduce((a, f) => a + (parseFloat(f.betrag) || 0), 0);
@@ -7893,6 +7940,7 @@ window.renderBelegeablage = async function() {
       + (summe ? ' · ' + summe.toFixed(2) + ' €' : '') + '</span>'
       + '</div>' + zeilen + '</div>';
   }).join('');
+  el.innerHTML = kopf + '<div id="beleg_dateien_body" style="display:' + (belegCollapse.dateien ? 'block' : 'none') + '">' + inhalt + '</div>';
 };
 
 window.deleteBelegeablageFile = async function(id) {
