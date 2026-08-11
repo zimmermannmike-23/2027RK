@@ -105,19 +105,27 @@ main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;}
   font:inherit;font-size:13px;cursor:pointer;color:var(--text);font-weight:500;transition:all .15s;}
 .chip:hover{border-color:#0A84FF;color:#0A84FF;}
 .chip.on{background:#0A84FF;color:#fff;border-color:#0A84FF;}
+/* #view-monat bekommt eine feste, auf den Viewport bezogene Hoehe (statt des normalen
+   block-Verhaltens der anderen Reiter) — die Kalender-Kacheln teilen sich darin per
+   grid-auto-rows den kompletten verfuegbaren Platz, damit der Monat im Vollbild der
+   installierten Web-App (Dock) immer ohne Scrollen komplett sichtbar ist. Die Zeilenzahl
+   (4-6 Wochen je nach Monat) wird in renderCal() dynamisch per Inline-Style gesetzt, damit
+   kein leerer Platzhalter-Rang die Kacheln unnoetig verkleinert. 156px ist grob Topbar +
+   Tab-Leiste + main-Padding — grosszuegig genug fuer beide Zeilen des Update-Banners.*/
+#view-monat.on{display:flex;flex-direction:column;height:calc(100dvh - 156px);min-height:320px;}
 .cal-wrap{background:var(--card);border:1px solid rgba(0,0,0,0.05);border-radius:var(--rl);
-  padding:16px;margin-bottom:14px;box-shadow:var(--sh0);}
-.cal-head-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  padding:16px;box-shadow:var(--sh0);display:flex;flex-direction:column;flex:1;min-height:0;}
+.cal-head-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;}
 .cal-head-row h3{font-size:17px;color:var(--navy);font-weight:600;letter-spacing:-0.2px;}
 .cal-nav{display:flex;gap:6px;align-items:center;}
 .cal-nav button{background:var(--lsoft);border:1px solid var(--line);border-radius:999px;padding:4px 12px;
   cursor:pointer;font:inherit;font-size:14px;color:var(--navy);transition:all .15s;}
 .cal-nav button:hover{background:var(--navy);color:#fff;border-color:var(--navy);}
 .cal-nav .ml{font-size:14px;font-weight:600;color:var(--navy);min-width:130px;text-align:center;}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;flex:1;min-height:0;}
 .cal-dh{font-size:10px;font-weight:600;color:var(--muted);text-align:center;padding:2px;
-  letter-spacing:.5px;text-transform:uppercase;}
-.cal-d{aspect-ratio:1;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  letter-spacing:.5px;text-transform:uppercase;display:flex;align-items:center;justify-content:center;}
+.cal-d{border-radius:10px;display:flex;align-items:center;justify-content:center;min-height:0;
   flex-direction:column;font-size:11px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:all .15s;}
 .cal-d:hover{border-color:#0A84FF;background:rgba(10,132,255,.06);}
 .cal-d.today{border-color:var(--gold)!important;background:rgba(201,168,76,.10);box-shadow:0 0 0 2px rgba(201,168,76,.25);}
@@ -349,18 +357,19 @@ datalist{display:none;}
 </div>
 <nav class="tabs no-print">
   <div class="tabs-i">
+    <button class="tab" data-v="monat">Monatsübersicht</button>
     <button class="tab on" data-v="wizard">Eintrag</button>
     <button class="tab" data-v="overview">Übersicht</button>
-    <button class="tab" data-v="jahr">Jahresübersicht</button>
     <button class="tab" data-v="zeiterfassung">Zeiterfassung</button>
     <button class="tab" data-v="export">Übersichten &amp; Belege</button>
+    <button class="tab" data-v="jahr">Jahresübersicht</button>
     <button class="tab" data-v="settings">Einstellungen</button>
   </div>
 </nav>
 <main>
 <datalist id="addrList"></datalist>
-<!-- WIZARD -->
-<section class="view on" id="view-wizard">
+<!-- MONATSÜBERSICHT -->
+<section class="view" id="view-monat">
   <div class="cal-wrap" id="calWrap">
     <div class="cal-head-row">
       <h3 id="calTitle">Monat</h3>
@@ -372,6 +381,9 @@ datalist{display:none;}
     </div>
     <div class="cal-grid" id="calGrid"></div>
   </div>
+</section>
+<!-- WIZARD -->
+<section class="view on" id="view-wizard">
   <div class="prog-wrap">
     <div class="sdots" id="sdots"></div>
     <div class="pbar"><div class="pfill" id="pfill" style="width:0%"></div></div>
@@ -416,66 +428,6 @@ datalist{display:none;}
   <div id="ppSummary" style="margin-top:14px"></div>
   <div id="costsSummary" style="margin-top:0"></div>
   <div id="wsSummary" style="margin-top:14px"></div>
-</section>
-<!-- JAHRESÜBERSICHT -->
-<section class="view" id="view-jahr">
-  <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px">
-    <div>
-      <h2 style="font-size:22px;color:var(--navy);font-weight:700;letter-spacing:-0.4px">Jahres&#252;bersicht</h2>
-      <p style="color:var(--muted);font-size:13px;margin:2px 0 0">Jahreszahlen, steuerlicher Vergleich und Beleg-Ablage an einem Ort.</p>
-    </div>
-    <span id="jahrYLabel" style="font:inherit;font-size:13px;font-weight:700;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--lsoft);color:var(--navy)" title="Jahr wird in den Einstellungen umgeschaltet"></span>
-  </div>
-  <div id="jahresCard"></div>
-  <div id="dhfCard"></div>
-  <div id="querCard"></div>
-
-  <div class="card" style="margin-top:14px;border-left:3px solid #0A84FF">
-    <h3 style="margin-bottom:4px">📤 Bescheide &amp; Belege hochladen</h3>
-    <p style="font-size:11px;color:var(--muted);margin-bottom:8px">
-      Ziehe Dateien hierher oder klicke zum Auswählen.
-      Unterstützt: PDF-Bescheide (TG, RK, Bundeswehr) + Belegs-PDFs/Bilder
-    </p>
-
-    <div id="dropZone"
-      style="border:2px dashed var(--line);border-radius:12px;padding:40px;text-align:center;background:rgba(10,132,255,.02);cursor:pointer;transition:all .2s"
-      ondragover="onDragOver(event)"
-      ondragleave="onDragLeave(event)"
-      ondrop="onDrop(event)">
-      <div style="font-size:40px;margin-bottom:12px">📁</div>
-      <div>Dateien hierher ziehen oder <strong style="color:#0A84FF;cursor:pointer">klicken</strong></div>
-      <div style="font-size:11px;color:var(--muted);margin-top:8px">PDF, JPG, PNG unterstützt</div>
-      <input type="file" id="fileInputPrimary" multiple accept="application/pdf,image/*"
-        onchange="onFilesSelected(event)" style="display:none">
-    </div>
-
-    <div id="uploadProgress" style="margin-top:12px;display:none">
-      <div style="font-size:12px;margin-bottom:6px">Verarbeite: <span id="uploadStatus"></span></div>
-      <div style="background:var(--lsoft);border-radius:6px;height:6px;overflow:hidden">
-        <div id="progressBar" style="background:#0A84FF;height:100%;width:0%;transition:width .3s"></div>
-      </div>
-    </div>
-
-    <div id="importPreview" style="margin-top:12px"></div>
-
-    <div id="importActions" style="margin-top:12px;display:none;gap:8px;display:flex;flex-wrap:wrap">
-      <button class="btn" onclick="confirmImports()" style="background:var(--navy);color:#fff;border:none;padding:9px 16px;border-radius:var(--r);font:inherit;font-size:13px;font-weight:600;cursor:pointer">✓ Alle übernehmen</button>
-      <button class="btn-xs" onclick="clearImports()">🗑️ Alle löschen</button>
-    </div>
-  </div>
-
-  <div class="card" style="margin-top:14px;border-left:3px solid #0A84FF">
-    <h3 style="margin-bottom:4px;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none" onclick="toggleBelegBox()">
-      <span id="belegBoxChevron">▾</span> 🗄️ Belegeablage
-    </h3>
-    <div id="belegBoxBody">
-      <p style="font-size:11px;color:var(--muted);margin-bottom:8px">
-        Alle über die Drag &amp; Drop-Ablage hochgeladenen Bescheide &amp; Belege.
-      </p>
-      <div id="bwList" style="margin-bottom:14px"></div>
-      <div id="belegeablageListe"></div>
-    </div>
-  </div>
 </section>
 <!-- ZEITERFASSUNG -->
 <section class="view" id="view-zeiterfassung">
@@ -602,6 +554,67 @@ datalist{display:none;}
   </div>
 
   <div id="rcList" style="margin-top:12px"></div>
+</section>
+
+<!-- JAHRESÜBERSICHT -->
+<section class="view" id="view-jahr">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:22px;color:var(--navy);font-weight:700;letter-spacing:-0.4px">Jahres&#252;bersicht</h2>
+      <p style="color:var(--muted);font-size:13px;margin:2px 0 0">Jahreszahlen, steuerlicher Vergleich und Beleg-Ablage an einem Ort.</p>
+    </div>
+    <span id="jahrYLabel" style="font:inherit;font-size:13px;font-weight:700;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--lsoft);color:var(--navy)" title="Jahr wird in den Einstellungen umgeschaltet"></span>
+  </div>
+  <div id="jahresCard"></div>
+  <div id="dhfCard"></div>
+  <div id="querCard"></div>
+
+  <div class="card" style="margin-top:14px;border-left:3px solid #0A84FF">
+    <h3 style="margin-bottom:4px">📤 Bescheide &amp; Belege hochladen</h3>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:8px">
+      Ziehe Dateien hierher oder klicke zum Auswählen.
+      Unterstützt: PDF-Bescheide (TG, RK, Bundeswehr) + Belegs-PDFs/Bilder
+    </p>
+
+    <div id="dropZone"
+      style="border:2px dashed var(--line);border-radius:12px;padding:40px;text-align:center;background:rgba(10,132,255,.02);cursor:pointer;transition:all .2s"
+      ondragover="onDragOver(event)"
+      ondragleave="onDragLeave(event)"
+      ondrop="onDrop(event)">
+      <div style="font-size:40px;margin-bottom:12px">📁</div>
+      <div>Dateien hierher ziehen oder <strong style="color:#0A84FF;cursor:pointer">klicken</strong></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px">PDF, JPG, PNG unterstützt</div>
+      <input type="file" id="fileInputPrimary" multiple accept="application/pdf,image/*"
+        onchange="onFilesSelected(event)" style="display:none">
+    </div>
+
+    <div id="uploadProgress" style="margin-top:12px;display:none">
+      <div style="font-size:12px;margin-bottom:6px">Verarbeite: <span id="uploadStatus"></span></div>
+      <div style="background:var(--lsoft);border-radius:6px;height:6px;overflow:hidden">
+        <div id="progressBar" style="background:#0A84FF;height:100%;width:0%;transition:width .3s"></div>
+      </div>
+    </div>
+
+    <div id="importPreview" style="margin-top:12px"></div>
+
+    <div id="importActions" style="margin-top:12px;display:none;gap:8px;display:flex;flex-wrap:wrap">
+      <button class="btn" onclick="confirmImports()" style="background:var(--navy);color:#fff;border:none;padding:9px 16px;border-radius:var(--r);font:inherit;font-size:13px;font-weight:600;cursor:pointer">✓ Alle übernehmen</button>
+      <button class="btn-xs" onclick="clearImports()">🗑️ Alle löschen</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px;border-left:3px solid #0A84FF">
+    <h3 style="margin-bottom:4px;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none" onclick="toggleBelegBox()">
+      <span id="belegBoxChevron">▾</span> 🗄️ Belegeablage
+    </h3>
+    <div id="belegBoxBody">
+      <p style="font-size:11px;color:var(--muted);margin-bottom:8px">
+        Alle über die Drag &amp; Drop-Ablage hochgeladenen Bescheide &amp; Belege.
+      </p>
+      <div id="bwList" style="margin-bottom:14px"></div>
+      <div id="belegeablageListe"></div>
+    </div>
+  </div>
 </section>
 
 <!-- SETTINGS -->
@@ -791,10 +804,11 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.1.0';
-const APP_BUILD=45;
+const APP_BUILD=46;
 const APP_DATE='11.08.2026';
 const APP_CHANGES=[
-  'Sync-Fehler behoben: das aktive Jahr (Jahresschalter) wurde bisher mitsynchronisiert und konnte dadurch beim Abgleich unbemerkt auf einem Gerät umspringen — dadurch zeigten CheckBox & Co. auf Handy und Dock-App unterschiedliche Ergebnisse, obwohl die Einträge selbst identisch waren. Das aktive Jahr bleibt jetzt geräteweise getrennt',
+  'Neuer Reiter „Monatsübersicht" (ganz vorne): die Monatskalender-Box aus „Eintrag" zeigt hier jetzt den kompletten Monat im Vollbild, ohne Scrollen — auch bei 6-wöchigen Monaten',
+  'Reiter „Jahresübersicht" steht jetzt vor „Einstellungen"',
 ];
 
 const SK='zc-tgrb-v2', SETK='zc-tgrb-set-v2';
@@ -1164,9 +1178,29 @@ function gotoView(v){
   if(v==='overview'){const _ol=document.getElementById('ovYLabel');if(_ol)_ol.textContent=aktivesJahr();const _n=new Date();const _om=document.getElementById('ovM');if(_om)_om.value=String(_n.getMonth()+1).padStart(2,'0');renderOverview();}if(v==='zeiterfassung'){initZeMonth();const _z=document.getElementById('zeMonth');const _n2=new Date();if(_z)_z.value=aktivesJahr()+'-'+String(_n2.getMonth()+1).padStart(2,'0');renderZE();}if(v==='export'){updExStats();renderFhf();initCatGrid();renderExportPdfs();renderReceipts();}
   if(v==='jahr'){renderJahresView();if(typeof renderBelegeablage==='function')renderBelegeablage();}
   if(v==='settings'){loadSettings();renderVersion();}
-  if(v==='wizard'){renderCal();}
+  if(v==='monat'){renderCal();}
+  // main hat regulaer 80px unteres Padding (Scroll-Reserve fuer lange Listen in den
+  // anderen Reitern) — bei der Monatsuebersicht wuerde dieses Padding die berechnete
+  // Vollbild-Hoehe von #view-monat.on ueberschreiten und trotzdem Scrollen erzwingen.
+  const m=document.querySelector('main');if(m)m.style.paddingBottom=(v==='monat')?'16px':'';
+  if(v==='monat')requestAnimationFrame(sizeMonatView);
   window.scrollTo({top:0,behavior:'smooth'});
 }
+/* Setzt die Hoehe von #view-monat exakt auf den tatsaechlich verfuegbaren Platz unterhalb
+   der Kopfzeile — per fixem CSS-Wert allein nicht zuverlaessig moeglich, da Topbar-Hoehe
+   (Safe-Area-Insets) und ein evtl. eingeblendetes Update-Banner die verfuegbare Hoehe
+   veraendern. #calWrap.getBoundingClientRect().top spiegelt bereits alles Vorherige
+   wider (Topbar, Banner falls sichtbar, Tab-Leiste, main-Padding), unabhaengig von der
+   eigenen (noch zu setzenden) Hoehe von #view-monat selbst. */
+function sizeMonatView(){
+  const view=document.getElementById('view-monat');if(!view)return;
+  const wrap=document.getElementById('calWrap');if(!wrap)return;
+  const top=wrap.getBoundingClientRect().top;
+  view.style.height=Math.max(280,window.innerHeight-top-16)+'px';
+}
+window.addEventListener('resize',()=>{
+  if(document.getElementById('view-monat')?.classList.contains('on'))sizeMonatView();
+});
 
 /* CALENDAR */
 function renderCal(){
@@ -1187,10 +1221,15 @@ function renderCal(){
     cells+=`<div class="${cls}" onclick="calClick('${iso}')">${d}${dot}</div>`;
   }
   grid.innerHTML=cells;
+  // Zeilenzahl (4-6 Wochen je nach Monat) exakt setzen, statt eine fixe Maximalzahl
+  // anzunehmen — sonst waeren die Kacheln bei kuerzeren Monaten kleiner als noetig, weil
+  // Platz fuer eine leere Phantom-Zeile reserviert bliebe.
+  const wochenzeilen=Math.ceil((dow-1+days)/7);
+  grid.style.gridTemplateRows='auto repeat('+wochenzeilen+',1fr)';
 }
 document.getElementById('calPrev').addEventListener('click',()=>{calM--;if(calM<0){calM=11;calY--;}renderCal();});
 document.getElementById('calNext').addEventListener('click',()=>{calM++;if(calM>11){calM=0;calY++;}renderCal();});
-function calClick(iso){const e=state.entries.find(x=>x.date===iso);if(e)editEntry(e.id);else{wiz=freshW();wiz.date=iso;startWizard(0);}}
+function calClick(iso){const e=state.entries.find(x=>x.date===iso);if(e)editEntry(e.id);else{wiz=freshW();wiz.date=iso;gotoView('wizard');startWizard(0);}}
 
 /* 28-DAY WARNING */
 function check28(targetId){
@@ -7165,6 +7204,10 @@ async function repariereBelegMetadaten(){
     ],
     45: [
       'Sync-Fehler behoben: das aktive Jahr sprang beim Geräte-Abgleich unbemerkt um, wodurch CheckBox & Co. auf Handy und Dock-App unterschiedliche Ergebnisse zeigten. Das aktive Jahr bleibt jetzt geräteweise getrennt',
+    ],
+    46: [
+      'Neuer Reiter „Monatsübersicht" ganz vorne, mit der Monatskalender-Box aus „Eintrag" — passt sich dynamisch an, damit auch 6-wöchige Monate im Vollbild ohne Scrollen sichtbar sind',
+      '„Jahresübersicht" steht jetzt vor „Einstellungen"',
     ],
   };
   
