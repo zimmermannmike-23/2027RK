@@ -933,9 +933,12 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.4.0';
-const APP_BUILD=56;
+const APP_BUILD=58;
 const APP_DATE='02.09.2026';
 const APP_CHANGES=[
+  'Abwesenheiten: Ankunfts-/Abreisezeiten suchen jetzt gezielt den Abschnitt mit tatsächlich eingetragener Zeit (statt stur den letzten Abschnitt, auch wenn der z.B. ein Fußweg ohne Zeitangabe ist)',
+  'Abwesenheiten: Einzel-Buttons "Nur Hinfahrt"/"Nur Rückfahrt" entfernt — nur noch die Sammelmappe (Hin+Rück)',
+  'Sammelmappe (Hin+Rück): Fehler "WinAnsi cannot encode →" behoben — Pfeilzeichen im PDF-Text durch "->" ersetzt',
   'Abwesenheiten: Heimfahrt-Karten haben jetzt „📦 Sammelmappe (Hin+Rück)" — bündelt die Belege beider Fahrten in EINE fortlaufend nummerierte PDF (FHF-2026-001, -002, …); Einzel-Buttons pro Fahrtrichtung bleiben erhalten',
   'Abwesenheiten: „Abreise/Ankunft Dienstort" bei Heimfahrten zeigt jetzt ausschließlich die tatsächlich für die Fahrt erfasste Uhrzeit – kein Rückfall mehr auf die Dienstbeginn-Zeit',
   'Abwesenheiten: Wochenenden/Feiertage (Code WF) werden nicht mehr als eigene Karte angezeigt, überbrücken aber weiterhin mehrtägige Dienstreisen/Übungen',
@@ -4714,13 +4717,29 @@ function abwGroupDR(allSorted){
   }
   return groups;
 }
+// Sucht in einer Segment-Liste den letzten Abschnitt mit eingetragener Ankunftszeit
+// (nicht einfach den letzten Abschnitt überhaupt, falls der letzte z.B. ein kurzes
+// "zu Fuß"-Stück ohne Zeitangabe ist) sowie den letzten mit Zielort.
+function abwLastSeg(segs){
+  const list=(segs||[]).filter(s=>s.enabled!==false&&s.mode);
+  const withArr=[...list].reverse().find(s=>s.arr);
+  const withLoc=[...list].reverse().find(s=>s.toLoc);
+  return{arr:withArr?withArr.arr:'',toLoc:withLoc?withLoc.toLoc:(list.length?list[list.length-1].toLoc||'':'')};
+}
+// Analog für den ersten Abschnitt: erste eingetragene Abfahrtszeit / erster Startort.
+function abwFirstSeg(segs){
+  const list=(segs||[]).filter(s=>s.enabled!==false&&s.mode);
+  const withDep=list.find(s=>s.dep);
+  const withLoc=list.find(s=>s.fromLoc);
+  return{dep:withDep?withDep.dep:'',fromLoc:withLoc?withLoc.fromLoc:(list.length?list[0].fromLoc||'':'')};
+}
 function abwDienstreiseCard(group){
   const first=group[0],last=group[group.length-1];
   const dt=DT[first.dayCode]||{n:first.dayCode};
-  const firstSeg=(first.segs||[]).find(s=>s.enabled!==false&&s.mode)||{};
-  const lastSeg=[...(last.segs||[])].reverse().find(s=>s.enabled!==false&&s.mode)||{};
-  const beginn=[fmtD(first.date),firstSeg.dep||first.workStart||''].filter(Boolean).join(' · ');
-  const ende=[fmtD(last.date),lastSeg.arr||last.workEnd||''].filter(Boolean).join(' · ');
+  const firstSeg=abwFirstSeg(first.segs);
+  const lastSeg=abwLastSeg(last.segs);
+  const beginn=[fmtD(first.date),firstSeg.dep||''].filter(Boolean).join(' · ');
+  const ende=[fmtD(last.date),lastSeg.arr||''].filter(Boolean).join(' · ');
   const von=firstSeg.fromLoc||first.workLocation||'';
   const an=lastSeg.toLoc||last.workLocation||first.workLocation||'';
   const ort=first.stayLocation||first.vorhaben||last.stayLocation||last.vorhaben||'';
@@ -4741,10 +4760,10 @@ function abwDienstreiseCard(group){
 function abwHeimfahrtCard(p){
   const hf=p.hf,rf=p.rf;
   const isFHF=(hf&&hf.isFHF)||(rf&&rf.isFHF)||false;
-  const hfFirst=hf?((hf.segs||[]).find(s=>s.enabled!==false&&s.mode)||{}):{};
-  const hfLast=hf?([...(hf.segs||[])].reverse().find(s=>s.enabled!==false&&s.mode)||hfFirst):{};
-  const rfFirst=rf?((rf.segs||[]).find(s=>s.enabled!==false&&s.mode)||{}):{};
-  const rfLast=rf?([...(rf.segs||[])].reverse().find(s=>s.enabled!==false&&s.mode)||rfFirst):{};
+  const hfFirst=hf?abwFirstSeg(hf.segs):{};
+  const hfLast=hf?abwLastSeg(hf.segs):{};
+  const rfFirst=rf?abwFirstSeg(rf.segs):{};
+  const rfLast=rf?abwLastSeg(rf.segs):{};
   const abreiseDienst=hf?[fmtD(hf.date),hfFirst.dep||''].filter(Boolean).join(' · '):'';
   const ankunftWohnung=hf?[fmtD(hf.date),hfLast.arr||''].filter(Boolean).join(' · '):'';
   const abreiseWohnung=rf?[fmtD(rf.date),rfFirst.dep||''].filter(Boolean).join(' · '):'';
@@ -4754,10 +4773,8 @@ function abwHeimfahrtCard(p){
   const kommentar=[hf&&hf.bemerkung,rf&&rf.bemerkung].filter(Boolean).join(' / ');
   const allSegs=[...(hf?hf.segs||[]:[]),...(rf?rf.segs||[]:[])];
   const codeTxt=[hf?'HF':null,rf?'RF':null].filter(Boolean).join(' + ');
-  const belegBtns=isFHF&&(hf||rf)?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-    ${hf?`<button class="btn-xs" onclick="dlFhf('${hf.id}')">📦 Nur Hinfahrt</button>`:''}
-    ${rf?`<button class="btn-xs" onclick="dlFhf('${rf.id}')">📦 Nur Rückfahrt</button>`:''}
-    ${hf&&rf?`<button class="btn-xs" onclick="dlFhfPair('${hf.id}','${rf.id}')" style="background:var(--accent);color:#fff;border-color:var(--accent-dark)">📦 Sammelmappe (Hin+Rück)</button>`:''}
+  const belegBtns=isFHF&&hf&&rf?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+    <button class="btn-xs" onclick="dlFhfPair('${hf.id}','${rf.id}')" style="background:var(--accent);color:#fff;border-color:var(--accent-dark)">📦 Sammelmappe (Hin+Rück)</button>
   </div>`:'';
   let html=`<div class="abw-card"><div class="abw-bar">${esc(abwLabel('HF',isFHF))}</div>
     <div class="abw-body"><div class="abw-sub">${esc(codeTxt)}${!hf?' (kein Hinweg im gewählten Zeitraum erfasst)':''}${!rf?' (keine Rückfahrt erfasst)':''}</div>
@@ -5333,14 +5350,14 @@ async function genFhfPdf(entries,docNum){
   const rows=[['Name',((s.rank?s.rank+' ':'')+s.name||'—')],['Datum',datumTxt]];
   list.forEach((e,i)=>{
     const lbl=mehrteilig?(i===0?'Hinfahrt':'Rückfahrt'):'Strecke';
-    rows.push([lbl,(e.tripFrom||e.workLocation||'?')+' → '+(e.tripTo||e.stayLocation||'?')]);
+    rows.push([lbl,(e.tripFrom||e.workLocation||'?')+' -> '+(e.tripTo||e.stayLocation||'?')]);
   });
   rows.push(['Einheit',s.unit||'—']);
   rows.forEach(([k,v])=>{
     cov.drawText(k+': '+String(v).slice(0,80),{x:40,y,size:10,font:f,color:NAV});y-=14;});
   const allSegs=list.flatMap(e=>(e.segs||[]).filter(sg=>sg.enabled!==false&&sg.mode&&DISP_KM_GRUPPEN.has(MODE_GRUPPE[sg.mode]||'Sonstige')));
   if(allSegs.length){y-=5;cov.drawText('Reisemittel:',{x:40,y,size:10,font:fb,color:NAV});y-=13;
-    allSegs.forEach(sg=>{cov.drawText(`  ${sg.mode}${sg.km?' · '+sg.km+'km':''}${sg.fromLoc&&sg.toLoc?' ('+sg.fromLoc+' → '+sg.toLoc+')':''}`.slice(0,80),{x:40,y,size:9,font:f,color:NAV});y-=11;});}
+    allSegs.forEach(sg=>{cov.drawText(`  ${sg.mode}${sg.km?' · '+sg.km+'km':''}${sg.fromLoc&&sg.toLoc?' ('+sg.fromLoc+' -> '+sg.toLoc+')':''}`.slice(0,80),{x:40,y,size:9,font:f,color:NAV});y-=11;});}
   const rids=[];list.forEach(e=>{rids.push(...(e.recIds||[]));(e.segs||[]).forEach(sg=>rids.push(...(sg.recIds||[])));});
   y-=8;cov.drawText(`Belege: ${rids.length}`,{x:40,y,size:10,font:fb,color:NAV});
   cov.drawText(new Date().toLocaleString('de-DE'),{x:40,y:25,size:8,font:f,color:GR});
