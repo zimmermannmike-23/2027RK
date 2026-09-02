@@ -933,9 +933,10 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.4.0';
-const APP_BUILD=58;
+const APP_BUILD=59;
 const APP_DATE='02.09.2026';
 const APP_CHANGES=[
+  'Sammelmappe (Hin+Rück): Original-Belege aus der Belegeablage (Reiter „Jahr", Drag&Drop-Upload) im Reisezeitraum werden jetzt automatisch mit eingebunden',
   'Abwesenheiten: Ankunfts-/Abreisezeiten suchen jetzt gezielt den Abschnitt mit tatsächlich eingetragener Zeit (statt stur den letzten Abschnitt, auch wenn der z.B. ein Fußweg ohne Zeitangabe ist)',
   'Abwesenheiten: Einzel-Buttons "Nur Hinfahrt"/"Nur Rückfahrt" entfernt — nur noch die Sammelmappe (Hin+Rück)',
   'Sammelmappe (Hin+Rück): Fehler "WinAnsi cannot encode →" behoben — Pfeilzeichen im PDF-Text durch "->" ersetzt',
@@ -5359,9 +5360,17 @@ async function genFhfPdf(entries,docNum){
   if(allSegs.length){y-=5;cov.drawText('Reisemittel:',{x:40,y,size:10,font:fb,color:NAV});y-=13;
     allSegs.forEach(sg=>{cov.drawText(`  ${sg.mode}${sg.km?' · '+sg.km+'km':''}${sg.fromLoc&&sg.toLoc?' ('+sg.fromLoc+' -> '+sg.toLoc+')':''}`.slice(0,80),{x:40,y,size:9,font:f,color:NAV});y-=11;});}
   const rids=[];list.forEach(e=>{rids.push(...(e.recIds||[]));(e.segs||[]).forEach(sg=>rids.push(...(sg.recIds||[])));});
-  y-=8;cov.drawText(`Belege: ${rids.length}`,{x:40,y,size:10,font:fb,color:NAV});
+  // Zusätzlich: Original-Belege aus der Belegeablage (Reiter „Jahr", Drag&Drop-Upload),
+  // deren Beleg-Datum in den Reisezeitraum (Hinfahrt-Datum bis Rückfahrt-Datum) fällt.
+  let ablage=[];
+  try{
+    const alleDateien=await idbAllF();
+    ablage=alleDateien.filter(r=>r.herkunft==='upload'&&r.datum&&r.datum>=first.date&&r.datum<=last.date&&!rids.includes(r.id));
+  }catch(ex){console.error(ex);}
+  y-=8;cov.drawText(`Belege: ${rids.length+ablage.length}${ablage.length?` (davon ${ablage.length} aus Belegeablage ${fmtDL(first.date)}–${fmtDL(last.date)})`:''}`,{x:40,y,size:10,font:fb,color:NAV});
   cov.drawText(new Date().toLocaleString('de-DE'),{x:40,y:25,size:8,font:f,color:GR});
-  for(const rid of rids){try{const r=await idbGetF(rid);if(!r||!r.blob)continue;
+  async function embed(r){
+    if(!r||!r.blob)return;
     if(r.type&&r.type.startsWith('image/')){let ib=await r.blob.arrayBuffer();let img;
       try{img=r.type==='image/png'?await doc.embedPng(ib):await doc.embedJpg(ib);}
       catch(e2){const jb=await reencJpeg(r.blob);ib=await jb.arrayBuffer();img=await doc.embedJpg(ib);}
@@ -5370,9 +5379,11 @@ async function genFhfPdf(entries,docNum){
       pg.drawImage(img,{x:(A4[0]-sc.width)/2,y:Math.max(20,(A4[1]-sc.height)/2),width:sc.width,height:sc.height});
     }else if(r.type==='application/pdf'){
       try{const src=await PDFDocument.load(await r.blob.arrayBuffer(),{ignoreEncryption:true});const pgs=await doc.copyPages(src,src.getPageIndices());pgs.forEach(p=>doc.addPage(p));}
-      catch(e2){const pg=doc.addPage(A4);pg.drawText('PDF: '+r.name,{x:40,y:800,size:11,font:fb,color:NAV});}
+      catch(e2){const pg=doc.addPage(A4);pg.drawText('PDF: '+(r.name||''),{x:40,y:800,size:11,font:fb,color:NAV});}
     }
-  }catch(ex){console.error(ex);}}
+  }
+  for(const rid of rids){try{const r=await idbGetF(rid);await embed(r);}catch(ex){console.error(ex);}}
+  for(const r of ablage){try{await embed(r);}catch(ex){console.error(ex);}}
   return{pdfBytes:await doc.save(),docNum};
 }
 async function reencJpeg(blob){return new Promise((res,rej)=>{
