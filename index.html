@@ -933,9 +933,10 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.4.0';
-const APP_BUILD=54;
+const APP_BUILD=55;
 const APP_DATE='02.09.2026';
 const APP_CHANGES=[
+  'Abwesenheiten: „Abreise/Ankunft Dienstort" bei Heimfahrten zeigt jetzt ausschließlich die tatsächlich für die Fahrt erfasste Uhrzeit – kein Rückfall mehr auf die Dienstbeginn-Zeit',
   'Abwesenheiten: Wochenenden/Feiertage (Code WF) werden nicht mehr als eigene Karte angezeigt, überbrücken aber weiterhin mehrtägige Dienstreisen/Übungen',
   'Zeiterfassungsblatt-Export komplett umgestellt: statt PDF-Nachbildung wird jetzt eine Kopie deiner echten Excel-Vorlage (Formeln, Farben, Wappen, Layout) mit den Wizard-Daten befüllt',
   'Export liefert eine .xlsx-Datei zum Öffnen in Excel/Numbers – von dort aus als PDF exportieren/drucken für 100% originalgetreuen Ausdruck',
@@ -4743,10 +4744,10 @@ function abwHeimfahrtCard(p){
   const hfLast=hf?([...(hf.segs||[])].reverse().find(s=>s.enabled!==false&&s.mode)||hfFirst):{};
   const rfFirst=rf?((rf.segs||[]).find(s=>s.enabled!==false&&s.mode)||{}):{};
   const rfLast=rf?([...(rf.segs||[])].reverse().find(s=>s.enabled!==false&&s.mode)||rfFirst):{};
-  const abreiseDienst=hf?[fmtD(hf.date),hfFirst.dep||hf.workStart||''].filter(Boolean).join(' · '):'';
+  const abreiseDienst=hf?[fmtD(hf.date),hfFirst.dep||''].filter(Boolean).join(' · '):'';
   const ankunftWohnung=hf?[fmtD(hf.date),hfLast.arr||''].filter(Boolean).join(' · '):'';
   const abreiseWohnung=rf?[fmtD(rf.date),rfFirst.dep||''].filter(Boolean).join(' · '):'';
-  const ankunftDienst=rf?[fmtD(rf.date),rfLast.arr||rf.workStart||''].filter(Boolean).join(' · '):'';
+  const ankunftDienst=rf?[fmtD(rf.date),rfLast.arr||''].filter(Boolean).join(' · '):'';
   const fields=[['Abreise Dienstort',abreiseDienst],['Ankunft Wohnung / anderer Ort',ankunftWohnung],
     ['Abreise Wohnung / anderer Ort',abreiseWohnung],['Ankunft Dienstort',ankunftDienst]];
   const kommentar=[hf&&hf.bemerkung,rf&&rf.bemerkung].filter(Boolean).join(' / ');
