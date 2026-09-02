@@ -332,6 +332,30 @@ main{margin-left:68px;max-width:1100px;padding:20px 20px 96px;}
 .cpill.KR{background:#F5F5F5;color:#757575;}
 .cpill.UR{background:#E8F5E9;color:#1B5E20;}
 .cpill.FVD{background:#E0F7FA;color:#006064;}
+/* ABWESENHEITEN – BVA-Kürzungsangaben-Stil */
+.abw-card{background:var(--card);border:1px solid rgba(0,0,0,0.06);border-radius:var(--rl);
+  box-shadow:var(--sh0);margin-bottom:14px;overflow:hidden;}
+.abw-bar{background:linear-gradient(90deg,var(--accent-dark),var(--accent));color:#fff;font-weight:700;
+  font-size:12px;letter-spacing:.4px;text-transform:uppercase;padding:9px 16px;}
+.abw-body{padding:16px;}
+.abw-sub{font-size:11px;color:var(--muted);margin:-4px 0 12px;}
+.abw-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 14px;}
+.abw-field label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px;}
+.abw-field .val{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;
+  background:#fff;min-height:18px;}
+.abw-note{grid-column:1/-1;}
+.abw-note .val{white-space:pre-wrap;}
+.abw-tbar{background:linear-gradient(90deg,var(--accent-dark),var(--accent));color:#fff;font-weight:700;
+  font-size:11px;letter-spacing:.4px;text-transform:uppercase;padding:7px 16px;margin-top:14px;
+  border-radius:8px 8px 0 0;}
+.abw-tbody{border:1px solid var(--line);border-top:none;border-radius:0 0 8px 8px;padding:4px 0;}
+.abw-trow{display:flex;align-items:center;gap:10px;padding:7px 14px;font-size:13px;}
+.abw-trow+.abw-trow{border-top:1px dashed var(--line);}
+.abw-trow b{flex:0 0 150px;}
+.abw-trow .amt{margin-left:auto;font-weight:600;color:var(--ok);}
+.abw-simple{display:flex;align-items:center;gap:10px;padding:12px 16px;font-size:13px;}
+.abw-simple .d{font-weight:700;color:var(--navy);flex:0 0 70px;}
+
 .ftag{display:inline-block;padding:1px 6px;border-radius:999px;background:var(--gold);
   color:var(--navy);font-size:9px;font-weight:700;margin-left:3px;}
 .acts{white-space:nowrap;text-align:right;}
@@ -438,6 +462,7 @@ datalist{display:none;}
     <button class="tab" data-v="overview" title="Übersicht"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5" rx="1"/><rect x="12" y="8" width="3" height="9" rx="1"/><rect x="17" y="5" width="3" height="12" rx="1"/></svg></span><span class="lb">Übersicht</span></button>
     <button class="tab" data-v="zeiterfassung" title="Zeiterfassung"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span><span class="lb">Zeit</span></button>
     <button class="tab" data-v="export" title="Übersichten &amp; Belege"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2"/><path d="M9 8h6M9 12h6"/></svg></span><span class="lb">Belege</span></button>
+    <button class="tab" data-v="abwesenheiten" title="Abwesenheiten"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M12 19h4.5a3.5 3.5 0 0 0 0 -7h-8a3.5 3.5 0 0 1 0 -7h3.5"/></svg></span><span class="lb">Abwes.</span></button>
     <button class="tab" data-v="jahr" title="Jahresübersicht"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M16 3v4M8 3v4M4 11h16M10 16v-3M14 16v-5M18 16v-1"/></svg></span><span class="lb">Jahr</span></button>
     <button class="tab" data-v="settings" title="Einstellungen"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="lb">Mehr</span></button>
   </div>
@@ -504,6 +529,25 @@ datalist{display:none;}
   <div id="ppSummary" style="margin-top:14px"></div>
   <div id="costsSummary" style="margin-top:0"></div>
   <div id="wsSummary" style="margin-top:14px"></div>
+</section>
+<!-- ABWESENHEITEN -->
+<section class="view" id="view-abwesenheiten">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+    <div><h2 style="font-size:22px;color:var(--navy);font-weight:700;letter-spacing:-0.4px">Abwesenheiten</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:3px">Automatisch aus den Eintr&#228;gen erzeugte Monats&#252;bersicht &#8211; Anzeige im Format der BVA-K&#252;rzungsangaben, zum &#220;bertragen ins Online-Portal.</p></div>
+  </div>
+  <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+    <span id="abwYLabel" style="font:inherit;font-size:13px;font-weight:700;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--lsoft);color:var(--navy)" title="Jahr wird in den Einstellungen umgeschaltet"></span>
+    <select id="abwM" onchange="renderAbw()" style="font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:#fff;">
+      <option value="01">Januar</option><option value="02">Februar</option><option value="03">M&#228;rz</option>
+      <option value="04">April</option><option value="05">Mai</option><option value="06">Juni</option>
+      <option value="07">Juli</option><option value="08">August</option><option value="09">September</option>
+      <option value="10">Oktober</option><option value="11">November</option><option value="12">Dezember</option>
+    </select>
+    <span style="flex:1"></span>
+    <span id="abwCnt" style="font-size:12px;color:var(--muted)"></span>
+  </div>
+  <div id="abwList"></div>
 </section>
 <!-- ZEITERFASSUNG -->
 <section class="view" id="view-zeiterfassung">
@@ -888,12 +932,13 @@ datalist{display:none;}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.2.0';
-const APP_BUILD=49;
-const APP_DATE='11.08.2026';
+const APP_VERSION='5.3.0';
+const APP_BUILD=50;
+const APP_DATE='02.09.2026';
 const APP_CHANGES=[
-  'Neues Design (Petrol/Teal, seitliche Navigation, große Kacheln im Eintrag-Wizard) hinzugefügt — Auswahl in „Wie war der Tag?" springt jetzt automatisch zum nächsten Schritt',
-  'Design-Umschalter in den Einstellungen: jederzeit reversibel zwischen neuem und altem Aussehen wechseln, betrifft nur die Optik',
+  'Neuer Reiter „Abwesenheiten": Monatsübersicht aller Abwesenheiten im BVA-Kürzungsangaben-Format',
+  'Automatische Zusammenführung von Heimfahrt (HF) + Rückfahrt (RF) zu einer Karte inkl. Verkehrsmittel-Summen',
+  'Dienstreisen/TrÜbPl/Übung sowie sonstige Abwesenheiten (Urlaub, Krank, FvD, Wochenende/Feiertag) werden chronologisch angezeigt',
 ];
 
 const SK='zc-tgrb-v2', SETK='zc-tgrb-set-v2';
@@ -1280,6 +1325,7 @@ function gotoView(v){
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
   if(v==='overview'){const _ol=document.getElementById('ovYLabel');if(_ol)_ol.textContent=aktivesJahr();const _n=new Date();const _om=document.getElementById('ovM');if(_om)_om.value=String(_n.getMonth()+1).padStart(2,'0');renderOverview();}if(v==='zeiterfassung'){initZeMonth();const _z=document.getElementById('zeMonth');const _n2=new Date();if(_z)_z.value=aktivesJahr()+'-'+String(_n2.getMonth()+1).padStart(2,'0');renderZE();}if(v==='export'){updExStats();renderFhf();initCatGrid();renderExportPdfs();renderReceipts();}
   if(v==='jahr'){renderJahresView();if(typeof renderBelegeablage==='function')renderBelegeablage();}
+  if(v==='abwesenheiten'){initAbwMonth();renderAbw();}
   if(v==='settings'){loadSettings();renderVersion();}
   if(v==='monat'){renderCal();}
   // main hat regulaer 80px unteres Padding (Scroll-Reserve fuer lange Listen in den
@@ -4559,6 +4605,142 @@ function renderFhf(){
 function resetFhfCtr(){const yr=parseInt(document.getElementById('sFY')?.value)||new Date().getFullYear();showModal('FHF-Zähler zurücksetzen?',`Zähler → 0. Nächste: FHF-${yr}-001.pdf`,()=>{state.settings.fhfCounter=0;state.settings.fhfYear=yr;persist();renderFhf();toast('Zähler zurückgesetzt','ok');});}
 
 /* SETTINGS */
+/* ─── ABWESENHEITEN ────────────────────────────────────────────────────── */
+const ABW_DR_CODES=['DR','LG','ÜB','ES','EGV'];
+function abwLabel(code,isFHF){
+  if(ABW_DR_CODES.includes(code))return 'Dienstreise/TrÜbPl/Übung/Werft';
+  if(code==='HF'||code==='RF')return isFHF?'Heimfahrt':'Heimfahrt ohne Reisebeihilfe';
+  return (DT[code]&&DT[code].n)||code;
+}
+function initAbwMonth(){
+  const lbl=document.getElementById('abwYLabel');if(lbl)lbl.textContent=aktivesJahr();
+  const prev=new Date();prev.setDate(1);prev.setMonth(prev.getMonth()-1);
+  const mSel=document.getElementById('abwM');
+  if(mSel)mSel.value=String(prev.getMonth()+1).padStart(2,'0');
+}
+function abwSortKey(e){
+  const t=(e.segs&&e.segs[0]&&e.segs[0].dep)||e.workStart||'00:00';
+  return e.date+' '+t;
+}
+function abwPairHFRF(allSorted){
+  const used=new Set(),pairs=[];
+  for(let i=0;i<allSorted.length;i++){
+    const e=allSorted[i];
+    if(e.dayCode!=='HF'||used.has(e.id))continue;
+    let rf=null;
+    for(let j=i+1;j<allSorted.length;j++){
+      if(allSorted[j].dayCode==='HF')break;
+      if(allSorted[j].dayCode==='RF'){rf=allSorted[j];break;}
+    }
+    used.add(e.id);if(rf)used.add(rf.id);
+    pairs.push({type:'hf',hf:e,rf:rf,key:abwSortKey(e)});
+  }
+  allSorted.forEach(e=>{if(e.dayCode==='RF'&&!used.has(e.id)){pairs.push({type:'hf',hf:null,rf:e,key:abwSortKey(e)});used.add(e.id);}});
+  return {pairs,used};
+}
+function abwFieldRow(fields){
+  return `<div class="abw-grid">${fields.map(([l,v])=>
+    `<div class="abw-field"><label>${esc(l)}</label><div class="val">${v?esc(v):'&#8212;'}</div></div>`).join('')}</div>`;
+}
+function abwTransportBlock(segs){
+  const groups={};
+  segs.forEach(s=>{
+    if(!s||s.enabled===false||!s.mode)return;
+    const g=MODE_GRUPPE[s.mode]||'Sonstige';
+    if(!groups[g])groups[g]={km:0,cost:0,curr:'EUR'};
+    if(s.km)groups[g].km+=parseFloat(s.km)||0;
+    if(segCostCounts(s)){groups[g].cost+=parseFloat(s.costAmt)||0;groups[g].curr=s.costCurr||'EUR';}
+  });
+  const keys=Object.keys(groups);
+  if(!keys.length)return '';
+  const rows=keys.map(g=>{
+    const d=groups[g];
+    const kmTxt=DISP_KM_GRUPPEN.has(g)&&d.km?d.km.toLocaleString('de-DE',{maximumFractionDigits:0})+' km gesamt':'';
+    const costTxt=d.cost?fmtM(d.cost,d.curr):'';
+    return `<div class="abw-trow"><b>${esc(g)}</b>${kmTxt?`<span>${kmTxt}</span>`:''}${costTxt?`<span class="amt">${costTxt}</span>`:''}</div>`;
+  }).join('');
+  return `<div class="abw-tbar">Tatsächliches Verkehrsmittel</div><div class="abw-tbody">${rows}</div>`;
+}
+function abwDienstreiseCard(e){
+  const dt=DT[e.dayCode]||{n:e.dayCode};
+  const firstSeg=(e.segs||[]).find(s=>s.enabled!==false&&s.mode)||{};
+  const lastSeg=[...(e.segs||[])].reverse().find(s=>s.enabled!==false&&s.mode)||firstSeg;
+  const beginn=[fmtD(e.date),firstSeg.dep||e.workStart||''].filter(Boolean).join(' · ');
+  const ende=[fmtD(e.date),lastSeg.arr||e.workEnd||''].filter(Boolean).join(' · ');
+  const von=firstSeg.fromLoc||e.workLocation||'';
+  const an=lastSeg.toLoc||e.workLocation||'';
+  const ort=e.stayLocation||e.vorhaben||'';
+  const fields=[['Beginn der Dienstreise',beginn],['von',von],
+    ['Ort des Dienstgeschäftes',ort],['Ende der Dienstreise',ende],['an',an]];
+  let html=`<div class="abw-card"><div class="abw-bar">${esc(abwLabel(e.dayCode,false))}</div>
+    <div class="abw-body"><div class="abw-sub">${esc(e.dayCode)} · ${esc(dt.n||'')}${e.vorhaben?' · '+esc(e.vorhaben):''}</div>
+    ${abwFieldRow(fields)}
+    ${e.bemerkung?`<div class="abw-grid" style="margin-top:10px"><div class="abw-field abw-note"><label>Kommentar</label><div class="val">${esc(e.bemerkung)}</div></div></div>`:''}
+    ${abwTransportBlock(e.segs||[])}
+    </div></div>`;
+  return html;
+}
+function abwHeimfahrtCard(p){
+  const hf=p.hf,rf=p.rf;
+  const isFHF=(hf&&hf.isFHF)||(rf&&rf.isFHF)||false;
+  const hfFirst=hf?((hf.segs||[]).find(s=>s.enabled!==false&&s.mode)||{}):{};
+  const hfLast=hf?([...(hf.segs||[])].reverse().find(s=>s.enabled!==false&&s.mode)||hfFirst):{};
+  const rfFirst=rf?((rf.segs||[]).find(s=>s.enabled!==false&&s.mode)||{}):{};
+  const rfLast=rf?([...(rf.segs||[])].reverse().find(s=>s.enabled!==false&&s.mode)||rfFirst):{};
+  const abreiseDienst=hf?[fmtD(hf.date),hfFirst.dep||hf.workStart||''].filter(Boolean).join(' · '):'';
+  const ankunftWohnung=hf?[fmtD(hf.date),hfLast.arr||''].filter(Boolean).join(' · '):'';
+  const abreiseWohnung=rf?[fmtD(rf.date),rfFirst.dep||''].filter(Boolean).join(' · '):'';
+  const ankunftDienst=rf?[fmtD(rf.date),rfLast.arr||rf.workStart||''].filter(Boolean).join(' · '):'';
+  const fields=[['Abreise Dienstort',abreiseDienst],['Ankunft Wohnung / anderer Ort',ankunftWohnung],
+    ['Abreise Wohnung / anderer Ort',abreiseWohnung],['Ankunft Dienstort',ankunftDienst]];
+  const kommentar=[hf&&hf.bemerkung,rf&&rf.bemerkung].filter(Boolean).join(' / ');
+  const allSegs=[...(hf?hf.segs||[]:[]),...(rf?rf.segs||[]:[])];
+  const codeTxt=[hf?'HF':null,rf?'RF':null].filter(Boolean).join(' + ');
+  let html=`<div class="abw-card"><div class="abw-bar">${esc(abwLabel('HF',isFHF))}</div>
+    <div class="abw-body"><div class="abw-sub">${esc(codeTxt)}${!hf?' (kein Hinweg im gewählten Zeitraum erfasst)':''}${!rf?' (keine Rückfahrt erfasst)':''}</div>
+    ${abwFieldRow(fields)}
+    ${kommentar?`<div class="abw-grid" style="margin-top:10px"><div class="abw-field abw-note"><label>Kommentar</label><div class="val">${esc(kommentar)}</div></div></div>`:''}
+    ${abwTransportBlock(allSegs)}
+    </div></div>`;
+  return html;
+}
+function abwSimpleCard(e){
+  const dt=DT[e.dayCode]||{n:e.dayCode};
+  return `<div class="abw-card"><div class="abw-simple"><span class="d">${esc(fmtD(e.date))}</span>
+    <span class="cpill ${esc(e.dayCode)}">${esc(e.dayCode)}</span>
+    <span>${esc(dt.n||'')}</span>${e.bemerkung?`<span style="color:var(--muted);margin-left:8px">${esc(e.bemerkung)}</span>`:''}
+    </div></div>`;
+}
+function renderAbw(){
+  const el=document.getElementById('abwList');if(!el)return;
+  const lbl=document.getElementById('abwYLabel');if(lbl)lbl.textContent=aktivesJahr();
+  const yr=aktivesJahr();
+  const mo=document.getElementById('abwM')?.value||'';
+  const cnt=document.getElementById('abwCnt');
+  if(!yr||!mo){el.innerHTML='';if(cnt)cnt.textContent='';return;}
+  const allSorted=[...state.entries].filter(e=>e.date).sort((a,b)=>abwSortKey(a).localeCompare(abwSortKey(b)));
+  const {pairs}=abwPairHFRF(allSorted);
+  const items=[];
+  pairs.forEach(p=>{
+    const relDate=(p.hf?p.hf.date:null)||(p.rf?p.rf.date:null);
+    if(relDate&&relDate.slice(0,4)===yr&&relDate.slice(5,7)===mo)
+      items.push({key:p.key,html:abwHeimfahrtCard(p)});
+  });
+  allSorted.forEach(e=>{
+    if(e.dayCode==='HF'||e.dayCode==='RF')return;
+    if(e.dayCode==='AW'||e.dayCode==='WFH')return;
+    if(e.date.slice(0,4)!==yr||e.date.slice(5,7)!==mo)return;
+    if(ABW_DR_CODES.includes(e.dayCode))items.push({key:abwSortKey(e),html:abwDienstreiseCard(e)});
+    else items.push({key:abwSortKey(e),html:abwSimpleCard(e)});
+  });
+  items.sort((a,b)=>a.key.localeCompare(b.key));
+  if(cnt)cnt.textContent=items.length?items.length+' Abwesenheit(en)':'';
+  el.innerHTML=items.length?items.map(i=>i.html).join(''):
+    `<div style="padding:50px;text-align:center;color:var(--muted)">
+      <div style="font-size:19px;font-weight:700;color:var(--navy);margin-bottom:5px">Keine Abwesenheiten</div>
+      <div style="font-size:13px">Für den gewählten Monat liegen keine Einträge außer „Anwesend"/„Homeoffice" vor.</div>
+    </div>`;
+}
 function loadSettings(){
   const s=state.settings;
   const jSel=document.getElementById('sAktivesJahr');
