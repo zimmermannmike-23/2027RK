@@ -933,9 +933,10 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.4.0';
-const APP_BUILD=53;
+const APP_BUILD=54;
 const APP_DATE='02.09.2026';
 const APP_CHANGES=[
+  'Abwesenheiten: Wochenenden/Feiertage (Code WF) werden nicht mehr als eigene Karte angezeigt, überbrücken aber weiterhin mehrtägige Dienstreisen/Übungen',
   'Zeiterfassungsblatt-Export komplett umgestellt: statt PDF-Nachbildung wird jetzt eine Kopie deiner echten Excel-Vorlage (Formeln, Farben, Wappen, Layout) mit den Wizard-Daten befüllt',
   'Export liefert eine .xlsx-Datei zum Öffnen in Excel/Numbers – von dort aus als PDF exportieren/drucken für 100% originalgetreuen Ausdruck',
   'Funktioniert aktuell nur für das Jahr 2026 (die Vorlage ist jahrgangsgebunden); andere Jahre fallen automatisch auf die alte PDF-Nachbildung zurück',
@@ -4788,7 +4789,7 @@ function renderAbw(){
   });
   allSorted.forEach(e=>{
     if(e.dayCode==='HF'||e.dayCode==='RF')return;
-    if(e.dayCode==='AW'||e.dayCode==='WFH')return;
+    if(e.dayCode==='AW'||e.dayCode==='WFH'||e.dayCode==='WF')return;
     if(ABW_DR_CODES.includes(e.dayCode))return; // bereits über Zeitraum-Gruppen abgedeckt
     if(e.date.slice(0,4)!==yr||e.date.slice(5,7)!==mo)return;
     items.push({key:abwSortKey(e),html:abwSimpleCard(e)});
