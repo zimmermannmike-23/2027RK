@@ -933,9 +933,11 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.4.0';
-const APP_BUILD=59;
+const APP_BUILD=61;
 const APP_DATE='02.09.2026';
 const APP_CHANGES=[
+  'Abwesenheiten: Urlaubstage (Code UR) werden nicht mehr als eigene Karte angezeigt',
+  'Sammelmappe (Hin+Rück): Deckblatt entfernt — die PDF enthält jetzt ausschließlich die Belege selbst',
   'Sammelmappe (Hin+Rück): Original-Belege aus der Belegeablage (Reiter „Jahr", Drag&Drop-Upload) im Reisezeitraum werden jetzt automatisch mit eingebunden',
   'Abwesenheiten: Ankunfts-/Abreisezeiten suchen jetzt gezielt den Abschnitt mit tatsächlich eingetragener Zeit (statt stur den letzten Abschnitt, auch wenn der z.B. ein Fußweg ohne Zeitangabe ist)',
   'Abwesenheiten: Einzel-Buttons "Nur Hinfahrt"/"Nur Rückfahrt" entfernt — nur noch die Sammelmappe (Hin+Rück)',
@@ -4815,7 +4817,7 @@ function renderAbw(){
   });
   allSorted.forEach(e=>{
     if(e.dayCode==='HF'||e.dayCode==='RF')return;
-    if(e.dayCode==='AW'||e.dayCode==='WFH'||e.dayCode==='WF')return;
+    if(e.dayCode==='AW'||e.dayCode==='WFH'||e.dayCode==='WF'||e.dayCode==='UR')return;
     if(ABW_DR_CODES.includes(e.dayCode))return; // bereits über Zeitraum-Gruppen abgedeckt
     if(e.date.slice(0,4)!==yr||e.date.slice(5,7)!==mo)return;
     items.push({key:abwSortKey(e),html:abwSimpleCard(e)});
@@ -5341,24 +5343,8 @@ async function genFhfPdf(entries,docNum){
   const{PDFDocument,StandardFonts,rgb}=window.PDFLib;
   const doc=await PDFDocument.create();const fb=await doc.embedFont(StandardFonts.HelveticaBold);const f=await doc.embedFont(StandardFonts.Helvetica);
   const NAV=rgb(0.102,0.227,0.361),GR=rgb(0.4,0.4,0.4);const A4=[595.28,841.89];
-  const cov=doc.addPage(A4);let y=800;
   const list=[...entries].filter(Boolean).sort((a,b)=>a.date.localeCompare(b.date));
   const first=list[0],last=list[list.length-1];
-  const mehrteilig=list.length>1;
-  cov.drawText((mehrteilig?'Familienheimfahrt (Hin+Rück) – ':'Familienheimfahrt – ')+docNum,{x:40,y,size:20,font:fb,color:NAV});y-=30;
-  const s=state.settings;
-  const datumTxt=mehrteilig?fmtDL(first.date)+' – '+fmtDL(last.date):fmtDL(first.date);
-  const rows=[['Name',((s.rank?s.rank+' ':'')+s.name||'—')],['Datum',datumTxt]];
-  list.forEach((e,i)=>{
-    const lbl=mehrteilig?(i===0?'Hinfahrt':'Rückfahrt'):'Strecke';
-    rows.push([lbl,(e.tripFrom||e.workLocation||'?')+' -> '+(e.tripTo||e.stayLocation||'?')]);
-  });
-  rows.push(['Einheit',s.unit||'—']);
-  rows.forEach(([k,v])=>{
-    cov.drawText(k+': '+String(v).slice(0,80),{x:40,y,size:10,font:f,color:NAV});y-=14;});
-  const allSegs=list.flatMap(e=>(e.segs||[]).filter(sg=>sg.enabled!==false&&sg.mode&&DISP_KM_GRUPPEN.has(MODE_GRUPPE[sg.mode]||'Sonstige')));
-  if(allSegs.length){y-=5;cov.drawText('Reisemittel:',{x:40,y,size:10,font:fb,color:NAV});y-=13;
-    allSegs.forEach(sg=>{cov.drawText(`  ${sg.mode}${sg.km?' · '+sg.km+'km':''}${sg.fromLoc&&sg.toLoc?' ('+sg.fromLoc+' -> '+sg.toLoc+')':''}`.slice(0,80),{x:40,y,size:9,font:f,color:NAV});y-=11;});}
   const rids=[];list.forEach(e=>{rids.push(...(e.recIds||[]));(e.segs||[]).forEach(sg=>rids.push(...(sg.recIds||[])));});
   // Zusätzlich: Original-Belege aus der Belegeablage (Reiter „Jahr", Drag&Drop-Upload),
   // deren Beleg-Datum in den Reisezeitraum (Hinfahrt-Datum bis Rückfahrt-Datum) fällt.
@@ -5367,8 +5353,6 @@ async function genFhfPdf(entries,docNum){
     const alleDateien=await idbAllF();
     ablage=alleDateien.filter(r=>r.herkunft==='upload'&&r.datum&&r.datum>=first.date&&r.datum<=last.date&&!rids.includes(r.id));
   }catch(ex){console.error(ex);}
-  y-=8;cov.drawText(`Belege: ${rids.length+ablage.length}${ablage.length?` (davon ${ablage.length} aus Belegeablage ${fmtDL(first.date)}–${fmtDL(last.date)})`:''}`,{x:40,y,size:10,font:fb,color:NAV});
-  cov.drawText(new Date().toLocaleString('de-DE'),{x:40,y:25,size:8,font:f,color:GR});
   async function embed(r){
     if(!r||!r.blob)return;
     if(r.type&&r.type.startsWith('image/')){let ib=await r.blob.arrayBuffer();let img;
