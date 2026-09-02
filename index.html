@@ -933,12 +933,12 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.3.0';
-const APP_BUILD=50;
+const APP_BUILD=52;
 const APP_DATE='02.09.2026';
 const APP_CHANGES=[
+  'Abwesenheiten: Wochenenden/Feiertage unterbrechen die Zeitraum-Zusammenfassung mehrtägiger Dienstreisen nicht mehr (z.B. Fr–Mo bleibt ein Zeitraum, auch ohne Sa/So-Eintrag)',
+  'Abwesenheiten: mehrtägige Dienstreisen/TrÜbPl/Übungen (gleicher Ort, zusammenhängender Zeitraum) werden zu EINEM Formular zusammengefasst',
   'Neuer Reiter „Abwesenheiten": Monatsübersicht aller Abwesenheiten im BVA-Kürzungsangaben-Format',
-  'Automatische Zusammenführung von Heimfahrt (HF) + Rückfahrt (RF) zu einer Karte inkl. Verkehrsmittel-Summen',
-  'Dienstreisen/TrÜbPl/Übung sowie sonstige Abwesenheiten (Urlaub, Krank, FvD, Wochenende/Feiertag) werden chronologisch angezeigt',
 ];
 
 const SK='zc-tgrb-v2', SETK='zc-tgrb-set-v2';
@@ -4661,22 +4661,76 @@ function abwTransportBlock(segs){
   }).join('');
   return `<div class="abw-tbar">Tatsächliches Verkehrsmittel</div><div class="abw-tbody">${rows}</div>`;
 }
-function abwDienstreiseCard(e){
-  const dt=DT[e.dayCode]||{n:e.dayCode};
-  const firstSeg=(e.segs||[]).find(s=>s.enabled!==false&&s.mode)||{};
-  const lastSeg=[...(e.segs||[])].reverse().find(s=>s.enabled!==false&&s.mode)||firstSeg;
-  const beginn=[fmtD(e.date),firstSeg.dep||e.workStart||''].filter(Boolean).join(' · ');
-  const ende=[fmtD(e.date),lastSeg.arr||e.workEnd||''].filter(Boolean).join(' · ');
-  const von=firstSeg.fromLoc||e.workLocation||'';
-  const an=lastSeg.toLoc||e.workLocation||'';
-  const ort=e.stayLocation||e.vorhaben||'';
+// Ort-Schlüssel für die Gruppierung mehrtägiger Dienstreisen (normalisiert)
+function abwLocKey(e){ return (e.stayLocation||e.vorhaben||'').trim().toLowerCase(); }
+function abwDayDiff(d1,d2){
+  const a=new Date(d1+'T12:00'),b=new Date(d2+'T12:00');
+  return Math.round((b-a)/86400000);
+}
+function abwAddDays(dateStr,n){
+  const d=new Date(dateStr+'T12:00');d.setDate(d.getDate()+n);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+// Ein Tag "überbrückt" eine Lücke, wenn er ein Wochenende ist (Sa/So, egal ob erfasst)
+// oder explizit als Feiertag/Wochenende (Code WF) eingetragen wurde – Wochenenden/Feiertage
+// müssen innerhalb einer mehrtägigen Dienstreise NICHT extra angegeben werden.
+function abwIsBridgeDay(dateStr,wfDates){
+  const dow=new Date(dateStr+'T12:00').getDay();
+  if(dow===0||dow===6)return true;
+  return wfDates.has(dateStr);
+}
+function abwBridgeable(prevDate,curDate,wfDates){
+  const diff=abwDayDiff(prevDate,curDate);
+  if(diff<1)return false;
+  if(diff===1)return true;
+  for(let k=1;k<diff;k++){
+    if(!abwIsBridgeDay(abwAddDays(prevDate,k),wfDates))return false;
+  }
+  return true;
+}
+// Fasst kalendarisch aufeinanderfolgende Tage (Wochenenden/Feiertage überbrückend) mit
+// gleichem Code UND gleichem Ort (Ort des Dienstgeschäftes/Vorhaben) zu EINEM Zeitraum
+// zusammen – wie eine echte mehrtägige Dienstreise/TrÜbPl/Übung im BVA-Portal als ein
+// Formular abgebildet wird.
+function abwGroupDR(allSorted){
+  const wfDates=new Set(allSorted.filter(e=>e.dayCode==='WF').map(e=>e.date));
+  const drOnly=allSorted.filter(e=>ABW_DR_CODES.includes(e.dayCode)).sort((a,b)=>a.date.localeCompare(b.date));
+  const groups=[],used=new Set();
+  for(let i=0;i<drOnly.length;i++){
+    if(used.has(drOnly[i].id))continue;
+    const group=[drOnly[i]];used.add(drOnly[i].id);
+    for(let j=i+1;j<drOnly.length;j++){
+      if(used.has(drOnly[j].id))continue;
+      const prev=group[group.length-1],cur=drOnly[j];
+      if(cur.dayCode===prev.dayCode&&abwLocKey(cur)===abwLocKey(prev)&&abwBridgeable(prev.date,cur.date,wfDates)){
+        group.push(cur);used.add(cur.id);
+      }else break;
+    }
+    groups.push(group);
+  }
+  return groups;
+}
+function abwDienstreiseCard(group){
+  const first=group[0],last=group[group.length-1];
+  const dt=DT[first.dayCode]||{n:first.dayCode};
+  const firstSeg=(first.segs||[]).find(s=>s.enabled!==false&&s.mode)||{};
+  const lastSeg=[...(last.segs||[])].reverse().find(s=>s.enabled!==false&&s.mode)||{};
+  const beginn=[fmtD(first.date),firstSeg.dep||first.workStart||''].filter(Boolean).join(' · ');
+  const ende=[fmtD(last.date),lastSeg.arr||last.workEnd||''].filter(Boolean).join(' · ');
+  const von=firstSeg.fromLoc||first.workLocation||'';
+  const an=lastSeg.toLoc||last.workLocation||first.workLocation||'';
+  const ort=first.stayLocation||first.vorhaben||last.stayLocation||last.vorhaben||'';
   const fields=[['Beginn der Dienstreise',beginn],['von',von],
     ['Ort des Dienstgeschäftes',ort],['Ende der Dienstreise',ende],['an',an]];
-  let html=`<div class="abw-card"><div class="abw-bar">${esc(abwLabel(e.dayCode,false))}</div>
-    <div class="abw-body"><div class="abw-sub">${esc(e.dayCode)} · ${esc(dt.n||'')}${e.vorhaben?' · '+esc(e.vorhaben):''}</div>
+  const kommentar=[...new Set(group.map(e=>e.bemerkung).filter(Boolean))].join(' / ');
+  const allSegs=group.flatMap(e=>e.segs||[]);
+  const spanTage=abwDayDiff(first.date,last.date)+1;
+  const tageTxt=spanTage>1?` · ${spanTage} Tage (${fmtD(first.date)}–${fmtD(last.date)})`:'';
+  let html=`<div class="abw-card"><div class="abw-bar">${esc(abwLabel(first.dayCode,false))}</div>
+    <div class="abw-body"><div class="abw-sub">${esc(first.dayCode)} · ${esc(dt.n||'')}${first.vorhaben?' · '+esc(first.vorhaben):''}${tageTxt}</div>
     ${abwFieldRow(fields)}
-    ${e.bemerkung?`<div class="abw-grid" style="margin-top:10px"><div class="abw-field abw-note"><label>Kommentar</label><div class="val">${esc(e.bemerkung)}</div></div></div>`:''}
-    ${abwTransportBlock(e.segs||[])}
+    ${kommentar?`<div class="abw-grid" style="margin-top:10px"><div class="abw-field abw-note"><label>Kommentar</label><div class="val">${esc(kommentar)}</div></div></div>`:''}
+    ${abwTransportBlock(allSegs)}
     </div></div>`;
   return html;
 }
@@ -4726,12 +4780,17 @@ function renderAbw(){
     if(relDate&&relDate.slice(0,4)===yr&&relDate.slice(5,7)===mo)
       items.push({key:p.key,html:abwHeimfahrtCard(p)});
   });
+  abwGroupDR(allSorted).forEach(g=>{
+    const start=g[0].date;
+    if(start.slice(0,4)===yr&&start.slice(5,7)===mo)
+      items.push({key:abwSortKey(g[0]),html:abwDienstreiseCard(g)});
+  });
   allSorted.forEach(e=>{
     if(e.dayCode==='HF'||e.dayCode==='RF')return;
     if(e.dayCode==='AW'||e.dayCode==='WFH')return;
+    if(ABW_DR_CODES.includes(e.dayCode))return; // bereits über Zeitraum-Gruppen abgedeckt
     if(e.date.slice(0,4)!==yr||e.date.slice(5,7)!==mo)return;
-    if(ABW_DR_CODES.includes(e.dayCode))items.push({key:abwSortKey(e),html:abwDienstreiseCard(e)});
-    else items.push({key:abwSortKey(e),html:abwSimpleCard(e)});
+    items.push({key:abwSortKey(e),html:abwSimpleCard(e)});
   });
   items.sort((a,b)=>a.key.localeCompare(b.key));
   if(cnt)cnt.textContent=items.length?items.length+' Abwesenheit(en)':'';
