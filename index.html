@@ -933,9 +933,10 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.4.0';
-const APP_BUILD=55;
+const APP_BUILD=56;
 const APP_DATE='02.09.2026';
 const APP_CHANGES=[
+  'Abwesenheiten: Heimfahrt-Karten haben jetzt „📦 Sammelmappe (Hin+Rück)" — bündelt die Belege beider Fahrten in EINE fortlaufend nummerierte PDF (FHF-2026-001, -002, …); Einzel-Buttons pro Fahrtrichtung bleiben erhalten',
   'Abwesenheiten: „Abreise/Ankunft Dienstort" bei Heimfahrten zeigt jetzt ausschließlich die tatsächlich für die Fahrt erfasste Uhrzeit – kein Rückfall mehr auf die Dienstbeginn-Zeit',
   'Abwesenheiten: Wochenenden/Feiertage (Code WF) werden nicht mehr als eigene Karte angezeigt, überbrücken aber weiterhin mehrtägige Dienstreisen/Übungen',
   'Zeiterfassungsblatt-Export komplett umgestellt: statt PDF-Nachbildung wird jetzt eine Kopie deiner echten Excel-Vorlage (Formeln, Farben, Wappen, Layout) mit den Wizard-Daten befüllt',
@@ -4753,11 +4754,17 @@ function abwHeimfahrtCard(p){
   const kommentar=[hf&&hf.bemerkung,rf&&rf.bemerkung].filter(Boolean).join(' / ');
   const allSegs=[...(hf?hf.segs||[]:[]),...(rf?rf.segs||[]:[])];
   const codeTxt=[hf?'HF':null,rf?'RF':null].filter(Boolean).join(' + ');
+  const belegBtns=isFHF&&(hf||rf)?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+    ${hf?`<button class="btn-xs" onclick="dlFhf('${hf.id}')">📦 Nur Hinfahrt</button>`:''}
+    ${rf?`<button class="btn-xs" onclick="dlFhf('${rf.id}')">📦 Nur Rückfahrt</button>`:''}
+    ${hf&&rf?`<button class="btn-xs" onclick="dlFhfPair('${hf.id}','${rf.id}')" style="background:var(--accent);color:#fff;border-color:var(--accent-dark)">📦 Sammelmappe (Hin+Rück)</button>`:''}
+  </div>`:'';
   let html=`<div class="abw-card"><div class="abw-bar">${esc(abwLabel('HF',isFHF))}</div>
     <div class="abw-body"><div class="abw-sub">${esc(codeTxt)}${!hf?' (kein Hinweg im gewählten Zeitraum erfasst)':''}${!rf?' (keine Rückfahrt erfasst)':''}</div>
     ${abwFieldRow(fields)}
     ${kommentar?`<div class="abw-grid" style="margin-top:10px"><div class="abw-field abw-note"><label>Kommentar</label><div class="val">${esc(kommentar)}</div></div></div>`:''}
     ${abwTransportBlock(allSegs)}
+    ${belegBtns}
     </div></div>`;
   return html;
 }
@@ -5285,7 +5292,22 @@ async function dlFhf(id){
   const entry=state.entries.find(e=>e.id===id);if(!entry||!entry.isFHF){toast('Kein FHF-Eintrag','err');return;}
   const yr=state.settings.fhfYear||new Date().getFullYear();const nxt=(state.settings.fhfCounter||0)+1;
   const docNum=`FHF-${yr}-${String(nxt).padStart(3,'0')}`;
-  try{await loadPdfLib();const{pdfBytes}=await genFhfPdf(entry,docNum);
+  try{await loadPdfLib();const{pdfBytes}=await genFhfPdf([entry],docNum);
+    state.settings.fhfCounter=nxt;persist();renderFhf();
+    const blob=new Blob([pdfBytes],{type:'application/pdf'});const dataUrl=await blobToDataURL(blob);
+    downloadDataUrl(dataUrl,`${docNum}.pdf`);
+    toast(`${docNum}.pdf erstellt ✓`,'ok');
+  }catch(e){toast('Fehler: '+e.message,'err');console.error(e);}
+}
+// Sammelmappe für EIN Hin+Rück-Paar: beide Belege-Sätze in einer fortlaufend nummerierten PDF
+async function dlFhfPair(hfId,rfId){
+  const hf=hfId?state.entries.find(e=>e.id===hfId):null;
+  const rf=rfId?state.entries.find(e=>e.id===rfId):null;
+  const list=[hf,rf].filter(Boolean);
+  if(!list.length){toast('Kein FHF-Eintrag','err');return;}
+  const yr=state.settings.fhfYear||new Date().getFullYear();const nxt=(state.settings.fhfCounter||0)+1;
+  const docNum=`FHF-${yr}-${String(nxt).padStart(3,'0')}`;
+  try{await loadPdfLib();const{pdfBytes}=await genFhfPdf(list,docNum);
     state.settings.fhfCounter=nxt;persist();renderFhf();
     const blob=new Blob([pdfBytes],{type:'application/pdf'});const dataUrl=await blobToDataURL(blob);
     downloadDataUrl(dataUrl,`${docNum}.pdf`);
@@ -5297,19 +5319,29 @@ async function genAllFhf(){const list=state.entries.filter(e=>e.isFHF).sort((a,b
 function loadPdfLib(){return new Promise((res,rej)=>{if(window.PDFLib)return res(window.PDFLib);
   toast('PDF-Lib lädt…');const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
   s.onload=()=>res(window.PDFLib);s.onerror=()=>rej(new Error('pdf-lib nicht ladbar'));document.head.appendChild(s);});}
-async function genFhfPdf(entry,docNum){
+async function genFhfPdf(entries,docNum){
   const{PDFDocument,StandardFonts,rgb}=window.PDFLib;
   const doc=await PDFDocument.create();const fb=await doc.embedFont(StandardFonts.HelveticaBold);const f=await doc.embedFont(StandardFonts.Helvetica);
   const NAV=rgb(0.102,0.227,0.361),GR=rgb(0.4,0.4,0.4);const A4=[595.28,841.89];
   const cov=doc.addPage(A4);let y=800;
-  cov.drawText('Familienheimfahrt – '+docNum,{x:40,y,size:20,font:fb,color:NAV});y-=30;
+  const list=[...entries].filter(Boolean).sort((a,b)=>a.date.localeCompare(b.date));
+  const first=list[0],last=list[list.length-1];
+  const mehrteilig=list.length>1;
+  cov.drawText((mehrteilig?'Familienheimfahrt (Hin+Rück) – ':'Familienheimfahrt – ')+docNum,{x:40,y,size:20,font:fb,color:NAV});y-=30;
   const s=state.settings;
-  [['Name',((s.rank?s.rank+' ':'')+s.name||'—')],['Datum',fmtDL(entry.date)],['Strecke',(entry.tripFrom||'?')+' → '+(entry.tripTo||'?')],['Einheit',s.unit||'—']].forEach(([k,v])=>{
+  const datumTxt=mehrteilig?fmtDL(first.date)+' – '+fmtDL(last.date):fmtDL(first.date);
+  const rows=[['Name',((s.rank?s.rank+' ':'')+s.name||'—')],['Datum',datumTxt]];
+  list.forEach((e,i)=>{
+    const lbl=mehrteilig?(i===0?'Hinfahrt':'Rückfahrt'):'Strecke';
+    rows.push([lbl,(e.tripFrom||e.workLocation||'?')+' → '+(e.tripTo||e.stayLocation||'?')]);
+  });
+  rows.push(['Einheit',s.unit||'—']);
+  rows.forEach(([k,v])=>{
     cov.drawText(k+': '+String(v).slice(0,80),{x:40,y,size:10,font:f,color:NAV});y-=14;});
-  const segs=(entry.segs||[]).filter(sg=>sg.enabled!==false&&sg.mode&&DISP_KM_GRUPPEN.has(MODE_GRUPPE[sg.mode]||'Sonstige'));
-  if(segs.length){y-=5;cov.drawText('Reisemittel:',{x:40,y,size:10,font:fb,color:NAV});y-=13;
-    segs.forEach(sg=>{cov.drawText(`  ${sg.mode}${sg.km?' · '+sg.km+'km':''}${sg.fromLoc&&sg.toLoc?' ('+sg.fromLoc+' → '+sg.toLoc+')':''}`.slice(0,80),{x:40,y,size:9,font:f,color:NAV});y-=11;});}
-  const rids=[...(entry.recIds||[])];(entry.segs||[]).forEach(sg=>(sg.recIds||[]).forEach(r=>rids.push(r)));
+  const allSegs=list.flatMap(e=>(e.segs||[]).filter(sg=>sg.enabled!==false&&sg.mode&&DISP_KM_GRUPPEN.has(MODE_GRUPPE[sg.mode]||'Sonstige')));
+  if(allSegs.length){y-=5;cov.drawText('Reisemittel:',{x:40,y,size:10,font:fb,color:NAV});y-=13;
+    allSegs.forEach(sg=>{cov.drawText(`  ${sg.mode}${sg.km?' · '+sg.km+'km':''}${sg.fromLoc&&sg.toLoc?' ('+sg.fromLoc+' → '+sg.toLoc+')':''}`.slice(0,80),{x:40,y,size:9,font:f,color:NAV});y-=11;});}
+  const rids=[];list.forEach(e=>{rids.push(...(e.recIds||[]));(e.segs||[]).forEach(sg=>rids.push(...(sg.recIds||[])));});
   y-=8;cov.drawText(`Belege: ${rids.length}`,{x:40,y,size:10,font:fb,color:NAV});
   cov.drawText(new Date().toLocaleString('de-DE'),{x:40,y:25,size:8,font:f,color:GR});
   for(const rid of rids){try{const r=await idbGetF(rid);if(!r||!r.blob)continue;
