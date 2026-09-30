@@ -932,10 +932,11 @@ datalist{display:none;}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.4.0';
-const APP_BUILD=61;
+const APP_VERSION='5.5.0';
+const APP_BUILD=62;
 const APP_DATE='02.09.2026';
 const APP_CHANGES=[
+  'Neu: Tage duplizieren — ⧉-Button in der Übersicht kopiert sofort auf den nächsten freien Tag; im Wizard-Speichern-Schritt zusätzlich ein Mini-Kalender, um beliebig viele weitere Tage mit denselben Angaben (inkl. Belegen) auf einmal anzulegen',
   'Abwesenheiten: Urlaubstage (Code UR) werden nicht mehr als eigene Karte angezeigt',
   'Sammelmappe (Hin+Rück): Deckblatt entfernt — die PDF enthält jetzt ausschließlich die Belege selbst',
   'Sammelmappe (Hin+Rück): Original-Belege aus der Belegeablage (Reiter „Jahr", Drag&Drop-Upload) im Reisezeitraum werden jetzt automatisch mit eingebunden',
@@ -1388,7 +1389,7 @@ function renderCal(){
 }
 document.getElementById('calPrev').addEventListener('click',()=>{calM--;if(calM<0){calM=11;calY--;}renderCal();});
 document.getElementById('calNext').addEventListener('click',()=>{calM++;if(calM>11){calM=0;calY++;}renderCal();});
-function calClick(iso){const e=state.entries.find(x=>x.date===iso);if(e)editEntry(e.id);else{wiz=freshW();wiz.date=iso;gotoView('wizard');startWizard(0);}}
+function calClick(iso){const e=state.entries.find(x=>x.date===iso);if(e)editEntry(e.id);else{wiz=freshW();wiz.date=iso;alsoCalY=null;alsoCalM=null;gotoView('wizard');startWizard(0);}}
 
 /* 28-DAY WARNING */
 function check28(targetId){
@@ -1992,6 +1993,44 @@ function buildCosts(){
 }
 
 /* STEP 6: SAVE */
+let alsoCalY=null,alsoCalM=null;
+// Baut das Mini-Kalender-Grid für „Gilt auch für weitere Tage?" im Speichern-Schritt.
+// Bereits belegte Tage und der aktuell bearbeitete Tag selbst sind nicht anklickbar.
+function buildAlsoCalGrid(){
+  if(alsoCalY===null){const d=wiz.date?new Date(wiz.date+'T12:00'):new Date();alsoCalY=d.getFullYear();alsoCalM=d.getMonth();}
+  const MONTHS=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  const sel=new Set(wiz._alsoDates||[]);
+  const entryMap={};state.entries.forEach(e=>{if(e.date&&e.id!==editId)entryMap[e.date]=e;});
+  const heads=['Mo','Di','Mi','Do','Fr','Sa','So'].map(d=>`<div class="cal-dh">${d}</div>`).join('');
+  const first=new Date(alsoCalY,alsoCalM,1);let dow=first.getDay();if(dow===0)dow=7;
+  const days=new Date(alsoCalY,alsoCalM+1,0).getDate();
+  let cells=heads+'<div class="cal-d empty"></div>'.repeat(dow-1);
+  for(let d=1;d<=days;d++){
+    const iso=`${alsoCalY}-${pad(alsoCalM+1)}-${pad(d)}`;
+    const isSelf=iso===wiz.date;
+    const occupied=!!entryMap[iso]&&!isSelf;
+    const isSel=sel.has(iso);
+    const wd=new Date(iso+'T00:00').getDay();const isWe=wd===0||wd===6;
+    const cls=['cal-d',isSel?'has':'',isWe&&!isSel?'we':'',isSelf?'today':''].filter(Boolean).join(' ');
+    if(occupied||isSelf){
+      cells+=`<div class="${cls}" style="opacity:.4;cursor:default" title="${isSelf?'aktueller Eintrag':'bereits belegt'}">${d}${isSelf?'<span class="cdot">●</span>':''}</div>`;
+    }else{
+      cells+=`<div class="${cls}" onclick="alsoDateToggle('${iso}')">${d}${isSel?'<span class="cdot">✓</span>':''}</div>`;
+    }
+  }
+  return{label:MONTHS[alsoCalM]+' '+alsoCalY,cells};
+}
+function alsoCalNav(delta){
+  if(alsoCalY===null){const d=wiz.date?new Date(wiz.date+'T12:00'):new Date();alsoCalY=d.getFullYear();alsoCalM=d.getMonth();}
+  alsoCalM+=delta;if(alsoCalM<0){alsoCalM=11;alsoCalY--;}if(alsoCalM>11){alsoCalM=0;alsoCalY++;}
+  renderStep('save');
+}
+function alsoDateToggle(iso){
+  if(!Array.isArray(wiz._alsoDates))wiz._alsoDates=[];
+  const i=wiz._alsoDates.indexOf(iso);
+  if(i>=0)wiz._alsoDates.splice(i,1);else wiz._alsoDates.push(iso);
+  renderStep('save');
+}
 function buildSave(){
   const w=wiz;const dt=DT[w.dayCode]||{n:'—'};
   const ttlCur={};
@@ -1999,12 +2038,14 @@ function buildSave(){
   if(w.costAmt){const c=w.costCurr||'EUR';ttlCur[c]=(ttlCur[c]||0)+parseFloat(w.costAmt);}
   const costs=Object.entries(ttlCur).map(([c,v])=>fmtM(v,c)).join(' + ')||'—';
   const segsStr=w.segs.filter(s=>s.enabled!==false&&s.mode).map(s=>`${s.mode}${s.fromLoc&&s.toLoc?' · '+esc(s.fromLoc)+' → '+esc(s.toLoc):''}${s.km?' · '+s.km+'km':''}`).join('<br>')||'—';
+  const also=buildAlsoCalGrid();
+  const alsoSel=(w._alsoDates||[]).slice().sort();
   return`<div class="wcard">
     <div class="wcard-head"><h3>Speichern · Zusammenfassung</h3><div class="sub">Bitte prüfen.</div></div>
     <div class="wact">
       <button class="btn btn-s btn-sm" onclick="prevStep()">← Zurück</button>
       <span class="sp"></span>
-      <button class="btn btn-gold" onclick="saveEntry()">✓ Speichern</button>
+      <button class="btn btn-gold" onclick="saveEntry()">✓ Speichern${alsoSel.length?` (${1+alsoSel.length} Tage)`:''}</button>
     </div>
     <div class="wbody">
       <div style="background:var(--lsoft);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:13px;line-height:1.8">
@@ -2018,6 +2059,17 @@ function buildSave(){
 
         ${w.verpflegung?`<div><b style="color:var(--navy)">Verpflegung:</b> ${esc(VERPFL_MAHL.filter(m=>verpflStatus(w,m)!=='').map(m=>VERPFL_LABEL[m]+(verpflStatus(w,m)==='ne'?' (nicht eingenommen)':'')).join(', '))}${verpflAbzug(w)>0?` &middot; TG ${(TG_GRUND-verpflAbzug(w)).toFixed(2).replace('.',',')} &euro;`:''}</div>`:''}
         ${w.workNotes?`<div style="color:var(--muted)"><b>Bemerkung:</b> ${esc(w.workNotes)}</div>`:''}
+      </div>
+      <div style="margin-top:16px">
+        <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:3px">Gilt auch für weitere Tage?</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Tippe zusätzliche Tage an — für sie werden exakt dieselben Angaben (inkl. Belege) mitgespeichert.</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <button class="btn-xs" onclick="alsoCalNav(-1)">‹</button>
+          <span style="font-size:12px;font-weight:600;color:var(--navy)">${esc(also.label)}</span>
+          <button class="btn-xs" onclick="alsoCalNav(1)">›</button>
+        </div>
+        <div class="cal-grid" style="min-height:170px">${also.cells}</div>
+        ${alsoSel.length?`<div style="margin-top:8px;font-size:12px;color:var(--navy)">✓ ${alsoSel.length} weitere${alsoSel.length===1?'r':''} Tag${alsoSel.length===1?'':'e'}: ${alsoSel.map(fmtD).join(', ')}</div>`:''}
       </div>
     </div>
   </div>`;
@@ -2156,15 +2208,28 @@ function closeRv(){document.getElementById('rvModal').classList.remove('show');r
 /* SAVE / EDIT / DELETE */
 function saveEntry(){
   collectCur();if(!wiz.date){toast('Datum fehlt','err');return;}
+  const alsoDates=(wiz._alsoDates||[]).filter(d=>d!==wiz.date);
   const entry={...wiz,id:editId||uid(),updated:Date.now()};
+  delete entry._alsoDates;
   if(!entry.created)entry.created=Date.now();
   delete entry._tmp;
   [wiz.tripFrom,wiz.tripTo,wiz.stayLocation,wiz.workLocation].filter(Boolean).forEach(addToHistory);
   wiz.segs.forEach(s=>[s.fromLoc,s.toLoc].filter(Boolean).forEach(addToHistory));
   if(editId){const i=state.entries.findIndex(e=>e.id===editId);if(i>=0)state.entries[i]=entry;}
   else state.entries.push(entry);
+  // Für weitere im Speichern-Schritt angeklickte Tage identische Kopien anlegen.
+  // Belege werden per Referenz (gleiche Datei-ID) mitübernommen, nicht dupliziert.
+  let angelegt=0,uebersprungen=0;
+  alsoDates.forEach(d=>{
+    if(state.entries.some(e=>e.date===d&&e.id!==entry.id)){uebersprungen++;return;}
+    const clone=JSON.parse(JSON.stringify(entry));
+    clone.id=uid();clone.date=d;clone.created=Date.now();clone.updated=Date.now();
+    state.entries.push(clone);angelegt++;
+  });
   editId=null;persist();renderCal();
-  toast('Eintrag gespeichert ✓','ok');
+  alsoCalY=null;alsoCalM=null;
+  toast(angelegt?`Eintrag gespeichert ✓ (+${angelegt} weitere Tag${angelegt===1?'':'e'})`:'Eintrag gespeichert ✓','ok');
+  if(uebersprungen)setTimeout(()=>toast(`${uebersprungen} Tag${uebersprungen===1?'':'e'} übersprungen (bereits belegt)`,'err'),400);
   wiz=freshW();curStep=0;renderProg();renderStep('daytype');
   setTimeout(()=>gotoView('overview'),350);
 }
@@ -2174,6 +2239,7 @@ function editEntry(id){
   if(!Array.isArray(wiz.segs))wiz.segs=[];
   if(!Array.isArray(wiz.recIds))wiz.recIds=[];
   wiz.segs.forEach(s=>{if(!Array.isArray(s.recIds))s.recIds=[];});
+  alsoCalY=null;alsoCalM=null;
   gotoView('wizard');startWizard(0);toast('Bearbeitung gestartet');
 }
 function deleteEntry(id){
@@ -2183,6 +2249,20 @@ function deleteEntry(id){
       for(const r of rids){try{await idbDelF(r);}catch(ex){}}}
     state.entries=state.entries.filter(x=>x.id!==id);persist();renderOverview();toast('Eintrag gelöscht','ok');
   });
+}
+// Sofort-Duplikat auf den nächsten freien (noch unbelegten) Kalendertag.
+// Belege werden per Referenz übernommen (gleiche Datei, kein Neu-Upload nötig) —
+// sinnvoll bei identischen Fahrten mit demselben Ticket/Beleg.
+function quickDuplicateEntry(id){
+  const e=state.entries.find(x=>x.id===id);if(!e)return;
+  const existing=new Set(state.entries.map(x=>x.date));
+  const d=new Date(e.date+'T12:00');
+  do{d.setDate(d.getDate()+1);}while(existing.has(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`));
+  const newDate=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const clone=JSON.parse(JSON.stringify(e));
+  clone.id=uid();clone.date=newDate;clone.created=Date.now();clone.updated=Date.now();
+  state.entries.push(clone);persist();renderOverview();renderCal();
+  toast(`Tag dupliziert auf ${fmtD(newDate)} ✓ — bei Bedarf mit ✎ anpassen`,'ok');
 }
 
 /* OVERVIEW */
@@ -2312,6 +2392,7 @@ function renderOverview(){
         <div class="acts" style="margin-top:5px">
           ${e.isFHF?`<button class="btn-xs" onclick="dlFhf('${e.id}')">PDF</button> `:''}
           <button class="btn-xs" onclick="editEntry('${e.id}')">✎</button>
+          <button class="btn-xs" onclick="quickDuplicateEntry('${e.id}')" title="Auf nächsten freien Tag duplizieren">⧉</button>
           <button class="btn-xs d" onclick="deleteEntry('${e.id}')">✕</button>
         </div>
       </div></td>`;
@@ -4255,6 +4336,7 @@ function showOvDetail(type){
         ${loc?`<span style="color:var(--muted)"> · ${esc(loc)}</span>`:''}${route}
         ${e.vorhaben?`<div style="font-size:10px;color:var(--muted)">${esc(e.vorhaben)}</div>`:''}
       </div>
+      <button class="btn-xs" onclick="quickDuplicateEntry('${e.id}')" title="Auf nächsten freien Tag duplizieren">⧉</button>
       <button class="btn-xs" onclick="editEntry('${e.id}')">✎</button>
     </div>`;
   }).join('');
