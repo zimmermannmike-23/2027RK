@@ -933,9 +933,12 @@ datalist{display:none;}
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
 const APP_VERSION='5.5.0';
-const APP_BUILD=62;
+const APP_BUILD=65;
 const APP_DATE='02.09.2026';
 const APP_CHANGES=[
+  'Zeiterfassungsblatt: neue Dateibenennung „Zeiterfassungsblatt_JJJJ_MM_Zimmermann_Kdr_GebJgBtl 231" (sowohl Excel-Original als auch PDF-Fallback)',
+  'Teilen-Button: Betreff = Dateiname (von Mail automatisch übernommen); beim Zeiterfassungsbeleg wird zusätzlich mike2zimmermann@bundeswehr.org in die Zwischenablage kopiert, zum Einfügen in "An:"',
+  'Neu: 📧-Button bei jedem erzeugten Beleg im Reiter „Belege" (DR/MB/ZE/AB/FK) — öffnet den System-Teilen-Dialog mit dem Beleg als echtem Dateianhang, "Mail" ist dort direkt als Ziel wählbar',
   'Neu: Tage duplizieren — ⧉-Button in der Übersicht kopiert sofort auf den nächsten freien Tag; im Wizard-Speichern-Schritt zusätzlich ein Mini-Kalender, um beliebig viele weitere Tage mit denselben Angaben (inkl. Belegen) auf einmal anzulegen',
   'Abwesenheiten: Urlaubstage (Code UR) werden nicht mehr als eigene Karte angezeigt',
   'Sammelmappe (Hin+Rück): Deckblatt entfernt — die PDF enthält jetzt ausschließlich die Belege selbst',
@@ -2188,6 +2191,31 @@ async function dlRec(rid){
     const dataUrl=await blobToDataURL(r.blob);
     downloadDataUrl(dataUrl,r.name||'beleg.pdf');
   }catch(e){toast('Download fehlgeschlagen: '+e.message,'err');}
+}
+// Öffnet den System-Teilen-Dialog (Web Share API) mit dem Beleg als echtem Datei-Anhang.
+// Auf iPhone/Mac erscheint dort u.a. "Mail" als Ziel — der Beleg landet direkt als
+// Anhang in einer neuen E-Mail, Betreff = Dateiname (title wird von Mail als Betreff
+// übernommen). Ein klassischer mailto:-Link kann das NICHT leisten (Browser/Mail-
+// Clients lassen keine Dateianhänge per mailto zu); die Web Share API ist der einzige
+// Web-Standard-Weg dafür — sie kennt aber kein "An:"-Feld. Ist toEmail gesetzt, wird die
+// Adresse deshalb zusätzlich in die Zwischenablage kopiert, zum Einfügen in "An:".
+async function shareRec(rid,toEmail){
+  try{
+    const r=await idbGetF(rid);if(!r){toast('Beleg nicht gefunden','err');return;}
+    if(!navigator.share||!navigator.canShare){
+      toast('Teilen wird von diesem Browser nicht unterstützt — bitte herunterladen und manuell anhängen','err');return;
+    }
+    const file=new File([r.blob],r.name||'beleg.pdf',{type:r.blob.type||r.type||'application/octet-stream'});
+    if(!navigator.canShare({files:[file]})){
+      toast('Dieser Dateityp kann auf diesem Gerät nicht geteilt werden','err');return;
+    }
+    if(toEmail){try{await navigator.clipboard.writeText(toEmail);}catch(e){}}
+    await navigator.share({files:[file],title:r.name||'Beleg'});
+    if(toEmail)toast(`${toEmail} in Zwischenablage — bitte in "An:" einfügen`,'ok');
+  }catch(e){
+    if(e.name==='AbortError')return; // Nutzer hat den Teilen-Dialog selbst abgebrochen
+    toast('Teilen fehlgeschlagen: '+e.message,'err');
+  }
 }
 async function printLatest(type){
   const yr=(document.getElementById('exFrom')?.value||'').slice(0,4)||String(new Date().getFullYear());
@@ -4489,7 +4517,7 @@ async function renderReceipts(){
   const drEl=document.getElementById('drArea');
   if(drEl){const drrids=(state.settings.drReceipts||{})[key]||[];
     const dp=[];for(const rid of drrids){try{const r=await idbGetF(rid);if(!r)continue;
-      const aTag=`<button class="btn-xs" onclick="dlRec('${rid}')" title="Download">&#128229;</button>`;
+      const aTag=`<button class="btn-xs" onclick="dlRec('${rid}')" title="Download">&#128229;</button><button class="btn-xs" onclick="shareRec('${rid}')" title="Per Mail/AirDrop senden">&#128231;</button>`;
       dp.push(`<div class="rc-row"><span class="rd">DR</span>
         <div class="ri"><div onclick="viewRec('${rid}')" style="cursor:pointer;font-weight:600;font-size:12px">${esc(r.name||'Dienstreise-Beleg')}</div><small>${fmtBytes(r.size)}</small></div>
         ${aTag}<button class="btn-xs" onclick="printRec('${rid}')" title="Drucken">&#128424;&#65039;</button><button class="btn-xs d" onclick="rmDr('${key}','${rid}')">✕</button></div>`);}catch(e){}}
@@ -4498,7 +4526,7 @@ async function renderReceipts(){
   const mbEl=document.getElementById('mbArea');
   if(mbEl){const mbrids=(state.settings.mbReceipts||{})[key]||[];
     const mp=[];for(const rid of mbrids){try{const r=await idbGetF(rid);if(!r)continue;
-      const aTag=`<button class="btn-xs" onclick="dlRec('${rid}')" title="Download">&#128229;</button>`;
+      const aTag=`<button class="btn-xs" onclick="dlRec('${rid}')" title="Download">&#128229;</button><button class="btn-xs" onclick="shareRec('${rid}')" title="Per Mail/AirDrop senden">&#128231;</button>`;
       mp.push(`<div class="rc-row"><span class="rd">MB</span>
         <div class="ri"><div onclick="viewRec('${rid}')" style="cursor:pointer;font-weight:600;font-size:12px">${esc(r.name||'Monatsbericht')}</div><small>${fmtBytes(r.size)}</small></div>
         ${aTag}<button class="btn-xs" onclick="printRec('${rid}')" title="Drucken">&#128424;&#65039;</button><button class="btn-xs d" onclick="rmMb('${key}','${rid}')">✕</button></div>`);}catch(e){}}
@@ -4515,7 +4543,7 @@ async function renderReceipts(){
     const dp=[];
     for(const daKey of allDa){const rids=(state.settings.daReceipts||{})[daKey]||[];
       for(const rid of rids){try{const r=await idbGetF(rid);if(!r)continue;
-        const aTag=`<button class="btn-xs" onclick="dlRec('${rid}')" title="Download">&#128229;</button>`;
+        const aTag=`<button class="btn-xs" onclick="dlRec('${rid}')" title="Download">&#128229;</button><button class="btn-xs" onclick="shareRec('${rid}','mike2zimmermann@bundeswehr.org')" title="Per Mail senden (An: mike2zimmermann@bundeswehr.org)">&#128231;</button>`;
         dp.push(`<div class="rc-row"><span class="rd" style="background:#4527A0;color:#fff">ZE</span>
           <div class="ri"><div onclick="viewRec('${rid}')" style="cursor:pointer;font-weight:600;font-size:12px">${esc(r.name||'Zeiterfassung')}</div><small>${fmtBytes(r.size)}</small></div>
           ${aTag}<button class="btn-xs" onclick="printRec('${rid}')" title="Drucken">&#128424;&#65039;</button><button class="btn-xs d" onclick="rmDa('${daKey}','${rid}')">\u2717</button></div>`);}catch(e){}}}
@@ -4653,7 +4681,7 @@ async function renderExportPdfs(){
     const abKey='AB-'+yr;
     const abrids=(state.settings.abReceipts||{})[abKey]||[];
     const ap=[];for(const rid of abrids){try{const r=await idbGetF(rid);if(!r)continue;
-      const aTag=`<button class="btn-xs" onclick="dlRec('${rid}')" title="Download">&#128229;</button>`;
+      const aTag=`<button class="btn-xs" onclick="dlRec('${rid}')" title="Download">&#128229;</button><button class="btn-xs" onclick="shareRec('${rid}')" title="Per Mail/AirDrop senden">&#128231;</button>`;
       ap.push(`<div class="rc-row"><span class="rd" style="background:var(--navy2);color:#fff">AB</span>
         <div class="ri"><div onclick="viewRec('${rid}')" style="cursor:pointer;font-weight:600;font-size:12px">${esc(r.name||'Abwesenheitsbescheinigung')}</div><small>${fmtBytes(r.size)}</small></div>
         ${aTag}<button class="btn-xs" onclick="printRec('${rid}')" title="Drucken">&#128424;&#65039;</button><button class="btn-xs d" onclick="rmAb('${abKey}','${rid}')">✕</button></div>`);}catch(e){}}
@@ -4669,7 +4697,7 @@ async function renderExportPdfs(){
     const fkKey='FK-'+yr;
     const fkrids=(state.settings.fkReceipts||{})[fkKey]||[];
     const fp=[];for(const rid of fkrids){try{const r=await idbGetF(rid);if(!r)continue;
-      const aTag=`<button class="btn-xs" onclick="dlRec('${rid}')" title="Download">&#128229;</button>`;
+      const aTag=`<button class="btn-xs" onclick="dlRec('${rid}')" title="Download">&#128229;</button><button class="btn-xs" onclick="shareRec('${rid}')" title="Per Mail/AirDrop senden">&#128231;</button>`;
       fp.push(`<div class="rc-row"><span class="rd" style="background:var(--gold);color:var(--navy)">FK</span>
         <div class="ri"><div onclick="viewRec('${rid}')" style="cursor:pointer;font-weight:600;font-size:12px">${esc(r.name||'Fahrtkosten')}</div><small>${fmtBytes(r.size)}</small></div>
         ${aTag}<button class="btn-xs" onclick="printRec('${rid}')" title="Drucken">&#128424;&#65039;</button><button class="btn-xs d" onclick="rmFk('${fkKey}','${rid}')">✕</button></div>`);}catch(e){}}
@@ -5792,7 +5820,7 @@ async function genDienstPdfLegacy(){
     pg.drawLine({start:{x:W-160,y},end:{x:W-25,y},thickness:0.5,color:GR});y-=9;
     pg.drawText('Unterschrift',{x:25,y,size:6.5,font:fn,color:GR});pg.drawText('Vorgesetzter',{x:W-160,y,size:6.5,font:fn,color:GR});
     const pdfBytes=await doc.save();const blob=new Blob([pdfBytes],{type:'application/pdf'});
-    const fname=san('Zeiterfassung_'+mNames[mo]+'_'+yr+'.pdf');
+    const fname=san('Zeiterfassungsblatt_'+yr+'_'+String(mo).padStart(2,'0')+'_Zimmermann_Kdr_GebJgBtl 231.pdf');
     const storedId=await storeFile(new File([blob],fname,{type:'application/pdf'}),'da_'+prefix);
     if(!state.settings.daReceipts)state.settings.daReceipts={};
     const daKey='DA-'+prefix;if(!state.settings.daReceipts[daKey])state.settings.daReceipts[daKey]=[];
@@ -5890,7 +5918,7 @@ async function genDienstXlsx(){
     }
 
     const blob=await wb.outputAsync();
-    const fname='Zeiterfassung_'+mNames[mo]+'_'+yr+'.xlsx';
+    const fname='Zeiterfassungsblatt_'+yr+'_'+String(mo).padStart(2,'0')+'_Zimmermann_Kdr_GebJgBtl 231.xlsx';
     const storedId=await storeFile(new File([blob],fname,{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),'da_'+prefix);
     if(!state.settings.daReceipts)state.settings.daReceipts={};
     const daKey='DA-'+prefix;if(!state.settings.daReceipts[daKey])state.settings.daReceipts[daKey]=[];
