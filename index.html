@@ -26,12 +26,6 @@ window.applyScheme=ap;ap();if(mq){if(mq.addEventListener)mq.addEventListener('ch
   --ze-ft:#fff8e1;--ze-we:#f5f5f5;--ze-miss:#fffde7;--warnbg:#fffdf5;--navh:0px;--railw:68px;
   --c-dienst:#12262B;--c-heim:#E6AF2E;--c-reise:#0F8A80;--c-frei:#DDE7E5;--c-frei-t:#3D4F52;
 }
-[data-theme="legacy"]{
-  --accent:#0A84FF;--accent-rgb:10,132,255;--accent-dark:#0A84FF;--accent-tint:#eef6ff;
-  --navy:#0B132B;--navy2:#1C2541;
-  --bg:#F5F5F7;--line:#E8E8ED;--lsoft:#F5F5F7;
-  --r:12px;--rl:16px;
-}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{font-family:var(--font);font-size:15px;line-height:1.5;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;}
 body{padding-bottom:env(safe-area-inset-bottom);}
@@ -100,23 +94,6 @@ main{margin-left:68px;max-width:1100px;padding:20px 20px 96px;}
   .tab .ic svg{width:19px;height:19px;}
   main{margin-left:58px;padding:16px 14px 96px;}
 }
-[data-theme="legacy"] .tabs{
-  position:sticky;left:auto;top:0;bottom:auto;width:auto;
-  border-right:none;border-bottom:1px solid var(--line);
-  z-index:40;overflow-x:auto;overflow-y:visible;
-}
-[data-theme="legacy"] .tabs-i{max-width:1100px;margin:0 auto;flex-direction:row;padding:0 16px;}
-[data-theme="legacy"] .tab{all:unset;box-sizing:border-box;background:none;border:none;padding:14px 16px;
-  font:inherit;font-size:13px;color:var(--muted);cursor:pointer;font-weight:500;
-  border-bottom:2.5px solid transparent;white-space:nowrap;transition:all .2s;width:auto;
-  flex-direction:row;border-radius:0;}
-[data-theme="legacy"] .tab .ic{display:none;}
-[data-theme="legacy"] .tab .lb{font-size:13px;font-weight:500;letter-spacing:0;}
-[data-theme="legacy"] .tab:hover{background:none;}
-[data-theme="legacy"] .tab.on{background:none;color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
-[data-theme="legacy"] .tab.on .lb{font-weight:600;}
-[data-theme="legacy"] main{margin-left:0;max-width:1100px;margin-right:auto;padding:20px 16px 80px;}
-@media(max-width:600px){[data-theme="legacy"] main{margin-left:0;}}
 .view{display:none;}
 .view.on{display:block;animation:fu .3s ease;}
 @keyframes fu{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -161,7 +138,6 @@ main{margin-left:68px;max-width:1100px;padding:20px 20px 96px;}
    kein leerer Platzhalter-Rang die Kacheln unnoetig verkleinert. 156px ist grob Topbar +
    Tab-Leiste + main-Padding — grosszuegig genug fuer beide Zeilen des Update-Banners.*/
 #view-monat.on{display:flex;flex-direction:column;height:calc(100dvh - 110px);min-height:320px;}
-[data-theme="legacy"] #view-monat.on{height:calc(100dvh - 156px);}
 .cal-wrap{background:var(--card);border:1px solid rgba(0,0,0,0.05);border-radius:var(--rl);
   padding:16px;box-shadow:var(--sh0);display:flex;flex-direction:column;flex:1;min-height:0;}
 .cal-head-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;}
@@ -236,27 +212,6 @@ main{margin-left:68px;max-width:1100px;padding:20px 20px 96px;}
 .dt .dn{font-weight:700;font-size:13px;display:block;}
 .dt .dd{font-size:10.5px;color:var(--muted);line-height:1.25;}
 .dt-auto{font-size:12px;color:var(--muted);text-align:center;margin-top:12px;}
-[data-theme="legacy"] .dt-auto{display:none;}
-[data-theme="legacy"] .prog-wrap{position:static;padding:12px 16px;}
-[data-theme="legacy"] .pbar{height:3px;}
-[data-theme="legacy"] .pfill{background:linear-gradient(90deg,var(--accent),var(--gold));}
-[data-theme="legacy"] .sdot .sl{display:block;font-size:11px;}
-[data-theme="legacy"] .wact{position:static;left:auto;right:auto;bottom:auto;
-  padding:7px 16px;border-top:none;border-bottom:1px solid var(--lsoft);
-  background:var(--lsoft);backdrop-filter:none;-webkit-backdrop-filter:none;
-  border-radius:0;box-shadow:none;}
-[data-theme="legacy"] .dt-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin-top:8px;}
-[data-theme="legacy"] .dt{border:1.5px solid var(--line);border-radius:var(--r);background:var(--input-bg);
-  text-align:left;padding:9px;min-height:0;display:block;box-shadow:none;}
-[data-theme="legacy"] .dt:hover{border-color:var(--accent);background:rgba(var(--accent-rgb),.04);}
-[data-theme="legacy"] .dt.on{border-color:var(--accent);background:rgba(var(--accent-rgb),.06);
-  box-shadow:0 0 0 3px rgba(var(--accent-rgb),.1);}
-[data-theme="legacy"] .dt.on .dc{background:var(--gold);color:var(--navy);}
-[data-theme="legacy"] .dt.on .dn{color:var(--text);}
-[data-theme="legacy"] .dt.on .dd{color:var(--muted);}
-[data-theme="legacy"] .dt .dc{font-size:13px;padding:1px 7px;margin-bottom:4px;}
-[data-theme="legacy"] .dt .dn{font-weight:600;font-size:12px;margin-bottom:1px;}
-[data-theme="legacy"] .dt .dd{font-size:10px;}
 .tblock{margin-top:9px;padding:9px 12px;border-radius:12px;}
 .tblock.blue{background:rgba(var(--accent-rgb),.06);border:1.5px solid rgba(var(--accent-rgb),.25);display:flex;align-items:flex-start;gap:10px;}
 .tblock.gold{background:var(--warns);border:1.5px solid var(--gold);}
@@ -598,10 +553,71 @@ html.dark [style*="solid #ddd"],html.dark [style*="solid #eee"],html.dark [style
 html.dark [style*="color:#1a3a5c"]{color:var(--navy)!important;}
 html.dark [style*="background:#1a3a5c"]{background:var(--navy-bg)!important;}
 }
+
+/* ═══ Build 69 ═══ */
+:root{--ch1:#008C7E;--ch2:#B97F0A;}
+.snack{position:fixed;left:50%;bottom:calc(var(--navh) + 18px);transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;
+  background:var(--navy-bg);color:#fff;border-radius:14px;padding:10px 10px 10px 16px;display:flex;align-items:center;gap:14px;
+  font-size:13px;box-shadow:var(--sh2);z-index:210;transition:opacity .2s,transform .2s;max-width:calc(100vw - 24px);}
+.snack.show{opacity:1;transform:translateX(-50%);pointer-events:auto;}
+.snack span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.snack.up{bottom:calc(var(--navh) + 84px);}
+.snack button{all:unset;cursor:pointer;font-weight:700;color:var(--gold);padding:6px 10px;border-radius:8px;}
+.snack button:hover{background:rgba(255,255,255,.1);}
+.cal-selbtn{font-size:12px!important;font-weight:600;padding:4px 12px!important;min-width:0!important;}
+.cal-selbtn.on{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important;}
+.cal-d.sel{outline:3px solid var(--accent);outline-offset:-3px;}
+.cal-d.sel:not(.has){background:var(--accent-tint);}
+.selbar{position:fixed;left:calc(var(--railw) + 12px);right:12px;bottom:calc(var(--navh) + 12px);z-index:60;background:var(--card);
+  border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh2);padding:10px 12px;display:flex;align-items:center;gap:8px;}
+.selbar span{flex:1;font-size:13px;color:var(--navy);}
+.selbar button[disabled]{opacity:.45;pointer-events:none;}
+.bk-list{overflow:auto;border:1px solid var(--line);border-radius:12px;}
+.bk-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--line);}
+.bk-row:last-child{border-bottom:none;}
+.bk-d{font-size:13px;font-weight:600;color:var(--navy);min-width:92px;}
+.bk-ex{font-size:11px;color:var(--muted);flex:1;}
+.bk-ex.new{color:var(--accent-dark);}
+.bk-row select{font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--input-bg);color:var(--text);max-width:52%;}
+.ex-line{font-size:13px;color:var(--muted);margin:12px 0 2px;}
+.ex-line b{color:var(--navy);}
+.ov-cards{display:none;}
+.oc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 12px;margin-bottom:8px;}
+.oc-h{display:flex;align-items:flex-start;gap:10px;}
+.oc-d{display:flex;flex-direction:column;min-width:62px;}
+.oc-d b{font-size:14px;color:var(--navy);}
+.oc-d small{font-size:11px;color:var(--muted);}
+.oc-c{flex:1;display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
+.oc-a{display:flex;gap:4px;}
+.oc-nb{font-size:10px;font-weight:700;color:var(--err);background:var(--errs);padding:2px 7px;border-radius:999px;}
+.oc-l{font-size:12.5px;color:var(--text);margin-top:6px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;}
+.oc-t,.oc-rc{color:var(--muted);font-size:12px;}
+.oc-s{display:flex;justify-content:space-between;gap:10px;padding-top:6px;margin-top:6px;border-top:1px dashed var(--line);font-size:12.5px;}
+.oc-sl{display:flex;flex-direction:column;min-width:0;}
+.oc-sl small{color:var(--muted);font-size:11px;}
+.oc-sr{white-space:nowrap;color:var(--warn);font-size:12px;}
+.oc-empty{padding:30px;text-align:center;color:var(--muted);font-size:13px;}
+@media(max-width:700px){.etbl{display:none!important;}.ov-cards{display:block;}}
+.kc-hero{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px;margin:8px 0 6px;}
+.kc-hero b{font-size:24px;color:var(--navy);letter-spacing:-.5px;display:block;line-height:1.1;}
+.kc-hero small{font-size:11px;color:var(--muted);}
+.kc-leg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text);}
+.kc-leg span{display:inline-flex;align-items:center;gap:6px;}
+.kc-leg i{width:10px;height:10px;border-radius:3px;display:inline-block;}
+.kc-svg{width:100%;height:auto;display:block;}
+.kc-ax{font-size:10px;fill:var(--muted);}
+.kc-off{font-size:9px;fill:var(--muted);font-style:italic;}
+.kc-bar:hover rect[fill="transparent"]{fill:rgba(var(--accent-rgb),.06);}
+.kc-proj{display:flex;flex-direction:column;gap:2px;font-size:12.5px;color:var(--text);margin-top:8px;padding:9px 12px;background:var(--lsoft);border-radius:10px;}
+.kc-proj small{color:var(--muted);font-size:11px;}
+.kc-tbl{margin-top:8px;font-size:12px;}
+.kc-tbl summary{cursor:pointer;color:var(--muted);}
+.kc-tbl table{width:100%;border-collapse:collapse;margin-top:6px;}
+.kc-tbl th,.kc-tbl td{padding:4px 6px;text-align:right;border-bottom:1px solid var(--line);}
+.kc-tbl th:first-child,.kc-tbl td:first-child{text-align:left;}
+@media screen{html.dark{--ch1:#1FA393;--ch2:#B98516;}
+html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
 </style>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 <div class="topbar no-print">
@@ -652,6 +668,7 @@ html.dark [style*="background:#1a3a5c"]{background:var(--navy-bg)!important;}
     <div class="cal-head-row">
       <h3 id="calTitle">Monat</h3>
       <div class="cal-nav">
+        <button id="calSelBtn" class="cal-selbtn" type="button" onclick="calSelToggle()" title="Mehrere Tage auswählen">&#9745;&#65038; Auswählen</button>
         <button id="calPrev">&#8249;</button>
         <span class="ml" id="calLabel"></span>
         <button id="calNext">&#8250;</button>
@@ -705,6 +722,7 @@ html.dark [style*="background:#1a3a5c"]{background:var(--navy-bg)!important;}
       <div style="font-size:13px">Lege im Reiter &bdquo;Eintrag&ldquo; los.</div>
     </div>
   </div>
+  <div class="ov-cards" id="ovCards"></div>
   <div id="ppSummary" style="margin-top:14px"></div>
   <div id="costsSummary" style="margin-top:0"></div>
   <div id="wsSummary" style="margin-top:14px"></div>
@@ -926,6 +944,7 @@ html.dark [style*="background:#1a3a5c"]{background:var(--navy-bg)!important;}
     <span id="jahrYLabel" style="font:inherit;font-size:13px;font-weight:700;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--lsoft);color:var(--navy)" title="Jahr wird in den Einstellungen umgeschaltet"></span>
   </div>
   <div id="jahresCard"></div>
+  <div id="kostenChart"></div>
   <div id="dhfCard"></div>
   <div id="querCard"></div>
 
@@ -1077,6 +1096,9 @@ html.dark [style*="background:#1a3a5c"]{background:var(--navy-bg)!important;}
       <div class="f"><label>Zeile 3 (Abteilung)</label><input type="text" id="sBK3" placeholder="z. B. BSB BMVg SE I 3"></div>
       <div class="f"><label>Zeile 4 (Stra&#223;e)</label><input type="text" id="sBK4" placeholder="z. B. Stauffenbergstra&#223;e 18"></div>
     </div>
+    <h3 style="margin-top:22px;margin-bottom:4px">&#128465;&#65039; Papierkorb</h3>
+    <p style="color:var(--muted);font-size:11px;margin-bottom:8px">Gelöschte Einträge bleiben 30 Tage hier und können wiederhergestellt werden.</p>
+    <div id="trashList" style="margin-bottom:6px"></div>
     <h3 style="margin-top:22px;margin-bottom:8px">&#128190; Backup</h3>
     <p style="color:var(--muted);font-size:11px;margin-bottom:8px">Alle Daten als JSON sichern oder wiederherstellen.</p>
     <div id="bkStatus" style="font-size:12px;margin-bottom:10px"></div>
@@ -1133,30 +1155,20 @@ html.dark [style*="background:#1a3a5c"]{background:var(--navy-bg)!important;}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.8.0';
-const APP_BUILD=68;
+const APP_VERSION='5.9.0';
+const APP_BUILD=69;
 const APP_DATE='08.10.2026';
 const APP_CHANGES=[
-  'Neues Layout passt sich automatisch an: iPhone mit Tab-Leiste unten (Eintrag, Monat, Abwes., Belege, Mehr), Mac/iPad mit Seitenleiste, breite Mac-Fenster mit ausgeschriebener Seitenleiste',
-  'Dunkelmodus: folgt automatisch der Systemeinstellung, in den Einstellungen auch fest Hell oder Dunkel wählbar',
-  'Meldungen erscheinen oben und verdecken keine Knöpfe mehr',
-  'Monatskalender: Tage farbig nach Art (Dienst, Heimfahrt, Reise/Lehrgang, frei), fehlende Tage gestrichelt, roter Punkt bei Kosten ohne Beleg, Legende',
-  'Monatsende-Erinnerung im Kalender (ab dem 25. und bis zum 10. des Folgemonats), solange der Monatsabschluss offen ist',
-  'Übersicht: Kurzbilanz des Monats oben, leere Kacheln werden ausgeblendet',
-  'Zeiterfassung: Datum und Tag bleiben beim seitlichen Scrollen stehen',
-  'Belege gebündelt: Reiter „Belege" mit den Bereichen „Ablage" (Scan, Hochladen, Belegeablage) und „Berichte & Export"; Dateien am Mac überall ins Fenster ziehen, Bild mit ⌘V direkt in den Scan einfügen',
-  'Eintrag: „Wie zuletzt" übernimmt den letzten Tag mit einem Tipp',
-  'Datensicherung: Status in der Kopfzeile (Cloud/Backup) und in den Einstellungen',
-  'Aufgeräumt: Design-Umschalter entfernt, Versionshinweise eingeklappt, größere Tippflächen',
-  'Sammelmappe heißt jetzt „Anlage Nr_42_FHF_Reisemittel" und zählt fortlaufend weiter; nächste Nummer in den Einstellungen änderbar',
-  'Abwesenheiten: Monatsabschluss-Checkliste — fehlende Tage und Zeiterfassungsblatt werden automatisch geprüft, der Rest wird abgehakt',
-  'Speichern-Schritt: Plausibilitätsprüfung (Zeiten, Überschneidungen, Kosten ohne Beleg, FHF-Anspruch, km, belegter Tag, Rückfahrt ohne Hinfahrt)',
-  'Reisevorlagen: „☆ Als Vorlage speichern" im Speichern-Schritt, Anwenden per Tipp in Schritt 1',
-  'Familienheimfahrten: „Nächste FHF möglich" und aufklappbares FHF-Konto (welcher Block von welcher Hinfahrt genutzt wurde)',
-  'Belegeablage: „📷 Beleg scannen" mit Zuschnitt, Drehen und Texterkennung von Datum und Betrag; Beleg wird automatisch dem passenden Tag angehängt',
-  'Neue Tagesart „Besuchsfahrt (BF)": gleicher Wizard-Ablauf wie Heimfahrt, zählt wie HF als TG-Reisetag und in den Abwesenheiten, steht aber NICHT im Zeiterfassungsblatt',
-  'Zwei Tagesarten gleichzeitig (Schritt 1, „Zwei Tagesarten gleichzeitig"): Wizard-Schritte ergeben sich aus beiden Tagesarten, die erste bestimmt die Berechnung',
-  'Zeiterfassung: zwei Tätigkeiten je Tag in einer Zelle, getrennt durch „ / " (z. B. Dienstreise / Tätigkeit nach §30c Abs.4 SG, Urlaub / Grundbetrieb)',
+  'Papierkorb: Gelöschte Einträge lassen sich 10 Sekunden lang mit „Rückgängig" zurückholen und liegen danach 30 Tage im Papierkorb (Einstellungen); Belege werden erst endgültig gelöscht, wenn kein anderer Eintrag sie mehr nutzt',
+  'Zeiterfassung: nur vergangene Tage ohne Eintrag werden als fehlend markiert',
+  'Schnellerer Start: das Cloud-Modul (Firebase) lädt erst im Hintergrund nach',
+  'Monatsabschluss: „Lücken füllen" legt fehlende Tage in einem Rutsch an (Wochenende/Feiertag = WF, Werktag = AW mit deinen letzten Zeiten) — mit Vorschau und Rückgängig',
+  'Kalender: „Auswählen" — mehrere Tage antippen und gemeinsam einen Tagescode setzen (z. B. Urlaubswoche)',
+  'Übersicht auf dem iPhone: Einträge als Karten statt enger Tabelle',
+  'Berichte & Export: Zähl-Kacheln durch eine Zeile ersetzt',
+  'Zeiterfassung › Trennungsgeld: tageweiser Abgleich mit dem TG-Bescheid (Abweichungen bei Mahlzeiten und Tagen werden markiert)',
+  'Jahresübersicht: Diagramm „Erstattet je Monat" (Trennungsgeld + Reisekosten laut Bescheid) mit Hochrechnung bis Trennungsgeld-Ende',
+  'Aufgeräumt: Reste des alten Designs entfernt',
 ];
 
 const SK='zc-tgrb-v2', SETK='zc-tgrb-set-v2';
@@ -1540,20 +1552,7 @@ function refreshAddrList(){
 /* DESIGN-UMSCHALTER — rein optisch, betrifft keine Daten. Wert liegt in localStorage,
    damit die Wahl beim nächsten Laden erhalten bleibt (siehe Setter-Script im <head>,
    das data-theme schon vor dem ersten Render setzt, um Aufblitzen zu vermeiden). */
-function setUiTheme(t){
-  try{if(t==='legacy')localStorage.setItem('uiTheme','legacy');else localStorage.removeItem('uiTheme');}catch(e){}
-  if(t==='legacy')document.documentElement.setAttribute('data-theme','legacy');
-  else document.documentElement.removeAttribute('data-theme');
-  updateThemeSwitchUI();
-  cancelAutoAdv();
-}
-function updateThemeSwitchUI(){
-  const legacy=document.documentElement.getAttribute('data-theme')==='legacy';
-  const bn=document.getElementById('themeBtnNew'),bl=document.getElementById('themeBtnLegacy');
-  if(bn)bn.style.cssText+=';background:'+(!legacy?'var(--accent)':'var(--lsoft)')+';color:'+(!legacy?'#fff':'var(--text)')+';border-color:'+(!legacy?'var(--accent)':'var(--line)');
-  if(bl)bl.style.cssText+=';background:'+(legacy?'var(--accent)':'var(--lsoft)')+';color:'+(legacy?'#fff':'var(--text)')+';border-color:'+(legacy?'var(--accent)':'var(--line)');
-}
-document.addEventListener('DOMContentLoaded',updateThemeSwitchUI);
+
 /* TABS */
 document.querySelectorAll('.tab[data-v]').forEach(t=>t.addEventListener('click',()=>gotoView(t.dataset.v)));
 function gotoView(v){
@@ -1564,7 +1563,7 @@ function gotoView(v){
   if(v==='overview'){const _ol=document.getElementById('ovYLabel');if(_ol)_ol.textContent=aktivesJahr();const _n=new Date();const _om=document.getElementById('ovM');if(_om)_om.value=String(_n.getMonth()+1).padStart(2,'0');renderOverview();}if(v==='zeiterfassung'){initZeMonth();const _z=document.getElementById('zeMonth');const _n2=new Date();if(_z)_z.value=aktivesJahr()+'-'+String(_n2.getMonth()+1).padStart(2,'0');renderZE();}if(v==='export'){updExStats();renderFhf();initCatGrid();renderExportPdfs();renderReceipts();if(typeof renderBelegeablage==='function')renderBelegeablage();belPane();}
   if(v==='jahr'){renderJahresView();}
   if(v==='abwesenheiten'){initAbwMonth();renderAbw();}
-  if(v==='settings'){loadSettings();renderVersion();renderSchemeUI();renderSyncStatus();}
+  if(v==='settings'){loadSettings();renderVersion();renderSchemeUI();renderSyncStatus();renderTrash();}
   if(v==='monat'){renderCal();}
   // main hat regulaer 80px unteres Padding (Scroll-Reserve fuer lange Listen in den
   // anderen Reitern) — bei der Monatsuebersicht und beim Eintrag-Wizard wuerde dieses
@@ -1610,7 +1609,7 @@ function renderCal(){
     const dot=e?`<span class="cdot">${esc(e.dayCode||'AW')}${e.dayCode2?'/'+esc(e.dayCode2):''}</span>`:'';
     const nb=e&&entryCostNoReceipt(e)?'<span class="cnb" title="Kosten ohne Beleg"></span>':'';
     const fh=e&&e.isFHF?'<span class="cfhf" title="Familienheimfahrt">★</span>':'';
-    cells+=`<div class="${cls}" onclick="calClick('${iso}')" title="${e?esc((DT[e.dayCode]||{}).n||''):(miss?'Kein Eintrag':'')}"><span class="cnum">${d}</span>${dot}${nb}${fh}</div>`;
+    cells+=`<div class="${cls}${(typeof calSel!=='undefined'&&calSel&&calSel.has(iso))?' sel':''}" onclick="calClick('${iso}')" title="${e?esc((DT[e.dayCode]||{}).n||''):(miss?'Kein Eintrag':'')}"><span class="cnum">${d}</span>${dot}${nb}${fh}</div>`;
   }
   grid.innerHTML=cells;
   // Zeilenzahl (4-6 Wochen je nach Monat) exakt setzen, statt eine fixe Maximalzahl
@@ -1619,6 +1618,80 @@ function renderCal(){
   const wochenzeilen=Math.ceil((dow-1+days)/7);
   grid.style.gridTemplateRows='auto repeat('+wochenzeilen+',1fr)';
   renderCalRemind();
+  renderCalSelBar();
+}
+/* ─── Mehrfachauswahl im Kalender + Lücken füllen ───────────────────────── */
+var calSelMode=false;var calSel=new Set();
+function calSelToggle(){calSelMode=!calSelMode;calSel.clear();renderCal();}
+function calSelPick(iso){if(calSel.has(iso))calSel.delete(iso);else calSel.add(iso);renderCal();}
+function renderCalSelBar(){
+  const b=document.getElementById('calSelBtn');if(b){b.classList.toggle('on',calSelMode);b.innerHTML=calSelMode?'Fertig':'&#9745;&#65038; Auswählen';}
+  let bar=document.getElementById('calSelBar');
+  if(!calSelMode){if(bar)bar.remove();return;}
+  if(!bar){bar=document.createElement('div');bar.id='calSelBar';bar.className='selbar no-print';document.body.appendChild(bar);}
+  const n=calSel.size;
+  bar.innerHTML=`<span><b>${n}</b> Tag${n===1?'':'e'} gewählt</span>
+    <button type="button" class="btn btn-s btn-sm" onclick="calSelToggle()">Abbrechen</button>
+    <button type="button" class="btn btn-gold btn-sm" ${n?'':'disabled'} onclick="calSelApply()">Tagescode setzen ›</button>`;
+}
+function calSelApply(){
+  const dates=[...calSel].sort();if(!dates.length)return;
+  bulkDialog('Tagescode für '+dates.length+' Tag'+(dates.length===1?'':'e'),dates,null,()=>{calSelMode=false;calSel.clear();renderCal();});
+}
+function fillGapsOpen(yr,mo){
+  const miss=abwMissingDays(yr,mo).filter(d=>d<=todayISO());
+  if(!miss.length){toast('Keine Lücken','ok');return;}
+  bulkDialog('Lücken füllen · '+MON_NAMES[parseInt(mo,10)-1]+' '+yr,miss,defaultGapCode,()=>{renderAbw();});
+}
+function defaultGapCode(iso){
+  const d=new Date(iso+'T12:00');const wd=d.getDay();
+  const hol=getBayernHolidays(d.getFullYear());
+  return (wd===0||wd===6||hol.has(iso))?'WF':'AW';
+}
+const BULK_CODES=['AW','WFH','UR','FVD','WF','KR','DR','LG','ÜB'];
+function quickEntry(date,code){
+  const w=freshW();w.date=date;w.dayCode=code;
+  if(code==='AW'||code==='WFH'){
+    const p=[...state.entries].filter(e=>e.dayCode===code&&e.workStart&&e.date<date).sort((a,b)=>b.date.localeCompare(a.date))[0]
+      ||[...state.entries].filter(e=>e.dayCode===code&&e.workStart).sort((a,b)=>b.date.localeCompare(a.date))[0];
+    if(p){w.workStart=p.workStart;w.workEnd=p.workEnd;w.workLocation=p.workLocation||'';}
+  }
+  return {...w,id:uid(),created:Date.now(),updated:Date.now()};
+}
+function bulkDialog(title,dates,defFn,after){
+  let ov=document.getElementById('bulkOv');
+  if(!ov){ov=document.createElement('div');ov.id='bulkOv';ov.className='mback show';document.body.appendChild(ov);}
+  ov.className='mback show';
+  const wn=['So','Mo','Di','Mi','Do','Fr','Sa'];
+  const rows=dates.map(d=>{
+    const ex=state.entries.find(e=>e.date===d);
+    const def=defFn?defFn(d):(document.getElementById('bulkAll')?.value||'UR');
+    return `<div class="bk-row"><span class="bk-d">${wn[new Date(d+'T12:00').getDay()]} ${fmtD(d)}</span>
+      ${ex?`<span class="bk-ex">bisher ${esc(ex.dayCode)}</span>`:'<span class="bk-ex new">neu</span>'}
+      <select data-d="${d}">${['',...BULK_CODES].map(c=>`<option value="${c}"${c===def?' selected':''}>${c?c+' · '+DT[c].n:'— nicht anlegen'}</option>`).join('')}</select></div>`;}).join('');
+  ov.innerHTML=`<div class="modal" style="max-width:520px;max-height:86vh;display:flex;flex-direction:column">
+    <h3>${esc(title)}</h3>
+    <p style="margin-bottom:8px">Vorschau prüfen und bei Bedarf je Tag ändern. AW/WFH übernehmen die Zeiten deines letzten AW-/WFH-Tages. Bestehende Einträge behalten alles außer dem Tagescode.</p>
+    ${defFn?'':`<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><span style="font-size:12px;color:var(--muted)">Für alle:</span>
+      <select id="bulkAll" onchange="document.querySelectorAll('#bulkOv select[data-d]').forEach(s=>s.value=this.value)">${BULK_CODES.map(c=>`<option value="${c}"${c==='UR'?' selected':''}>${c} · ${DT[c].n}</option>`).join('')}</select></div>`}
+    <div class="bk-list">${rows}</div>
+    <div class="macts" style="margin-top:12px"><button class="btn btn-s" type="button" onclick="document.getElementById('bulkOv').className='mback'">Abbrechen</button>
+      <button class="btn btn-p" type="button" id="bulkGo">Übernehmen</button></div></div>`;
+  if(!defFn)ov.querySelectorAll('select[data-d]').forEach(s=>s.value='UR');
+  ov.onclick=e=>{if(e.target===ov)ov.className='mback';};
+  document.getElementById('bulkGo').onclick=()=>{
+    const snap=JSON.stringify(state.entries);let neu=0,geaendert=0;
+    ov.querySelectorAll('select[data-d]').forEach(sel=>{
+      const d=sel.dataset.d,c=sel.value;if(!c)return;
+      const ex=state.entries.find(e=>e.date===d);
+      if(ex){if(ex.dayCode!==c){ex.dayCode=c;ex.dayCode2='';ex.dual=false;ex.updated=Date.now();geaendert++;}}
+      else{state.entries.push(quickEntry(d,c));neu++;}
+    });
+    ov.className='mback';
+    if(!neu&&!geaendert){toast('Nichts geändert');return;}
+    persist();if(after)after();refreshAfterEntryChange();
+    undoSnack(`${neu} angelegt${geaendert?`, ${geaendert} geändert`:''}`,()=>{state.entries=JSON.parse(snap);persist();refreshAfterEntryChange();if(after)after();toast('Rückgängig gemacht','ok');});
+  };
 }
 function calCat(c){
   if(c==='HF'||c==='RF'||c==='BF')return'heim';
@@ -1667,7 +1740,7 @@ function openMonthClose(yr,mo){
 }
 document.getElementById('calPrev').addEventListener('click',()=>{calM--;if(calM<0){calM=11;calY--;}renderCal();});
 document.getElementById('calNext').addEventListener('click',()=>{calM++;if(calM>11){calM=0;calY++;}renderCal();});
-function calClick(iso){const e=state.entries.find(x=>x.date===iso);if(e)editEntry(e.id);else{wiz=freshW();wiz.date=iso;alsoCalY=null;alsoCalM=null;gotoView('wizard');startWizard(0);}}
+function calClick(iso){if(calSelMode){calSelPick(iso);return;}const e=state.entries.find(x=>x.date===iso);if(e)editEntry(e.id);else{wiz=freshW();wiz.date=iso;alsoCalY=null;alsoCalM=null;gotoView('wizard');startWizard(0);}}
 
 /* 28-DAY WARNING */
 function check28(targetId){
@@ -2693,13 +2766,71 @@ function editEntry(id){
   alsoCalY=null;alsoCalM=null;
   gotoView('wizard');startWizard(0);toast('Bearbeitung gestartet');
 }
+/* ─── Papierkorb ───────────────────────────────────────────────────────────
+   Löschen verschiebt den Eintrag samt Beleg-Verweisen in state.settings.trash.
+   Belege bleiben gespeichert (und werden weiter synchronisiert), bis der Eintrag
+   endgültig gelöscht wird — dann nur die Dateien, die kein anderer Eintrag nutzt
+   (Belege können per ⧉/„weitere Tage" von mehreren Einträgen geteilt werden). */
+const TRASH_DAYS=30;
+function trashList(){if(!Array.isArray(state.settings.trash))state.settings.trash=[];return state.settings.trash;}
+function entryRecIds(e){const r=[...(e.recIds||[])];(e.segs||[]).forEach(s=>(s.recIds||[]).forEach(x=>r.push(x)));return r;}
+function refreshAfterEntryChange(){
+  const v=document.querySelector('.view.on')?.id||'';
+  if(v==='view-overview')renderOverview();
+  if(v==='view-monat'||v==='view-wizard')renderCal();
+  if(v==='view-abwesenheiten')renderAbw();
+  if(v==='view-zeiterfassung')renderZE();
+  if(v==='view-settings')renderTrash();
+}
 function deleteEntry(id){
-  showModal('Eintrag löschen?','Alle zugehörigen Belege werden ebenfalls gelöscht.',async()=>{
-    const e=state.entries.find(x=>x.id===id);
-    if(e){const rids=[...(e.recIds||[])];(e.segs||[]).forEach(s=>(s.recIds||[]).forEach(r=>rids.push(r)));
-      for(const r of rids){try{await idbDelF(r);}catch(ex){}}}
-    state.entries=state.entries.filter(x=>x.id!==id);persist();renderOverview();toast('Eintrag gelöscht','ok');
-  });
+  const e=state.entries.find(x=>x.id===id);if(!e)return;
+  trashList().unshift({entry:JSON.parse(JSON.stringify(e)),deletedAt:Date.now()});
+  state.entries=state.entries.filter(x=>x.id!==id);persist();
+  refreshAfterEntryChange();
+  undoSnack(`Eintrag ${fmtD(e.date)} gelöscht`,()=>restoreTrash(id));
+}
+function restoreTrash(id){
+  const t=trashList();const i=t.findIndex(x=>x.entry&&x.entry.id===id);if(i<0)return;
+  const e=t[i].entry;t.splice(i,1);
+  const dup=state.entries.some(x=>x.date===e.date);
+  state.entries.push(e);persist();refreshAfterEntryChange();
+  toast(dup?`Wiederhergestellt — Achtung: am ${fmtD(e.date)} gibt es jetzt zwei Einträge`:`Eintrag ${fmtD(e.date)} wiederhergestellt`,dup?'err':'ok');
+}
+async function purgeTrash(id){
+  const t=trashList();const i=t.findIndex(x=>x.entry&&x.entry.id===id);if(i<0)return 0;
+  const e=t[i].entry;t.splice(i,1);
+  const still=new Set(typeof allReceiptIds==='function'?allReceiptIds():[]);
+  let n=0;for(const r of entryRecIds(e)){if(still.has(r))continue;try{await idbDelF(r);n++;}catch(_){}}
+  persist();return n;
+}
+function purgeTrashAsk(id){
+  showModal('Endgültig löschen?','Der Eintrag und seine Belege (sofern kein anderer Eintrag sie nutzt) werden dauerhaft gelöscht.',async()=>{
+    await purgeTrash(id);renderTrash();toast('Endgültig gelöscht','ok');});
+}
+async function purgeOldTrash(){
+  const lim=Date.now()-TRASH_DAYS*86400000;
+  const alt=trashList().filter(x=>(x.deletedAt||0)<lim).map(x=>x.entry&&x.entry.id).filter(Boolean);
+  for(const id of alt)await purgeTrash(id);
+  return alt.length;
+}
+function renderTrash(){
+  const el=document.getElementById('trashList');if(!el)return;
+  const t=trashList();
+  if(!t.length){el.innerHTML='<div style="font-size:12px;color:var(--muted)">Leer.</div>';return;}
+  el.innerHTML=t.map(x=>{const e=x.entry||{};const rest=Math.max(0,TRASH_DAYS-Math.floor((Date.now()-(x.deletedAt||0))/86400000));
+    const nr=entryRecIds(e).length;
+    return `<div class="rc-row"><span class="rd">${fmtD(e.date||'')}</span><span class="cpill ${esc(e.dayCode||'')}">${esc(e.dayCode||'')}</span>
+      <span class="ri">${esc(e.vorhaben||e.workLocation||e.stayLocation||'')}<small>${nr?nr+' Beleg'+(nr===1?'':'e')+' · ':''}noch ${rest} Tag${rest===1?'':'e'}</small></span>
+      <button class="btn-xs" onclick="restoreTrash('${e.id}')">↺ Wiederherstellen</button>
+      <button class="btn-xs d" onclick="purgeTrashAsk('${e.id}')">Endgültig</button></div>`;}).join('');
+}
+let _snackT=null;
+function undoSnack(msg,onUndo){
+  let el=document.getElementById('snack');
+  if(!el){el=document.createElement('div');el.id='snack';el.className='snack no-print';document.body.appendChild(el);}
+  el.innerHTML=`<span>${esc(msg)}</span><button type="button">Rückgängig</button>`;
+  el.querySelector('button').onclick=()=>{el.classList.remove('show');clearTimeout(_snackT);onUndo();};
+  el.classList.toggle('up',!!document.getElementById('calSelBar'));el.classList.add('show');clearTimeout(_snackT);_snackT=setTimeout(()=>el.classList.remove('show'),10000);
 }
 // Sofort-Duplikat auf den nächsten freien (noch unbelegten) Kalendertag.
 // Belege werden per Referenz übernommen (gleiche Datei, kein Neu-Upload nötig) —
@@ -2881,8 +3012,28 @@ function renderOverview(){
       </tr>`;
     }).join('');
   }).join('');
+  renderOvCards(list);
   renderFahrtSummary(list);renderCostsSummary(list);renderWSSummary(list);renderJahresView();renderUrlaubCard();renderFhfCard();renderCostDupCheck();renderFhfBlocks();
   if(ovDetailType)showOvDetailRefresh();
+}
+function renderOvCards(list){
+  const el=document.getElementById('ovCards');if(!el)return;
+  if(!list.length){el.innerHTML='<div class="oc-empty">Keine Einträge im gewählten Zeitraum.</div>';return;}
+  el.innerHTML=list.map(e=>{
+    const segs=(e.segs||[]).filter(s=>s.enabled!==false&&s.mode);
+    const rc=entryRecIds(e).length;
+    const loc=esc(e.stayLocation||e.workLocation||e.vorhaben||'');
+    const seg=segs.map(s=>{
+      const cost=s.costAmt?(segCostCounts(s)?fmtM(parseFloat(s.costAmt),s.costCurr||'EUR'):'<s>'+fmtM(parseFloat(s.costAmt),s.costCurr||'EUR')+'</s>'):'';
+      const right=[s.km?s.km+' km':'',cost].filter(Boolean).join(' · ');
+      return `<div class="oc-s"><div class="oc-sl"><b>${esc(s.mode)}</b>${s.fromLoc&&s.toLoc?`<small>${esc(s.fromLoc)} → ${esc(s.toLoc)}</small>`:''}</div>${right?`<span class="oc-sr">${right}</span>`:''}</div>`;}).join('');
+    const times=e.workStart?`<span class="oc-t">${esc(e.workStart)}–${esc(e.workEnd||'')}</span>`:'';
+    return `<div class="oc">
+      <div class="oc-h"><div class="oc-d"><b>${fmtD(e.date)}</b><small>${dayN(e.date)}</small></div>
+        <div class="oc-c"><span class="cpill ${e.dayCode}">${e.dayCode}</span>${pill2(e)}${e.isFHF?'<span class="ftag">FHF</span>':''}${entryCostNoReceipt(e)?'<span class="oc-nb">Beleg fehlt</span>':''}</div>
+        <div class="oc-a">${e.isFHF?`<button class="btn-xs" onclick="dlFhf('${e.id}')">PDF</button>`:''}<button class="btn-xs" onclick="editEntry('${e.id}')" title="Bearbeiten">✎</button><button class="btn-xs" onclick="quickDuplicateEntry('${e.id}')" title="Duplizieren">⧉</button><button class="btn-xs d" onclick="deleteEntry('${e.id}')" title="Löschen">✕</button></div></div>
+      ${loc||times||rc?`<div class="oc-l">${loc}${times}${rc?`<span class="oc-rc">📎${rc}</span>`:''}</div>`:''}
+      ${seg}</div>`;}).join('');
 }
 function showOvDetailRefresh(){const t=ovDetailType;ovDetailType=null;showOvDetail(t);}
 /* ─── Option D: Einmal-Prüfung auf doppelt erfasste Kosten ───
@@ -3708,8 +3859,73 @@ function setAktivesJahr(j){
    liest aus IndexedDB und wird deshalb nur beim Tab-Wechsel bzw. nach Änderungen erneuert. */
 function renderJahresView(){
   const jaLbl=document.getElementById('jahrYLabel');if(jaLbl)jaLbl.textContent=aktivesJahr();
-  renderJahresCard();renderDhfCard();renderQuerCard();
+  renderJahresCard();renderKostenChart();renderDhfCard();renderQuerCard();
   if(typeof renderBwList==='function')renderBwList();
+}
+/* Erstattet je Monat laut Bescheid (TG + RK), gestapelt; Hochrechnung TG bis Trennungsgeld-Ende */
+function renderKostenChart(){
+  const el=document.getElementById('kostenChart');if(!el)return;
+  const yr=aktivesJahr();
+  const tg=Array(12).fill(0),rk=Array(12).fill(0),hatTG=Array(12).fill(false);
+  bwList().forEach(b=>{
+    const per=b.periode||String(b.von||'').slice(0,7);
+    if(!per||per.slice(0,4)!==String(yr))return;
+    const m=parseInt(per.slice(5,7),10)-1;if(m<0||m>11)return;
+    const v=b.gesamt||0;
+    if(b.typ==='TG'){tg[m]+=v;hatTG[m]=true;}else if(b.typ==='RK')rk[m]+=v;
+  });
+  const tot=tg.map((v,i)=>v+rk[i]);
+  const sumTG=tg.reduce((a,b)=>a+b,0),sumRK=rk.reduce((a,b)=>a+b,0);
+  if(!sumTG&&!sumRK){el.innerHTML='';return;}
+  const eur=v=>v.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const eur0=v=>Math.round(v).toLocaleString('de-DE');
+  const MN=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  // Skala
+  const max=Math.max(...tot,1);const step=[50,100,200,250,500,1000,2000].find(s=>max/s<=5)||Math.ceil(max/5);
+  const top=Math.ceil(max/step)*step;
+  const W=640,H=220,L=44,R=8,T=12,B=26;const pw=W-L-R,ph=H-T-B;const bw=pw/12;const barW=Math.min(30,bw*0.56);
+  const y=v=>T+ph-(v/top)*ph;
+  let g='';
+  for(let v=0;v<=top+0.001;v+=step){g+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L-6}" y="${y(v)+3.5}" text-anchor="end" class="kc-ax">${eur0(v)}</text>`;}
+  const topRound=(x,y0,w,h,r)=>{r=Math.min(r,h,w/2);return `M${x},${y0+h}V${y0+r}Q${x},${y0} ${x+r},${y0}H${x+w-r}Q${x+w},${y0} ${x+w},${y0+r}V${y0+h}Z`;};
+  let bars='';
+  for(let m=0;m<12;m++){
+    const cx=L+bw*m+bw/2,x=cx-barW/2;
+    const hTG=(tg[m]/top)*ph,hRK=(rk[m]/top)*ph;
+    const tip=`${MN[m]} ${yr}: Trennungsgeld ${eur(tg[m])} € · Reisekosten ${eur(rk[m])} € · gesamt ${eur(tot[m])} €`;
+    let parts='';
+    const base=T+ph;
+    if(hTG>0){const isTop=hRK<=0;parts+=isTop?`<path d="${topRound(x,base-hTG,barW,hTG,4)}" fill="var(--ch1)"/>`:`<rect x="${x}" y="${base-hTG}" width="${barW}" height="${hTG}" fill="var(--ch1)"/>`;}
+    if(hRK>0){const yb=base-hTG-(hTG>0?2:0);parts+=`<path d="${topRound(x,yb-hRK,barW,hRK,4)}" fill="var(--ch2)"/>`;}
+    if(!tot[m]&&state.entries.some(e=>e.date&&e.date.startsWith(yr+'-'+String(m+1).padStart(2,'0'))))
+      parts+=`<text x="${cx}" y="${base-4}" text-anchor="middle" class="kc-off">offen</text>`;
+    bars+=`<g class="kc-bar"><title>${tip}</title><rect x="${L+bw*m}" y="${T}" width="${bw}" height="${ph}" fill="transparent"/>${parts}</g>`;
+    bars+=`<text x="${cx}" y="${H-8}" text-anchor="middle" class="kc-ax">${MN[m]}</text>`;
+  }
+  // Hochrechnung TG
+  let hoch='';
+  const mitTG=hatTG.map((h,i)=>h?i:-1).filter(i=>i>=0);
+  const ende=typeof fhfEndDate==='function'?fhfEndDate():null;
+  if(mitTG.length&&ende){
+    const avg=mitTG.reduce((s,i)=>s+tg[i],0)/mitTG.length;
+    const last=mitTG[mitTG.length-1];
+    const startY=parseInt(yr,10),startM=last+1; // erster Monat nach letztem Bescheid (0-basiert)
+    const rest=Math.max(0,(ende.getFullYear()-startY)*12+(ende.getMonth()-startM)+1);
+    hoch=`<div class="kc-proj"><span>Ø Trennungsgeld laut Bescheid: <b>${eur(avg)} €</b>/Monat (${mitTG.length} Bescheid${mitTG.length===1?'':'e'})</span>
+      <span>Hochrechnung bis ${String(ende.getMonth()+1).padStart(2,'0')}/${ende.getFullYear()}: noch ${rest} Monat${rest===1?'':'e'} ≈ <b>${eur0(avg*rest)} €</b></span>
+      <small>Schätzung aus dem Durchschnitt — tatsächliche Beträge hängen von Heimfahrten, Verpflegung und Unterkunft ab.</small></div>`;
+  }
+  const rows=MN.map((n,i)=>`<tr><td>${n}</td><td>${eur(tg[i])}</td><td>${eur(rk[i])}</td><td><b>${eur(tot[i])}</b></td></tr>`).join('');
+  el.innerHTML=`<div class="card" style="margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px">
+      <h3 style="font-size:15px;margin:0">Erstattet je Monat ${yr}</h3>
+      <span style="font-size:12px;color:var(--muted)">laut Bescheiden</span></div>
+    <div class="kc-hero"><div><b>${eur0(sumTG+sumRK)} €</b><small>erstattet ${yr}</small></div>
+      <div class="kc-leg"><span><i style="background:var(--ch1)"></i>Trennungsgeld ${eur0(sumTG)} €</span><span><i style="background:var(--ch2)"></i>Reisekosten ${eur0(sumRK)} €</span></div></div>
+    <svg viewBox="0 0 ${W} ${H}" class="kc-svg" role="img" aria-label="Erstattete Beträge je Monat ${yr}">${g}${bars}</svg>
+    ${hoch}
+    <details class="kc-tbl"><summary>Als Tabelle</summary><table><thead><tr><th>Monat</th><th>Trennungsgeld</th><th>Reisekosten</th><th>Gesamt</th></tr></thead><tbody>${rows}</tbody></table></details>
+  </div>`;
 }
 function renderJahresCard(){
   const el=document.getElementById('jahresCard');if(!el)return;
@@ -5155,7 +5371,8 @@ function updExStats(){
     {n:st.ub,l:'Übungen'},
     {n:st.ur,l:'Urlaub'},
     {n:st.fhf,l:'FHF'},
-  ].map(s=>`<div class="sbox${s.ac?' ac':''}"><div class="n">${s.n}</div><div class="l">${s.l}</div></div>`).join('');
+  ].filter(s=>s.ac||s.n>0).map((s,i)=>i===0?`<b>${s.n} ${s.l}</b> im Zeitraum`:`${s.n} ${s.l}`).join(' · ');
+  el.className='ex-line';
 }
 ['exFrom','exTo'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',updExStats);});
 
@@ -5439,11 +5656,12 @@ function renderAbwCheck(){
   ];
   const total=2+ABW_CHECK_MANUAL.length;
   const ok=(!miss.length?1:0)+(zeOk?1:0)+ABW_CHECK_MANUAL.filter(([k])=>done[k]).length;
+  const fill=miss.length?`<button type="button" class="btn btn-gold btn-sm" style="margin-top:8px" onclick="fillGapsOpen('${yr}','${mo}')">&#9889; Lücken füllen (${miss.length})</button>`:'';
   el.innerHTML=`<div class="card" style="margin-bottom:14px;border-left:3px solid ${ok===total?'var(--ok)':'var(--gold)'}">
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
       <h3 style="font-size:15px;margin:0">Monatsabschluss</h3>
       <span style="font-size:12px;font-weight:700;color:${ok===total?'var(--ok)':'var(--navy)'}">${ok}/${total}</span>
-    </div>${items.join('')}</div>`;
+    </div>${items.join('')}${fill}</div>`;
 }
 function renderAbw(){
   renderAbwCheck();
@@ -7292,7 +7510,7 @@ function renderZE(){
     const tag=isFT?'FT':dayNames[dow];
     const e=zeEntry(dayMap[ds]);
     const isWE=dow===0||dow===6||isFT;
-    const bg=isFT?'var(--ze-ft)':(dow===0||dow===6?'var(--ze-we)':(e?'var(--card)':'var(--ze-miss)'));
+    const bg=isFT?'var(--ze-ft)':(dow===0||dow===6?'var(--ze-we)':(e||ds>=todayISO()?'var(--card)':'var(--ze-miss)'));
 
     const soll=(dow===0||dow===6||isFT)?'':(sollMap[dow]||'');
     const zeCode=e?zeText(e):'';
@@ -7651,6 +7869,49 @@ function tgTageDesMonats(yr,mo){
    kein einziger Reisetag gekuerzt (0 von 105). Bis Juni steht dort NE, im Juli
    fehlt NE — der volle Satz wird trotzdem gezahlt (03.07. und 30.07. je 14,00). */
 function tgAbzug(z){return (!z.anspruch||z.reisetag)?0:verpflAbzug(z.e);}
+/* Tageweiser Abgleich: eigene TG-Rechnung ↔ TG-Bescheid desselben Monats */
+function tgBescheidAbgleich(yr,mo,zeilen,summe){
+  const per=yr+'-'+String(mo).padStart(2,'0');
+  const b=bwList().find(x=>x.typ==='TG'&&x.periode===per);
+  const head='<h4 style="color:var(--navy);font-size:13px;margin:16px 0 6px">2. Abgleich mit dem TG-Bescheid</h4>';
+  if(!b)return head+'<div style="font-size:12px;color:var(--muted)">Für '+String(mo).padStart(2,'0')+'/'+yr+' ist noch kein TG-Bescheid hochgeladen (Belege › Ablage).</div>';
+  const eur=v=>(v||0).toFixed(2).replace('.',',');
+  const bt={};(b.tage||[]).forEach(d=>{bt[d.datum]=d;});
+  const MEALS=[['frühstück','fruehstueck','Frühstück'],['mittag','mittag','Mittag'],['abend','abend','Abend']];
+  const diffs=[];const seen=new Set();
+  zeilen.forEach(z=>{
+    const d=z.e.date;seen.add(d);const bd=bt[d];
+    if(!z.anspruch&&!bd)return;
+    const gruende=[];
+    if(z.anspruch&&!bd)gruende.push('Tag fehlt im Bescheid');
+    if(!z.anspruch&&bd)gruende.push('Bescheid zahlt, eigene Rechnung: kein Anspruchstag');
+    if(z.anspruch&&bd){
+      MEALS.forEach(([k,bk,l])=>{
+        const eig=verpflStatus(z.e,k)==='ja'&&!z.reisetag;const bes=!!bd[bk];
+        if(eig!==bes)gruende.push(bes?`${l}: Bescheid kürzt, du hast „${verpflStatus(z.e,k)==='ne'?'nicht gegessen':'nicht gestellt'}" erfasst`:`${l}: du hast „gegessen" erfasst, Bescheid kürzt nicht`);
+      });
+    }
+    const eig=z.betrag||0,bes=bd?(bd.tg||0):0;
+    if(gruende.length||Math.abs(eig-bes)>0.005)diffs.push({d,eig,bes,gruende});
+  });
+  Object.keys(bt).filter(d=>!seen.has(d)).forEach(d=>diffs.push({d,eig:0,bes:bt[d].tg||0,gruende:['Kein Eintrag in der App']}));
+  diffs.sort((a,b)=>a.d.localeCompare(b.d));
+  const besSumme=(b.tage||[]).reduce((s,d)=>s+(d.tg||0),0)||b.tagegeld||0;
+  const delta=besSumme-summe;
+  let h=head+`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+    <span class="sm-c">Eigene Rechnung ${eur(summe)} €</span><span class="sm-c">Bescheid ${eur(besSumme)} €</span>
+    <span class="sm-c ${Math.abs(delta)<0.005?'ok':'warn'}">${Math.abs(delta)<0.005?'stimmt überein':'Differenz '+(delta>0?'+':'')+eur(delta)+' €'}</span></div>`;
+  if(!diffs.length)return h+'<div style="font-size:12px;color:var(--ok)">Alle Tage stimmen mit dem Bescheid überein.</div>';
+  h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;min-width:420px"><thead><tr style="background:var(--navy-bg);color:#fff">'
+    +['Datum','Eigene','Bescheid','Grund'].map((c,i)=>`<th style="padding:4px 6px;text-align:${i===1||i===2?'right':'left'};font-size:10px">${c}</th>`).join('')+'</tr></thead><tbody>';
+  diffs.forEach(x=>{
+    h+=`<tr style="border-bottom:1px solid var(--line)"><td style="padding:4px 6px;white-space:nowrap">${fmtD(x.d)}</td>
+      <td style="padding:4px 6px;text-align:right">${eur(x.eig)}</td><td style="padding:4px 6px;text-align:right">${eur(x.bes)}</td>
+      <td style="padding:4px 6px;color:${x.bes<x.eig?'var(--err)':'var(--muted)'}">${x.gruende.map(esc).join('<br>')||'Betrag weicht ab'}</td></tr>`;
+  });
+  h+='</tbody></table></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Rot: Bescheid zahlt weniger als deine Rechnung — prüfen, ob ein Widerspruch lohnt. Ist deine Erfassung falsch, im Eintrag korrigieren.</div>';
+  return h;
+}
 function calcTG(yr,mo){
   const el=document.getElementById('tgBox');if(!el)return;
   const tage=tgTageDesMonats(yr,mo);
@@ -7714,6 +7975,7 @@ function calcTG(yr,mo){
   html+='<div style="background:var(--oks);border:1px solid var(--ok);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--ok);margin-top:8px">';
   html+='<b>'+anspruchsTage+' &times; 14,00 = '+eur(anspruchsTage*TG_GRUND)+' EUR</b> &minus; '+eur(summeAbzug)+' EUR Verpflegung = <b>'+eur(summe)+' EUR</b></div>';
 
+  html+=tgBescheidAbgleich(yr,mo,zeilen,summe);
   // Hinweis auf nicht erfasste Tage
   const offen=anspruchsTage-erfasst;
   if(offen>0)html+='<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:6px 10px;font-size:11px;color:#856404;margin-top:6px"><b>Hinweis:</b> An '+offen+' Anspruchstag(en) ist keine Verpflegung erfasst &ndash; diese Tage rechnen mit dem vollen Satz. Die Angabe steht im Wizard unter <i>Arbeitszeit &rarr; Unentgeltliche Verpflegung</i>.</div>';
@@ -7874,10 +8136,26 @@ function saveFbConfig(){
   toast('Konfiguration gespeichert','ok');
   initFirebase();
 }
+/* Firebase-SDK erst bei Bedarf nachladen — blockiert so nicht mehr den App-Start
+   (vorher drei synchrone Skripte im <head>, die ohne Netz den Start verzögerten). */
+let _fbSdkP=null;
+function loadFirebaseSdk(){
+  if(typeof firebase!=='undefined'&&firebase.auth&&firebase.firestore)return Promise.resolve();
+  if(_fbSdkP)return _fbSdkP;
+  const base='https://www.gstatic.com/firebasejs/10.12.0/';
+  const load=f=>new Promise((res,rej)=>{const sc=document.createElement('script');sc.src=base+f;sc.async=false;
+    sc.onload=res;sc.onerror=()=>rej(new Error(f+' nicht ladbar'));document.head.appendChild(sc);});
+  _fbSdkP=load('firebase-app-compat.js').then(()=>Promise.all([load('firebase-auth-compat.js'),load('firebase-firestore-compat.js')]))
+    .catch(e=>{_fbSdkP=null;throw e;});
+  return _fbSdkP;
+}
 function initFirebase(){
   const cfg=state.settings.fbConfig;
   if(!cfg||!cfg.apiKey){fbStatusUI('off','Nicht konfiguriert','Firebase-Konfiguration eintragen.');return;}
-  if(typeof firebase==='undefined'){fbStatusUI('err','SDK nicht geladen','Internetverbindung pr\u00fcfen und neu laden.');return;}
+  if(typeof firebase==='undefined'||!firebase.auth||!firebase.firestore){
+    fbStatusUI('wait','Lade Cloud-Modul\u2026','');
+    loadFirebaseSdk().then(()=>initFirebase()).catch(()=>fbStatusUI('err','Cloud-Modul nicht geladen','Keine Internetverbindung? Die App funktioniert lokal weiter.'));
+    return;}
   try{
     if(!fbApp)fbApp=firebase.initializeApp(cfg);
     fbAuth=firebase.auth();fbDB=firebase.firestore();
@@ -8226,6 +8504,8 @@ function allReceiptIds(){
   const s=state.settings;
   grab(s.bwReceipts);grab(s.mbReceipts);grab(s.drReceipts);grab(s.fkReceipts);grab(s.abReceipts);grab(s.daReceipts);
   state.entries.forEach(e=>{(e.recIds||[]).forEach(id=>ids.add(id));(e.segs||[]).forEach(sg=>(sg.recIds||[]).forEach(id=>ids.add(id)));});
+  // Einträge im Papierkorb behalten ihre Belege bis zum endgültigen Löschen
+  (s.trash||[]).forEach(t=>{const e=t&&t.entry;if(!e)return;(e.recIds||[]).forEach(id=>ids.add(id));(e.segs||[]).forEach(sg=>(sg.recIds||[]).forEach(id=>ids.add(id)));});
   // TG/RK-Bescheid-Original-PDFs (Drag & Drop-Ablage) — bwBescheide selbst hat keinen
   // eigenen receipt-Namensraum, die Datei-ID steckt nur in fileId je Bescheid.
   bwList().forEach(b=>{if(b.fileId)ids.add(b.fileId);});
@@ -9552,6 +9832,7 @@ function renderSyncStatus(){
     if(e.key==='ArrowRight')document.getElementById('calNext')?.click();
   });
   const init=()=>{belPane();renderSyncStatus();renderSchemeUI();setInterval(renderSyncStatus,60000);
+    setTimeout(()=>{purgeOldTrash().then(n=>{if(n)console.log('Papierkorb: '+n+' alte Einträge endgültig gelöscht');}).catch(()=>{});},4000);
     if(document.getElementById('view-monat')?.classList.contains('on'))renderCalRemind();};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
