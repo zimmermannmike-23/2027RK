@@ -955,8 +955,20 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
 </section>
 
 <!-- SETTINGS -->
+<section class="view" id="view-nachtrag">
+  <div style="margin-bottom:14px"><h2 style="font-size:22px;color:var(--navy);font-weight:700;letter-spacing:-0.4px">Nachträge 2025</h2>
+  <p style="font-size:12px;color:var(--muted);margin:2px 0 0">Vorschläge aus Belegen und Bescheiden — prüfen, übernehmen, fertig.</p></div>
+  <div id="ntBody"></div>
+</section>
+
 <section class="view" id="view-settings">
   <div style="margin-bottom:14px"><h2 style="font-size:22px;color:var(--navy);font-weight:700;letter-spacing:-0.4px">Einstellungen</h2></div>
+
+  <div class="card" style="max-width:680px;margin-bottom:14px;border-left:3px solid var(--accent)">
+    <h3 style="margin-bottom:2px">&#129520; Nachträge 2025 (Hilfstool)</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 10px">Fehlende Fahrten, Heimfahrten und Verpflegung für 2025 aus Belegen und Bescheiden vorschlagen und schnell übernehmen.</p>
+    <button class="btn btn-p" type="button" onclick="gotoView('nachtrag')">Hilfstool öffnen</button>
+  </div>
 
   <div class="card" style="max-width:680px;margin-bottom:14px;border-left:3px solid var(--accent)">
     <h3 style="margin-bottom:2px">🎨 Darstellung</h3>
@@ -1155,10 +1167,11 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.10.0';
-const APP_BUILD=70;
+const APP_VERSION='5.11.0';
+const APP_BUILD=71;
 const APP_DATE='10.10.2026';
 const APP_CHANGES=[
+  'Neu: Hilfstool „Nachträge 2025“ (Einstellungen) — lädt eine aus Belegen und Bescheiden erzeugte Vorschlagsdatei und übernimmt Tagesart, Heimfahrten, Flüge/Bahn/Bus mit Kosten und Verpflegung tageweise, monatsweise oder alle sicheren auf einmal (mit Rückgängig); Bescheide-Import und automatische km-Berechnung für Dienst-Kfz',
   'Excel-Import: Zeiterfassung 2025 komplett übernommen (272 Tage mit Inhalt), inkl. geteiltem Dienst; 24./31.12. gelten im Zeiterfassungsblatt als dienstfrei',
   'Papierkorb: Gelöschte Einträge lassen sich 10 Sekunden lang mit „Rückgängig" zurückholen und liegen danach 30 Tage im Papierkorb (Einstellungen); Belege werden erst endgültig gelöscht, wenn kein anderer Eintrag sie mehr nutzt',
   'Zeiterfassung: nur vergangene Tage ohne Eintrag werden als fehlend markiert',
@@ -1566,6 +1579,7 @@ function gotoView(v){
   if(v==='abwesenheiten'){initAbwMonth();renderAbw();}
   if(v==='settings'){loadSettings();renderVersion();renderSchemeUI();renderSyncStatus();renderTrash();}
   if(v==='monat'){renderCal();}
+  if(v==='nachtrag'){renderNt();}
   // main hat regulaer 80px unteres Padding (Scroll-Reserve fuer lange Listen in den
   // anderen Reitern) — bei der Monatsuebersicht und beim Eintrag-Wizard wuerde dieses
   // Padding die knapp bemessene Schritt-Hoehe ueberschreiten und trotzdem Scrollen erzwingen.
@@ -2776,6 +2790,7 @@ const TRASH_DAYS=30;
 function trashList(){if(!Array.isArray(state.settings.trash))state.settings.trash=[];return state.settings.trash;}
 function entryRecIds(e){const r=[...(e.recIds||[])];(e.segs||[]).forEach(s=>(s.recIds||[]).forEach(x=>r.push(x)));return r;}
 function refreshAfterEntryChange(){
+  if(typeof NT!=='undefined'&&NT.data&&document.getElementById('view-nachtrag')?.classList.contains('on'))renderNt();
   const v=document.querySelector('.view.on')?.id||'';
   if(v==='view-overview')renderOverview();
   if(v==='view-monat'||v==='view-wizard')renderCal();
@@ -3362,6 +3377,175 @@ function parseBwBescheid(txt){
   return o;
 }
 function bwList(){if(!Array.isArray(state.settings.bwBescheide))state.settings.bwBescheide=[];return state.settings.bwBescheide;}
+/* ═══ NACHTRÄGE 2025 — Hilfstool ═══
+   Lädt eine lokale Vorschlagsdatei (aus Belegen + Bescheiden erzeugt), zeigt je Tag den
+   Vorschlag und übernimmt ihn per Klick in die Einträge. Die Datei bleibt auf dem Gerät. */
+let NT={data:null,mon:'',flt:'offen',pend:'PKW-P',busy:false};
+function ntEntry(d){return state.entries.find(e=>e.date===d);}
+function ntDone(day){const e=ntEntry(day.date);return !!(e&&e.nt25);}
+function ntLoadFile(inp){
+  const f=inp.files&&inp.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{try{
+    const d=JSON.parse(r.result);
+    if(d.format!=='tgrb-nachtraege'||!Array.isArray(d.days)||!d.days.length)throw new Error('Keine Nachtrags-Datei');
+    NT.data=d;NT.pend=(d.settings&&d.settings.pendelmittel)||'PKW-P';
+    const first=d.days.find(x=>!ntDone(x))||d.days[0];NT.mon=first.date.slice(0,7);
+    renderNt();toast(d.days.length+' Tage geladen','ok');
+  }catch(e){toast('Fehler: '+e.message,'err');}};
+  r.readAsText(f);inp.value='';
+}
+function ntSegs(day){
+  return (day.patch.segs||[]).map(s=>Object.assign(freshSeg(),JSON.parse(JSON.stringify(s)),{mode:s.mode==='PENDEL'?NT.pend:s.mode}));
+}
+function ntApplyOne(day){
+  const p=day.patch;let ex=ntEntry(day.date);
+  if(!ex){ex=Object.assign(freshW(),{date:day.date,id:uid(),created:Date.now()});state.entries.push(ex);}
+  ex.dayCode=p.dayCode;ex.dayCode2=p.dayCode2||'';ex.dual=!!p.dayCode2;
+  ex.isFHF=!!p.isFHF;ex.verpflegung=p.verpflegung||'';ex.verpflegungNE=p.verpflegungNE||'';
+  ex.useFahrt=p.useFahrt!==false;ex.useAufenthalt=!!p.useAufenthalt;ex.costEnabled=p.costEnabled!==false;
+  ['workLocation','workLocation2','stayLocation','nachweis'].forEach(k=>{if(p[k])ex[k]=p[k];});
+  ex.segs=ntSegs(day);
+  ex.nt25=true;ex.updated=Date.now();
+  return ex;
+}
+function ntApplyMany(list,label){
+  list=list.filter(x=>!ntDone(x));
+  if(!list.length){toast('Nichts zu übernehmen');return;}
+  const snap=JSON.stringify(state.entries);
+  list.forEach(ntApplyOne);
+  persist();refreshAfterEntryChange();renderNt();
+  undoSnack(list.length+' Tage '+(label||'übernommen'),()=>{state.entries=JSON.parse(snap);persist();refreshAfterEntryChange();renderNt();toast('Rückgängig gemacht','ok');});
+}
+function ntApplyDay(date){const d=NT.data.days.find(x=>x.date===date);if(!d)return;ntApplyMany([d]);}
+function ntApplyDayEdit(date){
+  const d=NT.data.days.find(x=>x.date===date);if(!d)return;
+  if(!ntDone(d)){ntApplyOne(d);persist();}
+  const e=ntEntry(date);if(e)editEntry(e.id);
+}
+function ntApplyMonth(){ntApplyMany(NT.data.days.filter(x=>x.date.startsWith(NT.mon)&&x.status==='sicher'),'(sichere) übernommen');}
+function ntApplyAllSafe(){
+  const n=NT.data.days.filter(x=>x.status==='sicher'&&!ntDone(x)).length;
+  if(!n){toast('Keine offenen sicheren Tage');return;}
+  ntApplyMany(NT.data.days.filter(x=>x.status==='sicher'),'(sichere) übernommen');
+}
+function ntSetPend(v){NT.pend=v;renderNt();}
+function ntBescheide(){
+  const l=bwList();let neu=0,upd=0;
+  (NT.data.bescheide||[]).forEach(b=>{const i=l.findIndex(x=>x.id===b.id);if(i<0){l.push(b);neu++;}else upd++;});
+  persist();renderNt();toast(neu+' Bescheide neu übernommen'+(upd?' ('+upd+' bereits vorhanden)':''),'ok');
+}
+async function ntCalcKm(){
+  if(NT.busy)return;
+  const todo=[];
+  state.entries.forEach(e=>{if(!e.nt25||!e.date.startsWith('2025'))return;
+    (e.segs||[]).forEach(s=>{if(s.mode==='Dienst-Kfz'&&!s.km&&s.fromLoc&&s.toLoc)todo.push(s);});});
+  if(!todo.length){toast('Keine Dienst-Kfz-Strecken ohne km','ok');return;}
+  NT.busy=true;let ok=0,fail=0;const cache={};
+  for(let i=0;i<todo.length;i++){
+    const s=todo[i];const el=document.getElementById('ntKmInfo');if(el)el.textContent='Berechne '+(i+1)+'/'+todo.length+' …';
+    try{
+      const key=s.fromLoc+'→'+s.toLoc;
+      if(!cache[key]){
+        let fg=s.fromGeo||lookupGeo(s.fromLoc)||await geocode(s.fromLoc);
+        let tg=s.toGeo||lookupGeo(s.toLoc)||await geocode(s.toLoc);
+        cache[key]={fg,tg,r:await calcRoute(fg,tg)};
+      }
+      const c=cache[key];s.fromGeo=c.fg;s.toGeo=c.tg;s.km=c.r.km.toFixed(1);s.kmSrc='auto';ok++;
+    }catch(e){fail++;}
+  }
+  NT.busy=false;persist();renderNt();
+  toast(ok+' Strecken berechnet'+(fail?', '+fail+' fehlgeschlagen':''),fail?'err':'ok');
+}
+function ntSegTxt(s){
+  const m=(MODES.find(x=>x.v===(s.mode==='PENDEL'?NT.pend:s.mode))||{}).l||s.mode;
+  const ml=m.replace(/^[^\wÄÖÜäöü]+/,'').trim();
+  let t=ml;
+  if(s.km)t+=' '+String(s.km).replace('.',',')+' km';
+  if(s.costAmt)t+=' · '+String(s.costAmt).replace('.',',')+' €'+(s.costScope==='covered'?' (bereits erfasst)':s.costScope==='roundtrip'?' (Hin+Rück)':'');
+  const w=(s.fromLoc||s.toLoc)?' ('+esc(shortLoc(s.fromLoc))+' → '+esc(shortLoc(s.toLoc))+')':'';
+  return esc(t)+w;
+}
+function shortLoc(a){if(!a)return '?';const p=a.split(',').map(x=>x.trim()).filter(Boolean);
+  const city=p.find(x=>/^\d{4,5}\b/.test(x))?.replace(/^\d{4,5}\s*/,'');
+  const ci=p.length>=2?(p[p.length-1].match(/Österreich/)?p[p.length-2].replace(/^\d{4,5}\s*/,''):p[p.length-1].replace(/^\d{4,5}\s*/,'')):p[0];
+  return (city||ci||p[0]).slice(0,22);}
+function ntSetMon(m){NT.mon=m;renderNt();}
+function ntSetFlt(f){NT.flt=f;renderNt();}
+function renderNt(){
+  const host=document.getElementById('ntBody');if(!host)return;
+  if(!NT.data){
+    host.innerHTML=`<div class="card" style="max-width:680px">
+      <h3>Datei laden</h3>
+      <p style="font-size:12px;color:var(--muted);margin:2px 0 12px">Wähle die Datei <b>nachtraege_2025.json</b> (liegt im Ordner „Belege RKTG 2024 bis 2025 / _Hilfstool“). Sie wird nur lokal gelesen und nicht hochgeladen.</p>
+      <label class="btn btn-p" style="display:inline-block;cursor:pointer">📂 Datei wählen<input type="file" accept=".json,application/json" style="display:none" onchange="ntLoadFile(this)"></label></div>`;
+    return;
+  }
+  const D=NT.data,days=D.days;
+  const mons=[...new Set(days.map(x=>x.date.slice(0,7)))];
+  const MN=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  const total=days.length,done=days.filter(ntDone).length,safeOpen=days.filter(x=>x.status==='sicher'&&!ntDone(x)).length,chk=days.filter(x=>x.status!=='sicher'&&!ntDone(x)).length;
+  const bwNeu=(D.bescheide||[]).filter(b=>!bwList().some(x=>x.id===b.id)).length;
+  const kmOpen=state.entries.filter(e=>e.nt25).reduce((n,e)=>n+(e.segs||[]).filter(s=>s.mode==='Dienst-Kfz'&&!s.km).length,0);
+  const chips=mons.map(m=>{const ds=days.filter(x=>x.date.startsWith(m));const o=ds.filter(x=>!ntDone(x)).length;
+    return `<button type="button" class="btn ${m===NT.mon?'btn-p':'btn-s'}" style="padding:6px 12px;font-size:12px" onclick="ntSetMon('${m}')">${MN[+m.slice(5)-1]}${o?` <span style="opacity:.75">${o}</span>`:' ✓'}</button>`;}).join('');
+  let list=days.filter(x=>x.date.startsWith(NT.mon));
+  if(NT.flt==='offen')list=list.filter(x=>!ntDone(x));
+  else if(NT.flt==='pruefen')list=list.filter(x=>x.status!=='sicher');
+  const wn=['So','Mo','Di','Mi','Do','Fr','Sa'];
+  const rows=list.map(x=>{
+    const p=x.patch,ex=ntEntry(x.date),dn=ntDone(x);
+    const code=p.dayCode+(p.dayCode2?' + '+p.dayCode2:'');
+    const segs=(p.segs||[]).map(s=>`<div style="font-size:11px;padding:1px 0">• ${ntSegTxt(s)}</div>`).join('');
+    const hw=(x.hinweise||[]).map(h=>`<div style="font-size:11px;color:var(--warn);padding:1px 0">⚠ ${esc(h)}</div>`).join('');
+    const hi=(x.hint||[]).map(h=>`<div style="font-size:11px;color:var(--muted);padding:1px 0">ℹ ${esc(h)}</div>`).join('');
+    const ver=[p.verpflegung?'gestellt: '+p.verpflegung:'',p.verpflegungNE?'nicht eingenommen: '+p.verpflegungNE:''].filter(Boolean).join(' · ');
+    const ort=p.stayLocation?shortLoc(p.stayLocation):'';
+    return `<div class="card" style="max-width:680px;margin:0 0 8px;padding:11px 13px;border-left:3px solid ${dn?'var(--ok)':x.status==='sicher'?'var(--navy)':'var(--warn)'}">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <b style="font-size:13px">${wn[new Date(x.date+'T12:00').getDay()]} ${fmtD(x.date)}</b>
+        <span class="cpill ${esc(p.dayCode)}">${esc(code)}</span>
+        ${ort?`<span style="font-size:11px;color:var(--muted)">📍 ${esc(ort)}</span>`:''}
+        ${p.isFHF?'<span class="badge ok">FHF</span>':''}
+        <span style="flex:1"></span>
+        ${dn?'<span class="badge ok">✓ übernommen</span>':x.status==='sicher'?'<span class="badge">sicher</span>':'<span class="badge err">prüfen</span>'}
+      </div>
+      ${ver?`<div style="font-size:11px;padding:3px 0">🍽 ${esc(ver)}</div>`:''}
+      <div style="margin-top:3px">${segs}${hw}${hi}</div>
+      ${ex&&!dn&&ex.segs&&ex.segs.length?'<div style="font-size:11px;color:var(--warn)">Hinweis: vorhandene Fahrten dieses Tages werden ersetzt.</div>':''}
+      <div style="display:flex;gap:7px;margin-top:8px;flex-wrap:wrap">
+        ${dn?'':`<button class="btn btn-p" style="padding:6px 13px;font-size:12px" onclick="ntApplyDay('${x.date}')">Übernehmen</button>`}
+        <button class="btn btn-s" style="padding:6px 13px;font-size:12px" onclick="ntApplyDayEdit('${x.date}')">${dn?'Bearbeiten':'Übernehmen & bearbeiten'}</button>
+      </div></div>`;}).join('')||'<p style="font-size:13px;color:var(--muted)">Keine Tage in dieser Ansicht.</p>';
+  const fr=(D.fragen||[]).map(f=>`<li style="margin:3px 0">${esc(f)}</li>`).join('');
+  const un=(D.unused||[]).map(u=>`<li style="margin:2px 0">${esc(u[0])} ${fmtD(u[1])} · ${esc(String(u[3]||''))}${u[4]?' · '+esc(String(u[4]))+' €':''}</li>`).join('');
+  host.innerHTML=`
+    <div class="card" style="max-width:680px;margin-bottom:10px">
+      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px">
+        ${[[done+'/'+total,'übernommen'],[safeOpen,'sicher, offen'],[chk,'zu prüfen']].map(a=>`<div style="flex:1;min-width:90px;background:var(--lsoft);border-radius:8px;padding:8px;text-align:center"><div style="font-size:16px;font-weight:800;color:var(--navy)">${a[0]}</div><div style="font-size:10px;color:var(--muted)">${a[1]}</div></div>`).join('')}
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <label style="font-size:12px;color:var(--muted)">Pendelmittel 2025:
+          <select onchange="ntSetPend(this.value)" style="margin-left:4px">${['PKW-P','Mitfahrer','ÖPNV','Bahn','Fahrrad','Zu Fuß'].map(v=>`<option value="${v}"${v===NT.pend?' selected':''}>${esc((MODES.find(m=>m.v===v)||{l:v}).l)}</option>`).join('')}</select></label>
+      </div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">
+        <button class="btn btn-p" onclick="ntApplyAllSafe()">✓ Alle sicheren übernehmen (${safeOpen})</button>
+        <button class="btn btn-s" onclick="ntBescheide()">📄 Bescheide übernehmen (${bwNeu} neu)</button>
+        <button class="btn btn-s" onclick="ntCalcKm()">📏 Dienst-Kfz-km berechnen (${kmOpen})</button>
+      </div>
+      <div id="ntKmInfo" style="font-size:11px;color:var(--muted);margin-top:6px"></div>
+    </div>
+    <details class="card" style="max-width:680px;margin-bottom:10px"><summary style="cursor:pointer;font-weight:600;font-size:13px">Offene Fragen (${(D.fragen||[]).length}) &amp; Belege ohne Zuordnung (${(D.unused||[]).length})</summary>
+      <ul style="font-size:12px;padding-left:18px;margin:8px 0">${fr}</ul>
+      ${un?`<div style="font-size:11px;font-weight:700;color:var(--navy);margin-top:6px">BELEGE OHNE ZUORDNUNG</div><ul style="font-size:12px;padding-left:18px;margin:4px 0">${un}</ul>`:''}</details>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${chips}</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <select onchange="ntSetFlt(this.value)"><option value="offen"${NT.flt==='offen'?' selected':''}>Nur offene</option><option value="pruefen"${NT.flt==='pruefen'?' selected':''}>Nur „prüfen“</option><option value="alle"${NT.flt==='alle'?' selected':''}>Alle Tage</option></select>
+      <button class="btn btn-s" style="padding:6px 13px;font-size:12px" onclick="ntApplyMonth()">Sichere dieses Monats übernehmen</button>
+    </div>
+    ${rows}`;
+}
+
 let _bwPend=null;
 function bwAnalyse(){
   const ta=document.getElementById('bwPaste');if(!ta)return;
