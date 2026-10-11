@@ -1167,10 +1167,11 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.11.0';
-const APP_BUILD=71;
+const APP_VERSION='5.11.1';
+const APP_BUILD=72;
 const APP_DATE='10.10.2026';
 const APP_CHANGES=[
+  'Bescheid-Summen: steuerfreier Betrag beim Trennungsgeld enthält jetzt auch die Unterkunft, nicht eingelesene „sonstige Fahrkosten“ (z. B. Mai 2025: 140 €) werden aus der Festsetzung abgeleitet, und der steuerfreie Betrag wird nie höher als der festgesetzte (Jan/Feb 2025)',
   'Neu: Hilfstool „Nachträge 2025“ (Einstellungen) — lädt eine aus Belegen und Bescheiden erzeugte Vorschlagsdatei und übernimmt Tagesart, Heimfahrten, Flüge/Bahn/Bus mit Kosten und Verpflegung tageweise, monatsweise oder alle sicheren auf einmal (mit Rückgängig); Bescheide-Import und automatische km-Berechnung für Dienst-Kfz',
   'Excel-Import: Zeiterfassung 2025 komplett übernommen (272 Tage mit Inhalt), inkl. geteiltem Dienst; 24./31.12. gelten im Zeiterfassungsblatt als dienstfrei',
   'Papierkorb: Gelöschte Einträge lassen sich 10 Sekunden lang mit „Rückgängig" zurückholen und liegen danach 30 Tage im Papierkorb (Einstellungen); Belege werden erst endgültig gelöscht, wenn kein anderer Eintrag sie mehr nutzt',
@@ -3653,13 +3654,27 @@ function delBwBescheid(id){
     state.settings.bwBescheide=bwList().filter(x=>x.id!==id);
     persist();renderBwList();renderOverview();toast('Bescheid entfernt');});
 }
+/* Nicht eingelesene Positionen (z. B. „sonstige Fahrkosten“): Rest aus Festsetzung minus
+   (Unterkunft + Tagegeld + Fahrkosten, jeweils steuerfrei + steuerpflichtig). Wird aus den
+   gespeicherten Feldern abgeleitet, funktioniert daher auch für bereits eingelesene Bescheide. */
+function bwSonstigeFk(b){
+  if(!b||b.typ!=='TG'||b.gesamt==null)return 0;
+  const uk=(b.ukSteuerfrei!=null?(b.ukSteuerfrei+(b.ukStpfl||0)):(b.unterkunft||0));
+  const rest=Math.round(((b.gesamt||0)-uk-(b.tgSteuerfrei||0)-(b.tgStpfl||0)-(b.fkSteuerfrei||0)-(b.fkStpfl||0))*100)/100;
+  return rest>0.005?rest:0;
+}
+/* Steuerfreier Betrag eines TG-Bescheids: Unterkunft + Tagegeld + Fahrkosten (+ sonstige), nie mehr als festgesetzt */
+function bwTgSteuerfrei(b){
+  const stf=(b.ukSteuerfrei!=null?b.ukSteuerfrei:(b.unterkunft||0))+(b.tgSteuerfrei||0)+(b.fkSteuerfrei||0)+bwSonstigeFk(b);
+  return b.gesamt!=null&&b.gesamt>0?Math.min(stf,b.gesamt):stf;
+}
 /* Erstattungssummen je Zeitraum (Jahr 'YYYY' oder Monat 'YYYY-MM') */
 function bwSummen(praefix){
   const l=bwList().filter(b=>!praefix||(b.periode||'').startsWith(praefix));
   const s={anzTG:0,anzRK:0,
     tgUnterkunft:0,tgTagegeld:0,tgFahrkosten:0,tgGesamt:0,tgAuszahlung:0,
     rkFahrkosten:0,rkTagegeld:0,rkGesamt:0,rkAuszahlung:0,
-    steuerfrei:0,gesamt:0,auszahlung:0,
+    steuerfrei:0,tgSteuerfreiGes:0,sonstigeFk:0,gesamt:0,auszahlung:0,
     ukSteuerfrei:0,tgTgSteuerfrei:0,tgTgStpfl:0,fkSteuerfreiTG:0,ukTage:0,tageBescheid:0,tageVerpfl:0,
     kmVergKfz:0,kmSteuerKfz:0,kmSteuerOev:0,
     kostKfz:0,kostBahn:0,kostFlug:0,saetze:{}};
@@ -3672,13 +3687,14 @@ function bwSummen(praefix){
       s.tgTgSteuerfrei+=(b.tgSteuerfrei||0);s.tgTgStpfl+=(b.tgStpfl||0);
       s.fkSteuerfreiTG+=Math.min(b.fahrkosten||0,b.fkSteuerfrei||0);
       s.ukTage+=b.ukTage||0;
+      s.sonstigeFk+=bwSonstigeFk(b);const _sf=bwTgSteuerfrei(b);s.tgSteuerfreiGes+=_sf;s.steuerfrei+=_sf;
       (b.tage||[]).forEach(d=>{s.tageBescheid++;if(d.fruehstueck||d.mittag||d.abend)s.tageVerpfl++;});
     } else {
       s.anzRK++;
       s.rkFahrkosten+=b.fahrkosten||0;s.rkTagegeld+=b.tagegeld||0;
       s.rkGesamt+=b.gesamt||0;s.rkAuszahlung+=b.auszahlung||0;
+      s.steuerfrei+=(b.fkSteuerfrei||0)+(b.tgSteuerfrei||0);
     }
-    s.steuerfrei+=(b.fkSteuerfrei||0)+(b.tgSteuerfrei||0);
     s.gesamt+=b.gesamt||0;s.auszahlung+=b.auszahlung||0;
     // TATSAECHLICH VERGUETETE Kilometer stehen in den Einzelposten
     (b.posten||[]).filter(x=>x.verguetet&&x.km>0).forEach(x=>{
