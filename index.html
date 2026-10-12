@@ -754,9 +754,11 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
     <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Monatsansicht entsprechend dem Bw-Arbeitszeitblatt. Daten aus Eintr&#228;gen.</p>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
       <select id="zeMonth" onchange="renderZE()" style="padding:7px 10px;border-radius:8px;border:1px solid var(--line);font-size:14px"></select>
+      <button class="btn btn-p btn-sm" type="button" onclick="zeRunCheck()">&#9989; Prüfen</button>
       <button class="btn btn-gold btn-sm" onclick="importXlsmData()">&#128228; Excel-Daten importieren</button>
       <label class="btn btn-s btn-sm" style="cursor:pointer">&#128196; PDF importieren<input type="file" id="zePdfInput" accept="application/pdf" multiple onchange="onZePdfSelected(event)" style="display:none"></label>
     </div>
+    <div id="zeCbInfo" style="font-size:11px;color:var(--muted);margin:-6px 0 10px"></div>
     <div id="zePdfPreview" style="margin-bottom:14px"></div>
     <div id="zeTable" style="overflow-x:auto;-webkit-overflow-scrolling:touch"></div>
   </div>
@@ -1167,10 +1169,13 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.11.2';
-const APP_BUILD=73;
+const APP_VERSION='5.12.0';
+const APP_BUILD=74;
 const APP_DATE='10.10.2026';
 const APP_CHANGES=[
+  'Zeiterfassungsblatt: Button „Prüfen“ markiert Tage mit Fehlern, Warnungen oder Hinweisen rot; Klick aufs Datum zeigt die Befunde, „Beheben“ öffnet den Eintrag im passenden Wizard-Schritt (mit Hinweisleiste), nach dem Speichern geht es zurück ins Blatt und die Prüfung läuft neu',
+  'Fahrt Zweitwohnung ↔ Arbeitsstätte: Beleg ist automatisch das Deutschlandticket, solange keine eigene Kostenart oder kein Betrag eingetragen ist (gilt auch für bestehende Einträge, einmalig umgestellt)',
+  'Bescheide ohne PDF-Verknüpfung werden über den Dateinamen automatisch wieder mit der hochgeladenen PDF verknüpft',
   'CheckBox: Belege werden jahresübergreifend den Fahrten zugeordnet (keine Falschmeldungen „Beleg ohne Eintrag“ mehr für Belege des anderen Jahres); Flüge brauchen keine Kilometer; Fahrkarten an Heim-/Rückfahrt-Tagen ohne FHF-Häkchen werden nicht mehr als zufällige Zuordnung gemeldet; Belege für „bereits erfasste“ Rückflüge werden zugeordnet statt als Abweichung gemeldet; zukünftige (geplante) Tage erzeugen keine Arbeitszeit- und Lücken-Warnungen; Reiseziel aus Reisekostenbescheiden wird sauber gelesen; genutzte Familienheimfahrten zählen erst ab Anspruchsbeginn','Wizard: „Kosten ohne Beleg“ berücksichtigt jetzt die Belegeablage, Dienstende 00:00 gilt als Tagesende, der Hinweis „kein Familienheimfahrt-Anspruch frei“ zählt nur Fahrten ab Anspruchsbeginn',
   'Bescheid-Summen: steuerfreier Betrag beim Trennungsgeld enthält jetzt auch die Unterkunft, nicht eingelesene „sonstige Fahrkosten“ (z. B. Mai 2025: 140 €) werden aus der Festsetzung abgeleitet, und der steuerfreie Betrag wird nie höher als der festgesetzte (Jan/Feb 2025)',
   'Neu: Hilfstool „Nachträge 2025“ (Einstellungen) — lädt eine aus Belegen und Bescheiden erzeugte Vorschlagsdatei und übernimmt Tagesart, Heimfahrten, Flüge/Bahn/Bus mit Kosten und Verpflegung tageweise, monatsweise oder alle sicheren auf einmal (mit Rückgängig); Bescheide-Import und automatische km-Berechnung für Dienst-Kfz',
@@ -1409,6 +1414,7 @@ async function load(){
   if(!ok){try{const r=localStorage.getItem(SK);if(r)state.entries=JSON.parse(r)||[];
     const s=localStorage.getItem(SETK);if(s)state.settings=Object.assign(state.settings,JSON.parse(s));}catch(e){}}
   migrate();persist();
+  bwRelinkDateien();
 }
 let pt=null;
 function persist(){
@@ -1418,6 +1424,10 @@ function persist(){
   if(typeof scheduleCloudPush==='function')scheduleCloudPush();
 }
 function migrate(){
+  if(!state.settings.migPendelDT){
+    (state.entries||[]).forEach(e=>(e.segs||[]).forEach(s=>pendelDTDefault(s,true)));
+    state.settings.migPendelDT=true;
+  }
   (state.settings.bwBescheide||[]).forEach(b=>{if(b&&b.typ==='RK'&&b.ziel)b.ziel=bwZielClean(b.ziel);});
   state.entries.forEach(e=>{
     if(e.dayCode==='X')e.dayCode='AW';if(e.dayCode==='U')e.dayCode='UR';
@@ -1574,6 +1584,7 @@ function refreshAddrList(){
 document.querySelectorAll('.tab[data-v]').forEach(t=>t.addEventListener('click',()=>gotoView(t.dataset.v)));
 function gotoView(v){
   if(typeof moreClose==='function')moreClose();
+  if(v!=='wizard'&&typeof wizHintShow==='function'){wizReturn=null;wizHintShow(null);}
   document.querySelectorAll('.tab[data-v]').forEach(t=>t.classList.toggle('on',t.dataset.v===v));
   document.querySelector('.tab-more')?.classList.toggle('on',['overview','zeiterfassung','jahr','settings'].includes(v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
@@ -1980,7 +1991,7 @@ function autoFillTrip(){
   const from=fullA(s.addrSecondary),to=fullA(s.addrWork);
   const seg=freshSeg();seg.mode='ÖPNV';seg.fromLoc=from;seg.toLoc=to;
   seg.km='21';seg.kmSrc='auto';seg.dep='';seg.arr='';
-  seg.detail='Deutschlandticket';seg.fromGeo=s.addrSecondaryGeo||null;seg.toGeo=s.addrWorkGeo||null;
+  seg.detail='Deutschlandticket';seg.costType='Deutschlandticket';seg.fromGeo=s.addrSecondaryGeo||null;seg.toGeo=s.addrWorkGeo||null;
   wiz.segs=[seg];toast('Fahrt TGW → Arbeitsstätte eingetragen (21 km)','ok');
 }
 
@@ -2761,6 +2772,7 @@ function closeRv(){document.getElementById('rvModal').classList.remove('show');r
 /* SAVE / EDIT / DELETE */
 function saveEntry(){
   collectCur();if(!wiz.date){toast('Datum fehlt','err');return;}
+  (wiz.segs||[]).forEach(s=>pendelDTDefault(s,false));
   const alsoDates=(wiz._alsoDates||[]).filter(d=>d!==wiz.date);
   const entry={...wiz,id:editId||uid(),updated:Date.now()};
   delete entry._alsoDates;
@@ -2784,7 +2796,7 @@ function saveEntry(){
   toast(angelegt?`Eintrag gespeichert ✓ (+${angelegt} weitere Tag${angelegt===1?'':'e'})`:'Eintrag gespeichert ✓','ok');
   if(uebersprungen)setTimeout(()=>toast(`${uebersprungen} Tag${uebersprungen===1?'':'e'} übersprungen (bereits belegt)`,'err'),400);
   wiz=freshW();curStep=0;renderProg();renderStep('daytype');
-  setTimeout(()=>gotoView('overview'),350);
+  setTimeout(wizAfterSave,350);
 }
 function editEntry(id){
   const e=state.entries.find(x=>x.id===id);if(!e)return;
@@ -3395,10 +3407,111 @@ function parseBwBescheid(txt){
 /* Reiseziel endet vor „Beginn Dienstg.“ — PDF-Texte kommen oft ohne Zeilenumbruch */
 function bwZielClean(z){return String(z||'').split(/\s+Beginn\s+Dienstg/i)[0].replace(/\s+/g,' ').trim();}
 function bwList(){if(!Array.isArray(state.settings.bwBescheide))state.settings.bwBescheide=[];return state.settings.bwBescheide;}
+/* ═══ Prüfbefunde im Zeiterfassungsblatt ═══
+   Nach „Prüfen“ (oder der CheckBox in der Übersicht) werden Tage mit Befunden rot markiert.
+   Klick auf das Datum öffnet die Befunde des Tages; „Beheben“ springt in den passenden
+   Wizard-Schritt, nach dem Speichern geht es zurück ins Zeiterfassungsblatt. */
+let cbLast=null, wizReturn=null, zeReturnMonth=null;
+function cbIndex(r){
+  const acks=ackList();const by={};
+  (r.findings||[]).forEach(f=>{const k=findingKey(f);if(acks.includes(k)||!f.date)return;(by[f.date]=by[f.date]||[]).push(f);});
+  return by;
+}
+function zeRunCheck(silent){
+  const sel=document.getElementById('zeMonth');const y=sel&&sel.value?sel.value.slice(0,4):aktivesJahr();
+  const alt=state.settings.aktivesJahr;let r;
+  state.settings.aktivesJahr=y;
+  try{r=checkBoxAnalyze();}finally{state.settings.aktivesJahr=alt;}
+  cbLast={jahr:y,byDate:cbIndex(r),at:new Date()};
+  renderZE();
+  if(!silent){const pre=sel?sel.value:'';const n=Object.keys(cbLast.byDate).filter(d=>d.startsWith(pre)).length;
+    toast(n?n+' Tag'+(n===1?'':'e')+' mit Befunden in diesem Monat':'Keine Befunde in diesem Monat','ok');}
+}
+const CB_SEV={err:{i:'❌',l:'Fehler',c:'var(--err)'},warn:{i:'⚠️',l:'Warnung',c:'var(--warn)'},info:{i:'ℹ️',l:'Hinweis',c:'var(--navy)'}};
+function cbStepFor(f,e){
+  const steps=getSteps(e.dayCode,e.dayCode2).map(s=>s.id);const c=f.cat,m=f.msg||'';
+  let want='travel';
+  if(c==='Struktur')want='daytype';
+  else if(/Mahlzeit|Verpflegung/i.test(m))want='verpfl';
+  else if(['Arbeitszeit','Zulagen','Dienstort','Arbeitsstätte','Vollständigkeit'].includes(c))want='work';
+  else if(c==='Bw-Abgleich'&&/Reiseziel|Dienstort|Ort „/.test(m))want='work';
+  let i=steps.indexOf(want);if(i<0)i=steps.indexOf(want==='work'?'daytype':'travel');
+  return i<0?0:i;
+}
+function zeShowFindings(ds){
+  const list=(cbLast&&cbLast.byDate[ds])||[];if(!list.length)return;
+  let ov=document.getElementById('zeFOv');
+  if(!ov){ov=document.createElement('div');ov.id='zeFOv';document.body.appendChild(ov);}
+  ov.className='mback show';
+  const wn=['So','Mo','Di','Mi','Do','Fr','Sa'][new Date(ds+'T12:00').getDay()];
+  const ord={err:0,warn:1,info:2};
+  const items=list.map((f,i)=>({f,i})).sort((a,b)=>ord[a.f.sev]-ord[b.f.sev]).map(({f,i})=>{const s=CB_SEV[f.sev]||CB_SEV.info;
+    return `<div style="border-left:3px solid ${s.c};background:var(--lsoft);border-radius:8px;padding:8px 10px;margin-bottom:8px">
+      <div style="font-size:11px;font-weight:700;color:${s.c}">${s.i} ${s.l} · ${esc(f.cat)}</div>
+      <div style="font-size:12px;margin:3px 0 7px">${esc(f.msg)}</div>
+      <button class="btn btn-p" type="button" style="padding:5px 12px;font-size:12px" onclick="zeFix('${ds}',${i})">Beheben →</button>
+    </div>`;}).join('');
+  ov.innerHTML=`<div class="modal" style="max-width:520px;max-height:86vh;display:flex;flex-direction:column">
+    <h3>${wn} ${fmtD(ds)} · ${list.length} Befund${list.length===1?'':'e'}</h3>
+    <div style="overflow:auto;margin:8px 0">${items}</div>
+    <div class="macts"><button class="btn btn-s" type="button" onclick="document.getElementById('zeFOv').className='mback'">Schließen</button></div></div>`;
+  ov.onclick=e=>{if(e.target===ov)ov.className='mback';};
+}
+function wizHintShow(f){
+  let h=document.getElementById('wizHint');const box=document.getElementById('stepBox');
+  if(!h&&box){h=document.createElement('div');h.id='wizHint';box.parentNode.insertBefore(h,box);}
+  if(!h)return;
+  if(!f){h.innerHTML='';h.style.display='none';return;}
+  const s=CB_SEV[f.sev]||CB_SEV.info;
+  h.style.display='block';
+  h.innerHTML=`<div style="border-left:3px solid ${s.c};background:var(--card);border-radius:8px;padding:8px 12px;margin:0 0 10px;font-size:12px;display:flex;gap:8px;align-items:flex-start;box-shadow:var(--sh0)">
+    <div style="flex:1"><b style="color:${s.c}">${s.i} ${s.l} · ${esc(f.cat)}</b><br>${esc(f.msg)}</div>
+    <button class="btn btn-s" type="button" style="padding:3px 9px;font-size:11px" onclick="wizHintShow(null)">✕</button></div>`;
+}
+function zeFix(ds,idx){
+  const f=((cbLast&&cbLast.byDate[ds])||[])[idx];if(!f)return;
+  const ov=document.getElementById('zeFOv');if(ov)ov.className='mback';
+  const sel=document.getElementById('zeMonth');zeReturnMonth=sel?sel.value:null;
+  const e=(f.id&&state.entries.find(x=>x.id===f.id))||state.entries.find(x=>x.date===ds);
+  if(!e){editId=null;wiz=freshW();wiz.date=ds;alsoCalY=null;alsoCalM=null;gotoView('wizard');startWizard(0);wizReturn='zeiterfassung';wizHintShow(f);toast('Für diesen Tag gibt es noch keinen Eintrag — bitte anlegen');return;}
+  editEntry(e.id);wizReturn='zeiterfassung';
+  const i=cbStepFor(f,e);if(i>0)gotoStep(i);
+  wizHintShow(f);
+}
+function wizAfterSave(){
+  const rv=wizReturn;wizReturn=null;wizHintShow(null);
+  if(rv!=='zeiterfassung'){gotoView('overview');return;}
+  gotoView('zeiterfassung');
+  const sel=document.getElementById('zeMonth');
+  if(sel&&zeReturnMonth&&[...sel.options].some(o=>o.value===zeReturnMonth))sel.value=zeReturnMonth;
+  zeReturnMonth=null;
+  if(cbLast)zeRunCheck(true);else renderZE();
+}
+/* Fahrt Tagesgeldwohnung (Zweitwohnung) ↔ Arbeitsstätte: Beleg ist das Deutschlandticket,
+   solange keine eigene Kostenart oder kein Betrag eingetragen ist. */
+function istPendelStrecke(s){const a=locClass(s&&s.fromLoc),b=locClass(s&&s.toLoc);return !!(a&&b&&[a,b].sort().join('|')==='FRL|WORK');}
+function pendelDTDefault(s,modusAuch){
+  if(!s||s.enabled===false||!istPendelStrecke(s))return false;
+  if(s.costType||parseFloat(s.costAmt)>0)return false;
+  s.costType='Deutschlandticket';
+  if(!s.mode||(modusAuch&&s.mode==='PKW-P'))s.mode='Bahn';
+  return true;
+}
+/* Bescheide, deren PDF-Verknüpfung verloren ging (Datei gelöscht und später unter neuer
+   ID wieder hochgeladen), über den Dateinamen neu verknüpfen. */
+async function bwRelinkDateien(){
+  try{
+    const l=bwList().filter(b=>!b.fileId&&b.dateiname);if(!l.length)return 0;
+    const all=await idbAllF();let n=0;
+    l.forEach(b=>{const f=all.find(x=>x&&x.name===b.dateiname);if(f){b.fileId=f.id;n++;}});
+    if(n)persist();return n;
+  }catch(e){return 0;}
+}
+
 /* ═══ NACHTRÄGE 2025 — Hilfstool ═══
    Lädt eine lokale Vorschlagsdatei (aus Belegen + Bescheiden erzeugt), zeigt je Tag den
    Vorschlag und übernimmt ihn per Klick in die Einträge. Die Datei bleibt auf dem Gerät. */
-let NT={data:null,mon:'',flt:'offen',pend:'PKW-P',busy:false};
+let NT={data:null,mon:'',flt:'offen',pend:'Bahn',busy:false};
 function ntEntry(d){return state.entries.find(e=>e.date===d);}
 function ntDone(day){const e=ntEntry(day.date);return !!(e&&e.nt25);}
 function ntLoadFile(inp){
@@ -3407,14 +3520,14 @@ function ntLoadFile(inp){
   r.onload=()=>{try{
     const d=JSON.parse(r.result);
     if(d.format!=='tgrb-nachtraege'||!Array.isArray(d.days)||!d.days.length)throw new Error('Keine Nachtrags-Datei');
-    NT.data=d;NT.pend=(d.settings&&d.settings.pendelmittel)||'PKW-P';
+    NT.data=d;NT.pend=(d.settings&&d.settings.pendelmittel&&d.settings.pendelmittel!=='PKW-P')?d.settings.pendelmittel:'Bahn';
     const first=d.days.find(x=>!ntDone(x))||d.days[0];NT.mon=first.date.slice(0,7);
     renderNt();toast(d.days.length+' Tage geladen','ok');
   }catch(e){toast('Fehler: '+e.message,'err');}};
   r.readAsText(f);inp.value='';
 }
 function ntSegs(day){
-  return (day.patch.segs||[]).map(s=>Object.assign(freshSeg(),JSON.parse(JSON.stringify(s)),{mode:s.mode==='PENDEL'?NT.pend:s.mode}));
+  return (day.patch.segs||[]).map(s=>{const x=Object.assign(freshSeg(),JSON.parse(JSON.stringify(s)),{mode:s.mode==='PENDEL'?NT.pend:s.mode});pendelDTDefault(x,false);return x;});
 }
 function ntApplyOne(day){
   const p=day.patch;let ex=ntEntry(day.date);
@@ -4930,7 +5043,7 @@ function checkBoxAnalyze(){
     // I.7 Verwaiste Verweise aus der alten Beleg-Verknuepfung
     const bwOhneDatei=bwList().filter(b=>b.fileId===null&&b.dateiname);
     if(bwOhneDatei.length)
-      add('info','Belege',bwOhneDatei.length+' Bescheid(e) verweisen auf eine gelöschte Datei: '
+      add('info','Belege',bwOhneDatei.length+' Bescheid(e) ohne verknüpfte PDF (Datei wurde gelöscht; die Werte bleiben gültig – zum Verknüpfen die PDF mit gleichem Namen erneut hochladen): '
         +bwOhneDatei.map(b=>b.typ+' '+(b.nr||'')).join(', '),'','');
   }
 
@@ -4986,6 +5099,7 @@ function resetAcks(){
 function runCheckBox(){
   const el=document.getElementById('checkBoxResult');if(!el)return;
   const r=checkBoxAnalyze();
+  cbLast={jahr:aktivesJahr(),byDate:cbIndex(r),at:new Date()};
   if(!r.checked){el.innerHTML=`<div class="card" style="margin-bottom:12px"><p style="font-size:12px;color:var(--muted);margin:0">Keine Einträge zum Prüfen vorhanden.</p></div>`;return;}
   const acks=ackList();
   r.findings.forEach(f=>{f.key=findingKey(f);f.acked=acks.includes(f.key);});
@@ -6166,7 +6280,7 @@ function doImport(ev){const f=ev.target.files[0];if(!f)return;const r=new FileRe
       if(d.files){for(const f2 of d.files){try{const res2=await fetch(f2.dataUrl);const bl=await res2.blob();await idbFile({id:f2.id,blob:bl,name:f2.name,type:f2.type,size:f2.size,created:f2.created||Date.now()});}catch(ex){}}}
       const map=new Map(state.entries.map(e=>[e.id,e]));d.entries.forEach(e=>{if(!e.id)e.id=uid();map.set(e.id,e);});
       state.entries=[...map.values()];if(d.settings)state.settings=Object.assign(state.settings,d.settings);
-      migrate();persist();renderOverview();toast(`${d.entries.length} importiert`,'ok');
+      migrate();persist();await bwRelinkDateien();renderOverview();toast(`${d.entries.length} importiert`,'ok');
     });
   }catch(ex){toast('Import-Fehler: '+ex.message,'err');}};
   r.readAsText(f);ev.target.value='';
@@ -7699,6 +7813,13 @@ function renderZE(){
 
   const dayMap={};entries.forEach(e=>{dayMap[e.date]=e;});
   const daysInMonth=new Date(yr,mo,0).getDate();
+  {const ci=document.getElementById('zeCbInfo');if(ci){
+    if(!cbLast)ci.innerHTML='Mit „Prüfen“ werden Tage mit Fehlern, Warnungen oder Hinweisen rot markiert.';
+    else if(cbLast.jahr!==String(yr))ci.innerHTML='Für '+yr+' noch nicht geprüft – „Prüfen“ drücken.';
+    else{const n=Object.keys(cbLast.byDate).filter(d=>d.startsWith(prefix)).length;
+      ci.innerHTML=(n?'<b style="color:var(--err)">'+n+' Tag'+(n===1?'':'e')+' mit Befunden</b> – Datum anklicken zum Beheben':'Keine Befunde in diesem Monat ✓')
+        +' · geprüft '+cbLast.at.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});}
+  }}
   const dayNames=['So','Mo','Di','Mi','Do','Fr','Sa'];
   const sollMap={0:'',1:'09:00',2:'09:00',3:'09:00',4:'09:00',5:'05:00',6:''};
 
@@ -7772,7 +7893,11 @@ function renderZE(){
     }
 
     h+='<tr style="background:'+bg+'">';
-    h+='<td style="padding:3px 5px;border:1px solid var(--line);white-space:nowrap">'+fmtD(ds)+'</td>';
+    const _fl=cbLast&&cbLast.byDate[ds];
+    if(_fl&&_fl.length){
+      const _sv=_fl.some(f=>f.sev==='err')?'Fehler':_fl.some(f=>f.sev==='warn')?'Warnung':'Hinweis';
+      h+='<td style="padding:3px 5px;border:1px solid var(--line);white-space:nowrap;cursor:pointer;color:var(--err);font-weight:700;background:var(--errs)" title="'+_fl.length+' Befund(e) – höchste Stufe: '+_sv+'. Klicken zum Anzeigen." onclick="zeShowFindings(\''+ds+'\')">'+fmtD(ds)+' <span style="font-size:9px;background:var(--err);color:#fff;border-radius:8px;padding:0 5px">'+_fl.length+'</span></td>';
+    } else h+='<td style="padding:3px 5px;border:1px solid var(--line);white-space:nowrap">'+fmtD(ds)+'</td>';
     h+='<td style="padding:3px 5px;border:1px solid var(--line);font-weight:600">'+tag+'</td>';
     h+='<td style="padding:3px 5px;border:1px solid var(--line);color:var(--muted)">'+soll+'</td>';
     h+='<td style="padding:3px 5px;border:1px solid var(--line)"></td>';
@@ -8712,6 +8837,7 @@ async function mergeRemote(remote,remoteTs){
     downRes=await syncReceiptsDown();
     // Danach: unvollstaendig uebertragene Altbestaende lokal nachkennzeichnen
     const repN=await repariereBelegMetadaten();
+    await bwRelinkDateien();
     if(repN&&downRes)downRes.repariert=(downRes.repariert||0)+repN;
     // UI aktualisieren
     const active=document.querySelector('.tab.on')?.dataset.v;
