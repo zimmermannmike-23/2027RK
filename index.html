@@ -1169,10 +1169,11 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.12.0';
-const APP_BUILD=74;
+const APP_VERSION='5.12.1';
+const APP_BUILD=75;
 const APP_DATE='10.10.2026';
 const APP_CHANGES=[
+  'Zeiterfassungsblatt: Befunde lassen sich im Tagesfenster per Häkchen „Stimmt so“ bestätigen (und wieder entfernen) — bestätigte Befunde färben den Tag nicht mehr rot',
   'Zeiterfassungsblatt: Button „Prüfen“ markiert Tage mit Fehlern, Warnungen oder Hinweisen rot; Klick aufs Datum zeigt die Befunde, „Beheben“ öffnet den Eintrag im passenden Wizard-Schritt (mit Hinweisleiste), nach dem Speichern geht es zurück ins Blatt und die Prüfung läuft neu',
   'Fahrt Zweitwohnung ↔ Arbeitsstätte: Beleg ist automatisch das Deutschlandticket, solange keine eigene Kostenart oder kein Betrag eingetragen ist (gilt auch für bestehende Einträge, einmalig umgestellt)',
   'Bescheide ohne PDF-Verknüpfung werden über den Dateinamen automatisch wieder mit der hochgeladenen PDF verknüpft',
@@ -3414,7 +3415,7 @@ function bwList(){if(!Array.isArray(state.settings.bwBescheide))state.settings.b
 let cbLast=null, wizReturn=null, zeReturnMonth=null;
 function cbIndex(r){
   const acks=ackList();const by={};
-  (r.findings||[]).forEach(f=>{const k=findingKey(f);if(acks.includes(k)||!f.date)return;(by[f.date]=by[f.date]||[]).push(f);});
+  (r.findings||[]).forEach(f=>{if(!f.date)return;f.key=findingKey(f);f.acked=acks.includes(f.key);(by[f.date]=by[f.date]||[]).push(f);});
   return by;
 }
 function zeRunCheck(silent){
@@ -3424,8 +3425,20 @@ function zeRunCheck(silent){
   try{r=checkBoxAnalyze();}finally{state.settings.aktivesJahr=alt;}
   cbLast={jahr:y,byDate:cbIndex(r),at:new Date()};
   renderZE();
-  if(!silent){const pre=sel?sel.value:'';const n=Object.keys(cbLast.byDate).filter(d=>d.startsWith(pre)).length;
+  if(!silent){const pre=sel?sel.value:'';const n=Object.keys(cbLast.byDate).filter(d=>d.startsWith(pre)&&cbOffen(d).length).length;
     toast(n?n+' Tag'+(n===1?'':'e')+' mit Befunden in diesem Monat':'Keine Befunde in diesem Monat','ok');}
+}
+function cbOffen(ds){return((cbLast&&cbLast.byDate[ds])||[]).filter(f=>!f.acked);}
+function zeAck(ds,i,on){
+  const f=((cbLast&&cbLast.byDate[ds])||[])[i];if(!f)return;
+  const k=f.key||findingKey(f);
+  if(on){const a=ackList();if(!a.includes(k))a.push(k);}
+  else state.settings.ackFindings=ackList().filter(x=>x!==k);
+  f.acked=!!on;persist();renderZE();zeShowFindings(ds);
+  // CheckBox in der Übersicht mitziehen, wenn dort dasselbe Jahr angezeigt wird
+  const cb=document.getElementById('checkBoxResult');
+  if(cb&&cb.innerHTML.trim()&&cbLast.jahr===aktivesJahr()){const keep=cbLast;runCheckBox();cbLast=keep;}
+  toast(on?'Befund bestätigt (abgehakt)':'Haken entfernt','ok');
 }
 const CB_SEV={err:{i:'❌',l:'Fehler',c:'var(--err)'},warn:{i:'⚠️',l:'Warnung',c:'var(--warn)'},info:{i:'ℹ️',l:'Hinweis',c:'var(--navy)'}};
 function cbStepFor(f,e){
@@ -3440,19 +3453,24 @@ function cbStepFor(f,e){
 }
 function zeShowFindings(ds){
   const list=(cbLast&&cbLast.byDate[ds])||[];if(!list.length)return;
+  const offen=list.filter(f=>!f.acked).length;
   let ov=document.getElementById('zeFOv');
   if(!ov){ov=document.createElement('div');ov.id='zeFOv';document.body.appendChild(ov);}
   ov.className='mback show';
   const wn=['So','Mo','Di','Mi','Do','Fr','Sa'][new Date(ds+'T12:00').getDay()];
   const ord={err:0,warn:1,info:2};
-  const items=list.map((f,i)=>({f,i})).sort((a,b)=>ord[a.f.sev]-ord[b.f.sev]).map(({f,i})=>{const s=CB_SEV[f.sev]||CB_SEV.info;
-    return `<div style="border-left:3px solid ${s.c};background:var(--lsoft);border-radius:8px;padding:8px 10px;margin-bottom:8px">
-      <div style="font-size:11px;font-weight:700;color:${s.c}">${s.i} ${s.l} · ${esc(f.cat)}</div>
+  const items=list.map((f,i)=>({f,i})).sort((a,b)=>(a.f.acked-b.f.acked)||(ord[a.f.sev]-ord[b.f.sev])).map(({f,i})=>{const s=CB_SEV[f.sev]||CB_SEV.info;
+    return `<div style="border-left:3px solid ${f.acked?'var(--line)':s.c};background:var(--lsoft);border-radius:8px;padding:8px 10px;margin-bottom:8px;${f.acked?'opacity:.6':''}">
+      <div style="font-size:11px;font-weight:700;color:${f.acked?'var(--muted)':s.c}">${s.i} ${s.l} · ${esc(f.cat)}${f.acked?' · bestätigt':''}</div>
       <div style="font-size:12px;margin:3px 0 7px">${esc(f.msg)}</div>
-      <button class="btn btn-p" type="button" style="padding:5px 12px;font-size:12px" onclick="zeFix('${ds}',${i})">Beheben →</button>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        ${f.acked?'':`<button class="btn btn-p" type="button" style="padding:5px 12px;font-size:12px" onclick="zeFix('${ds}',${i})">Beheben →</button>`}
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" ${f.acked?'checked':''} onchange="zeAck('${ds}',${i},this.checked)"> Stimmt so – abhaken</label>
+      </div>
     </div>`;}).join('');
   ov.innerHTML=`<div class="modal" style="max-width:520px;max-height:86vh;display:flex;flex-direction:column">
-    <h3>${wn} ${fmtD(ds)} · ${list.length} Befund${list.length===1?'':'e'}</h3>
+    <h3>${wn} ${fmtD(ds)} · ${offen?offen+' offen':'alles bestätigt ✓'}${list.length-offen?` · ${list.length-offen} abgehakt`:''}</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0">Ist ein Befund richtig und gewollt (z. B. Heimfahrt bewusst ohne Reisebeihilfe), hake ihn ab — dann wird der Tag dafür nicht mehr rot.</p>
     <div style="overflow:auto;margin:8px 0">${items}</div>
     <div class="macts"><button class="btn btn-s" type="button" onclick="document.getElementById('zeFOv').className='mback'">Schließen</button></div></div>`;
   ov.onclick=e=>{if(e.target===ov)ov.className='mback';};
@@ -7816,7 +7834,7 @@ function renderZE(){
   {const ci=document.getElementById('zeCbInfo');if(ci){
     if(!cbLast)ci.innerHTML='Mit „Prüfen“ werden Tage mit Fehlern, Warnungen oder Hinweisen rot markiert.';
     else if(cbLast.jahr!==String(yr))ci.innerHTML='Für '+yr+' noch nicht geprüft – „Prüfen“ drücken.';
-    else{const n=Object.keys(cbLast.byDate).filter(d=>d.startsWith(prefix)).length;
+    else{const n=Object.keys(cbLast.byDate).filter(d=>d.startsWith(prefix)&&cbOffen(d).length).length;
       ci.innerHTML=(n?'<b style="color:var(--err)">'+n+' Tag'+(n===1?'':'e')+' mit Befunden</b> – Datum anklicken zum Beheben':'Keine Befunde in diesem Monat ✓')
         +' · geprüft '+cbLast.at.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});}
   }}
@@ -7893,7 +7911,7 @@ function renderZE(){
     }
 
     h+='<tr style="background:'+bg+'">';
-    const _fl=cbLast&&cbLast.byDate[ds];
+    const _fl=cbLast?cbOffen(ds):null;
     if(_fl&&_fl.length){
       const _sv=_fl.some(f=>f.sev==='err')?'Fehler':_fl.some(f=>f.sev==='warn')?'Warnung':'Hinweis';
       h+='<td style="padding:3px 5px;border:1px solid var(--line);white-space:nowrap;cursor:pointer;color:var(--err);font-weight:700;background:var(--errs)" title="'+_fl.length+' Befund(e) – höchste Stufe: '+_sv+'. Klicken zum Anzeigen." onclick="zeShowFindings(\''+ds+'\')">'+fmtD(ds)+' <span style="font-size:9px;background:var(--err);color:#fff;border-radius:8px;padding:0 5px">'+_fl.length+'</span></td>';
