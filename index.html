@@ -660,6 +660,7 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
 <div class="more-back no-print" id="moreBack" onclick="moreClose()"></div>
 <div class="more-sheet no-print" id="moreSheet" role="dialog" aria-label="Weitere Bereiche"><div class="ms-grab"></div><div class="ms-grid" id="msGrid"></div></div>
 <main>
+<div id="tvBox" class="no-print"></div>
 <datalist id="addrList"></datalist>
 <!-- MONATSÜBERSICHT -->
 <section class="view" id="view-monat">
@@ -957,6 +958,12 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
 </section>
 
 <!-- SETTINGS -->
+<section class="view" id="view-claude">
+  <div style="margin-bottom:14px"><h2 style="font-size:22px;color:var(--navy);font-weight:700;letter-spacing:-0.4px">Claude-Abgleich</h2>
+  <p style="font-size:12px;color:var(--muted);margin:2px 0 0">Belege und Korrekturvorschläge von Claude prüfen und übernehmen.</p></div>
+  <div id="cpBody"></div>
+</section>
+
 <section class="view" id="view-nachtrag">
   <div style="margin-bottom:14px"><h2 style="font-size:22px;color:var(--navy);font-weight:700;letter-spacing:-0.4px">Nachträge 2025</h2>
   <p style="font-size:12px;color:var(--muted);margin:2px 0 0">Vorschläge aus Belegen und Bescheiden — prüfen, übernehmen, fertig.</p></div>
@@ -965,6 +972,12 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
 
 <section class="view" id="view-settings">
   <div style="margin-bottom:14px"><h2 style="font-size:22px;color:var(--navy);font-weight:700;letter-spacing:-0.4px">Einstellungen</h2></div>
+
+  <div class="card" style="max-width:680px;margin-bottom:14px;border-left:3px solid var(--navy)">
+    <h3 style="margin-bottom:2px">&#129302; Claude-Abgleich</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 10px">Claude sammelt jeden Sonntag Belege ein, gleicht Einträge mit Belegen und Abrechnungen ab und legt ein Paket mit Vorschlägen ab. Hier einlesen und per Häkchen übernehmen.</p>
+    <button class="btn btn-p" type="button" onclick="gotoView('claude')">Claude-Paket öffnen</button>
+  </div>
 
   <div class="card" style="max-width:680px;margin-bottom:14px;border-left:3px solid var(--accent)">
     <h3 style="margin-bottom:2px">&#129520; Nachträge 2025 (Hilfstool)</h3>
@@ -1169,10 +1182,13 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.12.1';
-const APP_BUILD=75;
+const APP_VERSION='5.13.0';
+const APP_BUILD=77;
 const APP_DATE='10.10.2026';
 const APP_CHANGES=[
+  'Neu: Claude-Abgleich (Einstellungen) — liest Claude-Pakete mit neuen Belegen und Korrekturvorschlägen (z. B. Verpflegung laut Trennungsgeldabrechnung) ein; jeder Vorschlag per Häkchen übernehmen oder ablehnen, mit Rückgängig',
+  'Neu: Tagesvorschlag — oben in der App steht für heute und für fehlende Werktage der letzten Woche ein Eintrag nach deinem gewohnten Muster (gleicher Wochentag) zum Übernehmen oder Anpassen; sonntags Erinnerung an das Backup für Claude',
+  'Beleg-Abgleich (CheckBox, Zeiterfassungsblatt, Wizard) nutzt nur noch Dateien, die tatsächlich in der Belegablage liegen; gelöschte Belege werden gemerkt und tauchen auch nach einem Cloud-Abgleich nicht wieder auf; eine Betragsabweichung (z. B. Buskarte) verdeckt keinen fehlenden Beleg einer anderen Art (z. B. Flug) mehr; nach dem Löschen wird die Prüfung sofort aktualisiert',
   'Zeiterfassungsblatt: Befunde lassen sich im Tagesfenster per Häkchen „Stimmt so“ bestätigen (und wieder entfernen) — bestätigte Befunde färben den Tag nicht mehr rot',
   'Zeiterfassungsblatt: Button „Prüfen“ markiert Tage mit Fehlern, Warnungen oder Hinweisen rot; Klick aufs Datum zeigt die Befunde, „Beheben“ öffnet den Eintrag im passenden Wizard-Schritt (mit Hinweisleiste), nach dem Speichern geht es zurück ins Blatt und die Prüfung läuft neu',
   'Fahrt Zweitwohnung ↔ Arbeitsstätte: Beleg ist automatisch das Deutschlandticket, solange keine eigene Kostenart oder kein Betrag eingetragen ist (gilt auch für bestehende Einträge, einmalig umgestellt)',
@@ -1595,6 +1611,8 @@ function gotoView(v){
   if(v==='settings'){loadSettings();renderVersion();renderSchemeUI();renderSyncStatus();renderTrash();}
   if(v==='monat'){renderCal();}
   if(v==='nachtrag'){renderNt();}
+  if(v==='claude'){renderCp();}
+  if(typeof renderTv==='function')setTimeout(renderTv,0);
   // main hat regulaer 80px unteres Padding (Scroll-Reserve fuer lange Listen in den
   // anderen Reitern) — bei der Monatsuebersicht und beim Eintrag-Wizard wuerde dieses
   // Padding die knapp bemessene Schritt-Hoehe ueberschreiten und trotzdem Scrollen erzwingen.
@@ -2452,8 +2470,7 @@ function alsoDateToggle(iso){
 function belegInAblage(betrag,datum){
   const v=parseFloat(betrag)||0;if(!(v>0))return false;
   const t=datum?new Date(datum+'T12:00'):null;
-  return ((state.settings.mbReceipts||{})['unassigned']||[]).some(b=>{
-    if(!b||typeof b!=='object')return false;
+  return ablageBelege().some(b=>{
     if(Math.abs((parseFloat(b.gesamtkosten)||0)-v)>0.01)return false;
     if(!t||!b.datum)return true;
     return Math.abs(new Date(b.datum+'T12:00')-t)/86400000<=45;
@@ -2473,7 +2490,7 @@ function plausiWarnings(w){
     if(s.dep&&s.arr&&s.arr<s.dep)out.push(`${n}: Ankunft ${s.arr} vor Abfahrt ${s.dep} — über Mitternacht?`);
     const prev=segs[i-1];
     if(prev&&prev.arr&&s.dep&&s.dep<prev.arr)out.push(`${n} startet ${s.dep}, Abschnitt ${i} kommt erst ${prev.arr} an.`);
-    if(segCostCounts(s)&&!(s.recIds||[]).length&&!(w.recIds||[]).length&&!belegInAblage(s.costAmt,w.date))out.push(`${n}: Kosten ohne Beleg.`);
+    if(segCostCounts(s)&&!(s.recIds||[]).some(inAblage)&&!(w.recIds||[]).some(inAblage)&&!belegInAblage(s.costAmt,w.date))out.push(`${n}: Kosten ohne Beleg.`);
   });
   if(parseFloat(w.costAmt)>0&&!(w.recIds||[]).length&&!segs.some(s=>(s.recIds||[]).length))
     out.push('Sonstige Kosten ohne Beleg.');
@@ -2817,6 +2834,7 @@ const TRASH_DAYS=30;
 function trashList(){if(!Array.isArray(state.settings.trash))state.settings.trash=[];return state.settings.trash;}
 function entryRecIds(e){const r=[...(e.recIds||[])];(e.segs||[]).forEach(s=>(s.recIds||[]).forEach(x=>r.push(x)));return r;}
 function refreshAfterEntryChange(){
+  if(typeof renderTv==='function')renderTv();
   if(typeof NT!=='undefined'&&NT.data&&document.getElementById('view-nachtrag')?.classList.contains('on'))renderNt();
   const v=document.querySelector('.view.on')?.id||'';
   if(v==='view-overview')renderOverview();
@@ -3418,7 +3436,8 @@ function cbIndex(r){
   (r.findings||[]).forEach(f=>{if(!f.date)return;f.key=findingKey(f);f.acked=acks.includes(f.key);(by[f.date]=by[f.date]||[]).push(f);});
   return by;
 }
-function zeRunCheck(silent){
+async function zeRunCheck(silent){
+  await ablageIdsLaden();geloeschteBereinigen();
   const sel=document.getElementById('zeMonth');const y=sel&&sel.value?sel.value.slice(0,4):aktivesJahr();
   const alt=state.settings.aktivesJahr;let r;
   state.settings.aktivesJahr=y;
@@ -3437,7 +3456,7 @@ function zeAck(ds,i,on){
   f.acked=!!on;persist();renderZE();zeShowFindings(ds);
   // CheckBox in der Übersicht mitziehen, wenn dort dasselbe Jahr angezeigt wird
   const cb=document.getElementById('checkBoxResult');
-  if(cb&&cb.innerHTML.trim()&&cbLast.jahr===aktivesJahr()){const keep=cbLast;runCheckBox();cbLast=keep;}
+  if(cb&&cb.innerHTML.trim()&&cbLast.jahr===aktivesJahr()){const keep=cbLast;runCheckBoxJetzt();cbLast=keep;}
   toast(on?'Befund bestätigt (abgehakt)':'Haken entfernt','ok');
 }
 const CB_SEV={err:{i:'❌',l:'Fehler',c:'var(--err)'},warn:{i:'⚠️',l:'Warnung',c:'var(--warn)'},info:{i:'ℹ️',l:'Hinweis',c:'var(--navy)'}};
@@ -3524,6 +3543,188 @@ async function bwRelinkDateien(){
     l.forEach(b=>{const f=all.find(x=>x&&x.name===b.dateiname);if(f){b.fileId=f.id;n++;}});
     if(n)persist();return n;
   }catch(e){return 0;}
+}
+
+/* ═══ CLAUDE-ABGLEICH ═══
+   Claude (geplante Aufgaben auf dem Mac) legt „Claude-Pakete“ (JSON) im Belege-Ordner ab:
+   neue Belege für die Belegablage und Korrekturvorschläge. Die App liest sie hier ein;
+   jeder Vorschlag wird per Häkchen übernommen oder abgelehnt (gemerkt, kommt nicht wieder). */
+let CP={data:null,kat:'alle',flt:'offen'};
+function cpErledigt(){const s=state.settings;if(!s.claudeErledigt||typeof s.claudeErledigt!=='object'||Array.isArray(s.claudeErledigt))s.claudeErledigt={};return s.claudeErledigt;}
+function cpLoadFile(inp){
+  const f=inp.files&&inp.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result);
+    if(d.format!=='tgrb-claude-paket')throw new Error('Kein Claude-Paket');
+    d.vorschlaege=d.vorschlaege||[];d.belege=d.belege||[];CP.data=d;renderCp();
+    toast(d.vorschlaege.length+' Vorschläge, '+d.belege.length+' Belege geladen','ok');
+  }catch(e){toast('Fehler: '+e.message,'err');}};
+  r.readAsText(f);inp.value='';
+}
+const _cpEq=(a,b)=>String(a==null?'':a).trim()===String(b==null?'':b).trim();
+function cpStatus(v){
+  const er=cpErledigt()[v.id];if(er==='ok')return'uebernommen';if(er==='nein')return'abgelehnt';
+  const e=state.entries.find(x=>x.date===v.date);if(!e)return'veraltet';
+  const a=v.aenderung||{};
+  if(a.set&&Object.entries(a.set).every(([k,val])=>_cpEq(e[k],val))&&!(a.segs||[]).length)return'erfuellt';
+  for(const sg of(a.segs||[])){const s=(e.segs||[])[sg.i];if(!s)return'veraltet';
+    if(sg.set&&Object.entries(sg.set).every(([k,val])=>_cpEq(s[k],val)))continue;
+    if(sg.expect&&!Object.entries(sg.expect).every(([k,val])=>_cpEq(s[k],val)))return'veraltet';}
+  if((a.segs||[]).length&&(a.segs||[]).every(sg=>{const s=(e.segs||[])[sg.i];return s&&Object.entries(sg.set||{}).every(([k,val])=>_cpEq(s[k],val));}))return'erfuellt';
+  return'offen';
+}
+function cpApplyOne(v){
+  if(cpStatus(v)!=='offen')return false;
+  const e=state.entries.find(x=>x.date===v.date);const a=v.aenderung||{};
+  if(a.set)Object.assign(e,JSON.parse(JSON.stringify(a.set)));
+  (a.segs||[]).forEach(sg=>{const s=e.segs[sg.i];if(s)Object.assign(s,JSON.parse(JSON.stringify(sg.set||{})));});
+  e.updated=Date.now();cpErledigt()[v.id]='ok';return true;
+}
+function cpApplyMany(list){
+  const snap=JSON.stringify(state.entries),snapE=JSON.stringify(cpErledigt());let n=0;
+  list.forEach(v=>{if(cpApplyOne(v))n++;});
+  if(!n){toast('Nichts zu übernehmen');return;}
+  persist();scheduleCloudPush&&scheduleCloudPush();refreshAfterEntryChange();renderCp();
+  undoSnack(n+' Vorschläge übernommen',()=>{state.entries=JSON.parse(snap);state.settings.claudeErledigt=JSON.parse(snapE);persist();refreshAfterEntryChange();renderCp();toast('Rückgängig gemacht','ok');});
+}
+function cpById(id){return(CP.data&&CP.data.vorschlaege||[]).find(v=>v.id===id);}
+function cpOk(id){const v=cpById(id);if(v)cpApplyMany([v]);}
+function cpNein(id){cpErledigt()[id]='nein';persist();renderCp();}
+function cpReset(id){delete cpErledigt()[id];persist();renderCp();}
+function cpOpen(id){const v=cpById(id);if(!v)return;const e=state.entries.find(x=>x.date===v.date);if(e)editEntry(e.id);else{editId=null;wiz=freshW();wiz.date=v.date;gotoView('wizard');startWizard(0);}}
+function cpAlleSicheren(){cpApplyMany((CP.data.vorschlaege||[]).filter(v=>v.sicher&&cpStatus(v)==='offen'&&(CP.kat==='alle'||v.kategorie===CP.kat)));}
+async function cpBelegeImport(){
+  const bl=CP.data.belege||[];if(!bl.length)return;
+  if(!state.settings.mbReceipts)state.settings.mbReceipts={};
+  if(!state.settings.mbReceipts['unassigned'])state.settings.mbReceipts['unassigned']=[];
+  const mb=state.settings.mbReceipts['unassigned'];let neu=0,da=0,bw=0;
+  for(const b of bl){
+    try{
+      const dup=mb.some(x=>x&&typeof x==='object'&&x.dateiname===b.dateiname&&inAblage(x.id));
+      if(dup){da++;continue;}
+      const bin=atob(b.data||'');const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+      const file=new File([u],b.dateiname,{type:b.type||'application/pdf'});
+      const isBw=(b.typ==='TG'||b.typ==='RK')&&b.text;
+      const daten=isBw?parseBwBescheid(b.text):null;
+      const monat=b.datum?b.datum.slice(0,7):(daten&&daten.periode)||null;
+      const id=await storeOriginalFile(file,{prefix:(isBw?b.typ.toLowerCase():'beleg')+'_import',monat,typ:isBw?b.typ:'BELEG',belegart:b.belegart,datum:b.datum||null,
+        betrag:isBw?(daten&&daten.gesamt):(b.gesamtkosten!=null?b.gesamtkosten:null)});
+      if(daten){daten.fileId=id;daten.dateiname=b.dateiname;daten.belegart=b.belegart;const l=bwList();const ix=l.findIndex(x=>x.id===daten.id);if(ix<0)l.push(daten);else l[ix]=daten;bw++;}
+      else mb.push({id,dateiname:b.dateiname,belegart:b.belegart,datum:b.datum||null,gesamtkosten:b.gesamtkosten!=null?b.gesamtkosten:null});
+      if(ablageIds)ablageIds.add(id);neu++;
+    }catch(e){console.error('Claude-Beleg',e);}
+  }
+  CP.data.belegeImportiert=true;
+  persist();if(typeof scheduleCloudPush==='function')scheduleCloudPush();
+  if(typeof renderBelegeablage==='function')renderBelegeablage();renderCp();
+  toast(neu+' Belege übernommen'+(bw?' (davon '+bw+' Bescheide)':'')+(da?', '+da+' schon vorhanden':''),'ok');
+}
+function cpSetKat(k){CP.kat=k;renderCp();}
+function cpSetFlt(f){CP.flt=f;renderCp();}
+function renderCp(){
+  const host=document.getElementById('cpBody');if(!host)return;
+  if(!CP.data){host.innerHTML=`<div class="card" style="max-width:680px">
+    <h3>Claude-Paket laden</h3>
+    <p style="font-size:12px;color:var(--muted);margin:2px 0 12px">Claude legt jeden Sonntag ein Paket in den Ordner <b>Belege Reisekosten und Arbeitszeiten / _Claude</b> (z. B. <i>claude_paket_2026-10-18.json</i>). Es enthält neue Belege und Korrekturvorschläge. Die Datei wird nur lokal gelesen.</p>
+    <label class="btn btn-p" style="display:inline-block;cursor:pointer">📂 Paket wählen<input type="file" accept=".json,application/json" style="display:none" onchange="cpLoadFile(this)"></label></div>`;return;}
+  const D=CP.data,V=D.vorschlaege||[];
+  const st=V.map(v=>({v,s:cpStatus(v)}));
+  const cnt=k=>st.filter(x=>x.s===k).length;
+  const kats=['alle',...new Set(V.map(v=>v.kategorie||'Sonstiges'))];
+  let list=st.filter(x=>CP.kat==='alle'||x.v.kategorie===CP.kat);
+  if(CP.flt==='offen')list=list.filter(x=>x.s==='offen');
+  const sicherOffen=st.filter(x=>x.s==='offen'&&x.v.sicher&&(CP.kat==='alle'||x.v.kategorie===CP.kat)).length;
+  const lbl={offen:['offen','badge'],uebernommen:['✓ übernommen','badge ok'],abgelehnt:['abgelehnt','badge'],erfuellt:['✓ bereits so','badge ok'],veraltet:['nicht mehr passend','badge err']};
+  const wn=['So','Mo','Di','Mi','Do','Fr','Sa'];
+  const rows=list.slice(0,300).map(({v,s})=>`<div class="card" style="max-width:680px;margin:0 0 8px;padding:10px 12px;border-left:3px solid ${s==='offen'?(v.sicher?'var(--navy)':'var(--warn)'):'var(--line)'}">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <b style="font-size:13px">${wn[new Date(v.date+'T12:00').getDay()]} ${fmtD(v.date)}</b>
+        <span style="font-size:12px;font-weight:600;color:var(--navy)">${esc(v.titel)}</span>
+        <span style="flex:1"></span><span class="${lbl[s][1]}">${lbl[s][0]}</span>${!v.sicher&&s==='offen'?'<span class="badge err">prüfen</span>':''}
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 7px">${esc(v.grund||'')}</div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">
+        ${s==='offen'?`<button class="btn btn-p" style="padding:5px 12px;font-size:12px" onclick="cpOk('${v.id}')">✓ Übernehmen</button>
+        <button class="btn btn-s" style="padding:5px 12px;font-size:12px" onclick="cpNein('${v.id}')">✕ Ablehnen</button>`:''}
+        ${s==='abgelehnt'||s==='uebernommen'?`<button class="btn btn-s" style="padding:5px 12px;font-size:12px" onclick="cpReset('${v.id}')">Zurücksetzen</button>`:''}
+        <button class="btn btn-s" style="padding:5px 12px;font-size:12px" onclick="cpOpen('${v.id}')">Eintrag öffnen</button>
+      </div></div>`).join('')||'<p style="font-size:13px;color:var(--muted)">Keine Vorschläge in dieser Ansicht.</p>';
+  host.innerHTML=`<div class="card" style="max-width:680px;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:700;color:var(--navy)">${esc(D.titel||'Claude-Paket')}</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">erstellt ${esc(D.erzeugt||'')}</div>
+      ${(D.bericht||[]).length?`<ul style="font-size:12px;padding-left:18px;margin:0 0 8px">${D.bericht.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}
+      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px">
+        ${[[cnt('offen'),'offen'],[cnt('uebernommen')+cnt('erfuellt'),'erledigt'],[cnt('abgelehnt'),'abgelehnt']].map(a=>`<div style="flex:1;min-width:80px;background:var(--lsoft);border-radius:8px;padding:7px;text-align:center"><div style="font-size:16px;font-weight:800;color:var(--navy)">${a[0]}</div><div style="font-size:10px;color:var(--muted)">${a[1]}</div></div>`).join('')}
+      </div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">
+        <button class="btn btn-p" onclick="cpAlleSicheren()">✓ Alle sicheren übernehmen (${sicherOffen})</button>
+        ${(D.belege||[]).length?`<button class="btn btn-s" onclick="cpBelegeImport()" ${D.belegeImportiert?'disabled':''}>📎 ${D.belege.length} Belege in die Belegablage</button>`:''}
+        <label class="btn btn-s" style="cursor:pointer">📂 Anderes Paket<input type="file" accept=".json" style="display:none" onchange="cpLoadFile(this)"></label>
+      </div></div>
+    ${(D.offen||[]).length?`<details class="card" style="max-width:680px;margin-bottom:10px" open><summary style="cursor:pointer;font-weight:600;font-size:13px">Von dir zu erledigen (${D.offen.length})</summary><ul style="font-size:12px;padding-left:18px;margin:8px 0">${D.offen.map(x=>`<li style="margin:3px 0">${esc(x)}</li>`).join('')}</ul></details>`:''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <select onchange="cpSetKat(this.value)">${kats.map(k=>`<option value="${esc(k)}"${k===CP.kat?' selected':''}>${k==='alle'?'Alle Bereiche':esc(k)} (${k==='alle'?V.length:V.filter(v=>v.kategorie===k).length})</option>`).join('')}</select>
+      <select onchange="cpSetFlt(this.value)"><option value="offen"${CP.flt==='offen'?' selected':''}>Nur offene</option><option value="alle"${CP.flt==='alle'?' selected':''}>Alle</option></select>
+    </div>${rows}${list.length>300?'<p style="font-size:12px;color:var(--muted)">… weitere über den Filter</p>':''}`;
+}
+
+/* ═══ TAGESVORSCHLAG ═══
+   Aus deinen Einträgen der letzten 8 Wochen (gleicher Wochentag) wird für heute und für
+   fehlende Werktage der letzten 7 Tage ein Eintrag vorgeschlagen. Kein Netz, keine KI nötig. */
+function tvIso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function tvVorschlag(iso){
+  if(state.entries.some(e=>e.date===iso))return null;
+  const d=new Date(iso+'T12:00');const wd=d.getDay();
+  const hol=getBayernHolidays(d.getFullYear());
+  if(wd===0||wd===6||hol.has(iso))return{date:iso,dayCode:'WF',vorlage:null,text:'Wochenende/Feiertag'};
+  const von=new Date(d);von.setDate(von.getDate()-56);const vonI=tvIso(von);
+  const gleiche=state.entries.filter(e=>e.date&&e.date<iso&&e.date>=vonI&&new Date(e.date+'T12:00').getDay()===wd&&!['UR','KR','FVD'].includes(e.dayCode));
+  if(!gleiche.length)return null;
+  const c={};gleiche.forEach(e=>{c[e.dayCode]=(c[e.dayCode]||0)+1;});
+  const code=Object.entries(c).sort((a,b)=>b[1]-a[1])[0][0];
+  const mitZeit=gleiche.filter(e=>e.dayCode===code&&e.workStart&&e.workEnd).sort((a,b)=>b.date.localeCompare(a.date));
+  const med=arr=>{const s=[...arr].sort();return s[Math.floor(s.length/2)]||'';};
+  const vorlage=mitZeit[0]||gleiche.filter(e=>e.dayCode===code).sort((a,b)=>b.date.localeCompare(a.date))[0];
+  return{date:iso,dayCode:code,vorlage,workStart:med(mitZeit.map(e=>e.workStart)),workEnd:med(mitZeit.map(e=>e.workEnd)),
+    text:(DT[code]?.n||code)+(mitZeit.length?' '+med(mitZeit.map(e=>e.workStart))+'–'+med(mitZeit.map(e=>e.workEnd)):'')+' · Muster aus '+c[code]+' von '+gleiche.length+' gleichen Wochentagen'};
+}
+function tvEntry(v){
+  const w=freshW();w.date=v.date;w.dayCode=v.dayCode;
+  const t=v.vorlage;
+  if(t){['workLocation','workLocation2','workLocation3','stayLocation','useFahrt','useAufenthalt','costEnabled','verpflegung','verpflegungNE','zeActivity','nachweis'].forEach(k=>{if(t[k]!==undefined)w[k]=JSON.parse(JSON.stringify(t[k]));});
+    w.segs=(t.segs||[]).map(s=>{const x=Object.assign(freshSeg(),JSON.parse(JSON.stringify(s)));x.recIds=[];if(!istDTicket(x)){x.costAmt='';}return x;});}
+  if(v.workStart){w.workStart=v.workStart;w.workEnd=v.workEnd;}
+  if(['HF','RF','BF'].includes(v.dayCode))w.segs=[];   // Heimfahrten nicht blind kopieren
+  return{...w,id:uid(),created:Date.now(),updated:Date.now(),ausVorschlag:true};
+}
+function tvListe(){
+  const out=[];const heute=new Date();heute.setHours(12,0,0,0);
+  for(let i=7;i>=0;i--){const d=new Date(heute);d.setDate(d.getDate()-i);const v=tvVorschlag(tvIso(d));if(v)out.push(v);}
+  return out;
+}
+function tvAusblenden(){state.settings.tvAus=todayISO();persist();renderTv();}
+function tvUebernehmen(iso){const v=tvVorschlag(iso);if(!v)return;state.entries.push(tvEntry(v));persist();refreshAfterEntryChange();renderTv();toast('Eintrag '+fmtD(iso)+' angelegt','ok');}
+function tvAlle(){const l=tvListe();if(!l.length)return;const snap=JSON.stringify(state.entries);l.forEach(v=>state.entries.push(tvEntry(v)));persist();refreshAfterEntryChange();renderTv();
+  undoSnack(l.length+' Einträge angelegt',()=>{state.entries=JSON.parse(snap);persist();refreshAfterEntryChange();renderTv();});}
+function tvAnpassen(iso){const v=tvVorschlag(iso);if(!v)return;const e=tvEntry(v);delete e.id;editId=null;wiz={...freshW(),...e};gotoView('wizard');startWizard(0);}
+function tvBackupFaellig(){let last='';try{last=localStorage.getItem('zc-tgrb-lastbackup')||'';}catch(_){}
+  if(!last)return true;return(Date.now()-new Date(last).getTime())>6.5*86400000;}
+function renderTv(){
+  const el=document.getElementById('tvBox');if(!el)return;
+  const view=document.querySelector('.view.on')?.id||'';
+  if(view==='view-wizard'&&editId){el.innerHTML='';return;}
+  const l=state.settings.tvAus===todayISO()?[]:tvListe();
+  const bk=tvBackupFaellig()&&new Date().getDay()===0;
+  if(!l.length&&!bk){el.innerHTML='';return;}
+  const wn=['So','Mo','Di','Mi','Do','Fr','Sa'];
+  el.innerHTML=`<div class="card" style="margin:0 0 12px;padding:10px 14px;border-left:3px solid var(--accent)">
+    ${l.length?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><b style="font-size:13px;color:var(--navy)">📅 Vorschlag für ${l.length===1&&l[0].date===todayISO()?'heute':l.length+' Tage ohne Eintrag'}</b><span style="flex:1"></span><button class="btn btn-s" style="padding:3px 9px;font-size:11px" onclick="tvAusblenden()">heute ausblenden</button></div>
+    ${l.map(v=>`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;padding:4px 0;border-top:1px solid var(--lsoft)">
+      <b style="min-width:76px">${wn[new Date(v.date+'T12:00').getDay()]} ${fmtD(v.date)}</b><span class="cpill ${esc(v.dayCode)}">${esc(v.dayCode)}</span><span style="color:var(--muted);flex:1">${esc(v.text)}</span>
+      <button class="btn btn-p" style="padding:4px 11px;font-size:11px" onclick="tvUebernehmen('${v.date}')">Übernehmen</button>
+      <button class="btn btn-s" style="padding:4px 11px;font-size:11px" onclick="tvAnpassen('${v.date}')">Anpassen</button></div>`).join('')}
+    ${l.length>1?`<button class="btn btn-s" style="padding:4px 11px;font-size:11px;margin-top:6px" onclick="tvAlle()">Alle ${l.length} übernehmen</button>`:''}`:''}
+    ${bk?`<div style="display:flex;align-items:center;gap:8px;${l.length?'margin-top:8px;padding-top:8px;border-top:1px solid var(--lsoft)':''}"><span style="font-size:12px;flex:1">💾 Sonntag: Backup für den Claude-Abgleich speichern (landet in „Downloads“, Claude liest es heute Abend).</span><button class="btn btn-p" style="padding:4px 11px;font-size:11px" onclick="doExport().then(renderTv)">Backup speichern</button></div>`:''}
+  </div>`;
 }
 
 /* ═══ NACHTRÄGE 2025 — Hilfstool ═══
@@ -3889,7 +4090,7 @@ function belegArtKategorie(art){
   return null;
 }
 function mbBezahltFuerMonatKategorie(monat,kategorie){
-  const items=(state.settings.mbReceipts&&state.settings.mbReceipts['unassigned'])||[];
+  const items=ablageBelege();
   return items.filter(r=>(r.datum||'').startsWith(monat)&&belegArtKategorie(r.belegart)===kategorie)
     .reduce((a,r)=>a+(parseFloat(r.gesamtkosten)||0),0);
 }
@@ -4878,8 +5079,7 @@ function checkBoxAnalyze(){
   // Zugeordnet wird deshalb rechnerisch: erst exakt (Datum + Betrag), dann ueber den
   // Betrag mit Datumstoleranz — Flugtickets tragen das Kaufdatum, nicht das Reisedatum.
   {
-    const belege=((state.settings.mbReceipts||{})['unassigned']||[])
-      .filter(b=>b&&typeof b==='object');   // Alt-Eintraege waren blosse ID-Strings
+    const belege=ablageBelege();   // nur Dateien, die wirklich in der Belegablage liegen
     const bNum=b=>parseFloat(b.gesamtkosten)||0;
     // Klartext: die Ausgabe in runCheckBox escapt die Meldung bereits
     const bName=b=>b.dateiname||b.belegart||'Beleg';
@@ -4899,7 +5099,7 @@ function checkBoxAnalyze(){
         kosten.push({covered:_cov,date:e.date,id:e.id,nr:si+1,betrag:_cov?(parseFloat(s.costAmt)||0):segCostAmt(s),
           curr:s.costCurr||'EUR',art:s.costType||s.mode||'Fahrt',mode:s.mode||'',
           von:s.fromLoc||'',bis:s.toLoc||'',isFHF:e.isFHF===true,code:e.dayCode,
-          legacy:!!(s.recIds&&s.recIds.length)});
+          legacy:!!(s.recIds&&s.recIds.some(inAblage))});
       });
     });
     const TOL_TAGE=45;
@@ -4960,17 +5160,21 @@ function checkBoxAnalyze(){
       kosten.forEach((k,ki)=>{if(k.date===b.datum)amTag.push({k,ki});});
       // Betragsgleiche Position am selben Tag: sie ist bereits einem anderen Beleg zugeordnet
       const belegt=amTag.filter(x=>Math.abs(x.k.betrag-bNum(b))<=0.01);
+      const _kat=belegArtKategorie(b.belegart);
+      const amTagK=amTag.filter(x=>{if(!_kat)return true;const g=MODE_GRUPPE[x.k.mode]||'';
+        return(_kat==='Flugkarte'&&g==='Flugzeug')||(_kat==='Bahnkarte'&&g==='Bahn')||(_kat==='Buskarte'&&g==='Bus/ÖPNV');});
       if(belegt.length){
         add('warn','Belege','Überzähliger Beleg am '+dstr(b.datum)+': '+bName(b)+' über '
           +fmtM(bNum(b),'EUR')+' – die betragsgleiche Kostenposition ist bereits durch einen anderen Beleg abgedeckt',
           b.datum,belegt[0].k.id);
-      } else if(amTag.length){
+      } else if(amTagK.length){
         add('warn','Belege','Betragsabweichung am '+dstr(b.datum)+': Beleg '+bName(b)+' über '
           +fmtM(bNum(b),'EUR')+', im Wizard erfasst: '
-          +amTag.map(x=>fmtM(x.k.betrag,x.k.curr)+' ('+x.k.art+')').join(', '),b.datum,amTag[0].k.id);
-        // Der Beleg liegt vor, nur der Betrag passt nicht – I.3 soll das nicht
-        // zusaetzlich als "Beleg fehlt" melden.
-        amTag.forEach(x=>{erklaert.add(x.ki);});
+          +amTagK.map(x=>fmtM(x.k.betrag,x.k.curr)+' ('+x.k.art+')').join(', '),b.datum,amTagK[0].k.id);
+        // Der Beleg liegt vor, nur der Betrag passt nicht – I.3 soll das nicht zusaetzlich
+        // als "Beleg fehlt" melden. Nur Positionen derselben Art (Flug/Bahn/Bus) gelten als
+        // erklaert — sonst wuerde z. B. eine Buskarte den fehlenden Flugbeleg verdecken.
+        amTagK.forEach(x=>{erklaert.add(x.ki);});
       } else if(alleTage.has(b.datum)){
         add('warn','Belege','Beleg ohne Kosteneintrag: '+bName(b)+' ('+fmtM(bNum(b),'EUR')+') vom '
           +dstr(b.datum)+' – am Tag existiert ein Eintrag, aber keine passende Fahrtkosten-Position',b.datum,'');
@@ -5059,7 +5263,7 @@ function checkBoxAnalyze(){
     });
 
     // I.7 Verwaiste Verweise aus der alten Beleg-Verknuepfung
-    const bwOhneDatei=bwList().filter(b=>b.fileId===null&&b.dateiname);
+    const bwOhneDatei=bwList().filter(b=>b.dateiname&&(!b.fileId||!inAblage(b.fileId)));
     if(bwOhneDatei.length)
       add('info','Belege',bwOhneDatei.length+' Bescheid(e) ohne verknüpfte PDF (Datei wurde gelöscht; die Werte bleiben gültig – zum Verknüpfen die PDF mit gleichem Namen erneut hochladen): '
         +bwOhneDatei.map(b=>b.typ+' '+(b.nr||'')).join(', '),'','');
@@ -5097,6 +5301,37 @@ function findingKey(f){
   for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);h1=((h1<<5)+h1+c)>>>0;h2=((h2<<5)+h2+c)>>>0;}
   return (h1>>>0).toString(36)+(h2>>>0).toString(36);
 }
+/* ═══ Belegablage = einzige Quelle für den Beleg-Abgleich ═══
+   Geprüft wird nur gegen Dateien, die tatsächlich in der Belegablage liegen. Gelöschte
+   Belege werden als „gelöscht“ vermerkt (synchronisiert), damit sie weder über alte
+   Metadaten noch über den Cloud-Abgleich wieder auftauchen. */
+let ablageIds=null;
+async function ablageIdsLaden(){try{const all=await idbAllF();ablageIds=new Set(all.map(f=>f.id));}catch(e){ablageIds=null;}return ablageIds;}
+function geloeschteBelege(){if(!Array.isArray(state.settings.geloeschteBelege))state.settings.geloeschteBelege=[];return state.settings.geloeschteBelege;}
+function istGeloescht(id){return !!id&&geloeschteBelege().includes(id);}
+function inAblage(id){return !!id&&!istGeloescht(id)&&(!ablageIds||ablageIds.has(id));}
+function ablageBelege(){
+  return((state.settings.mbReceipts||{})['unassigned']||[]).filter(b=>b&&typeof b==='object'&&inAblage(b.id));
+}
+function belegAlsGeloeschtMerken(ids){
+  const g=geloeschteBelege();(ids||[]).forEach(id=>{if(id&&!g.includes(id))g.push(id);});
+  // auch in der Cloud entfernen, damit andere Geräte die Datei nicht wieder herunterladen
+  try{if(typeof fbDB!=='undefined'&&fbDB&&typeof fbUser!=='undefined'&&fbUser){
+    const col=fbDB.collection('users').doc(fbUser.uid).collection('receipts');
+    (ids||[]).forEach(id=>{col.doc(id).delete().catch(()=>{});});
+  }}catch(e){}
+}
+/* Entfernt Verweise auf gelöschte Belege (z. B. nach einem Abgleich mit einem älteren Stand). */
+function geloeschteBereinigen(){
+  const g=new Set(geloeschteBelege());if(!g.size)return;
+  const mb=state.settings.mbReceipts||{};
+  Object.keys(mb).forEach(k=>{mb[k]=(mb[k]||[]).filter(x=>!g.has(x&&typeof x==='object'?x.id:x));});
+  ['bwReceipts','drReceipts','fkReceipts','abReceipts','daReceipts'].forEach(ns=>{const o=state.settings[ns];if(!o)return;
+    Object.keys(o).forEach(k=>{o[k]=(o[k]||[]).filter(x=>!g.has(x));});});
+  (state.entries||[]).forEach(e=>{e.recIds=(e.recIds||[]).filter(x=>!g.has(x));(e.segs||[]).forEach(sg=>{sg.recIds=(sg.recIds||[]).filter(x=>!g.has(x));});});
+  bwList().forEach(b=>{if(b.fileId&&g.has(b.fileId))b.fileId=null;});
+  g.forEach(id=>{if(ablageIds&&ablageIds.has(id)){idbDelF(id).catch(()=>{});ablageIds.delete(id);}});
+}
 function ackList(){
   if(!Array.isArray(state.settings.ackFindings))state.settings.ackFindings=[];
   return state.settings.ackFindings;
@@ -5114,7 +5349,11 @@ function resetAcks(){
     state.settings.ackFindings=[];persist();runCheckBox();toast('Alle Haken zurückgesetzt');
   });
 }
-function runCheckBox(){
+async function runCheckBox(){
+  await ablageIdsLaden();geloeschteBereinigen();
+  runCheckBoxJetzt();
+}
+function runCheckBoxJetzt(){
   const el=document.getElementById('checkBoxResult');if(!el)return;
   const r=checkBoxAnalyze();
   cbLast={jahr:aktivesJahr(),byDate:cbIndex(r),at:new Date()};
@@ -6162,6 +6401,7 @@ async function updStInfo(){
    nach dem Löschen keine kaputten „Beleg ansehen"-Links übrig bleiben. */
 function entferneDateiReferenzen(ids){
   const idSet=new Set(ids);
+  belegAlsGeloeschtMerken(ids);
   // Namensräume mit Arrays reiner ID-Strings
   ['bwReceipts','drReceipts','fkReceipts','abReceipts','daReceipts'].forEach(ns=>{
     if(!state.settings[ns])return;
@@ -6842,6 +7082,7 @@ async function genMonthPdf(list,yr,mo){
   try{folderHandle=await idbGet('handles','folder');}catch(e){}
   const s=state.settings;document.getElementById('uchip').textContent=(s.rank?s.rank+' ':'')+s.name||'Nicht konfiguriert';
   refreshAddrList();startWizard(0);renderCal();check28('w28');
+  try{renderTv();}catch(e){}
   initCatGrid();
   const now=new Date();
   const fm=new Date(now.getFullYear(),now.getMonth(),1);const tm=new Date(now.getFullYear(),now.getMonth()+1,0);
@@ -8847,10 +9088,12 @@ async function mergeRemote(remote,remoteTs){
       // Uebergangsschutz explizit erhalten, falls das SENDENDE Geraet noch auf einem
       // aelteren Build laeuft und aktivesJahr trotzdem noch mitschickt.
       const keepFb={fbConfig:state.settings.fbConfig,fbAutoSync:state.settings.fbAutoSync,fbLastSync:state.settings.fbLastSync,aktivesJahr:state.settings.aktivesJahr};
+      const _gelLokal=(state.settings.geloeschteBelege||[]).slice();
       state.settings=Object.assign(state.settings,remote.settings,keepFb);
+      state.settings.geloeschteBelege=[...new Set([..._gelLokal,...(remote.settings.geloeschteBelege||[])])];
       state.settings.fbLastAppliedRemoteTs=remoteTs;
     }
-    migrate();persist();
+    migrate();geloeschteBereinigen();persist();
     // Belege nachladen, die lokal fehlen
     downRes=await syncReceiptsDown();
     // Danach: unvollstaendig uebertragene Altbestaende lokal nachkennzeichnen
@@ -8971,6 +9214,7 @@ async function syncReceiptsDown(){
   };
   for(const id of allReceiptIds()){
     try{
+      if(istGeloescht(id))continue;   // bewusst gelöscht – nicht wieder herunterladen
       const existing=await idbGetF(id);
       // Nachtraegliche Reparatur unvollstaendiger Altbestaende passiert NICHT hier,
       // sondern lokal in repariereBelegMetadaten(): ein Cloud-Abgleich haette nur
@@ -10054,6 +10298,7 @@ window.renderBelegeablage = async function() {
 window.deleteBelegeablageFile = async function(id) {
   if (!confirm('Diese Datei wirklich löschen?')) return;
   await idbDelF(id);
+  belegAlsGeloeschtMerken([id]);if(ablageIds)ablageIds.delete(id);
 
   // Verweise in mbReceipts (Belege ohne feste Monatszuordnung) entfernen
   if (state.settings.mbReceipts) {
@@ -10068,6 +10313,9 @@ window.deleteBelegeablageFile = async function(id) {
   scheduleCloudPush();
   window.renderBelegeablage();
   renderOverview();
+  // Prüfergebnisse sofort aktualisieren
+  { const cb=document.getElementById('checkBoxResult'); if(cb&&cb.innerHTML.trim()) runCheckBox(); }
+  if (cbLast) zeRunCheck(true);
   toast('Datei gelöscht', 'ok');
 };
 
