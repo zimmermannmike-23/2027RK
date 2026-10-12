@@ -1167,10 +1167,11 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.11.1';
-const APP_BUILD=72;
+const APP_VERSION='5.11.2';
+const APP_BUILD=73;
 const APP_DATE='10.10.2026';
 const APP_CHANGES=[
+  'CheckBox: Belege werden jahresübergreifend den Fahrten zugeordnet (keine Falschmeldungen „Beleg ohne Eintrag“ mehr für Belege des anderen Jahres); Flüge brauchen keine Kilometer; Fahrkarten an Heim-/Rückfahrt-Tagen ohne FHF-Häkchen werden nicht mehr als zufällige Zuordnung gemeldet; Belege für „bereits erfasste“ Rückflüge werden zugeordnet statt als Abweichung gemeldet; zukünftige (geplante) Tage erzeugen keine Arbeitszeit- und Lücken-Warnungen; Reiseziel aus Reisekostenbescheiden wird sauber gelesen; genutzte Familienheimfahrten zählen erst ab Anspruchsbeginn','Wizard: „Kosten ohne Beleg“ berücksichtigt jetzt die Belegeablage, Dienstende 00:00 gilt als Tagesende, der Hinweis „kein Familienheimfahrt-Anspruch frei“ zählt nur Fahrten ab Anspruchsbeginn',
   'Bescheid-Summen: steuerfreier Betrag beim Trennungsgeld enthält jetzt auch die Unterkunft, nicht eingelesene „sonstige Fahrkosten“ (z. B. Mai 2025: 140 €) werden aus der Festsetzung abgeleitet, und der steuerfreie Betrag wird nie höher als der festgesetzte (Jan/Feb 2025)',
   'Neu: Hilfstool „Nachträge 2025“ (Einstellungen) — lädt eine aus Belegen und Bescheiden erzeugte Vorschlagsdatei und übernimmt Tagesart, Heimfahrten, Flüge/Bahn/Bus mit Kosten und Verpflegung tageweise, monatsweise oder alle sicheren auf einmal (mit Rückgängig); Bescheide-Import und automatische km-Berechnung für Dienst-Kfz',
   'Excel-Import: Zeiterfassung 2025 komplett übernommen (272 Tage mit Inhalt), inkl. geteiltem Dienst; 24./31.12. gelten im Zeiterfassungsblatt als dienstfrei',
@@ -1417,6 +1418,7 @@ function persist(){
   if(typeof scheduleCloudPush==='function')scheduleCloudPush();
 }
 function migrate(){
+  (state.settings.bwBescheide||[]).forEach(b=>{if(b&&b.typ==='RK'&&b.ziel)b.ziel=bwZielClean(b.ziel);});
   state.entries.forEach(e=>{
     if(e.dayCode==='X')e.dayCode='AW';if(e.dayCode==='U')e.dayCode='UR';
     if(e.dayCode==='K')e.dayCode='KR';if(e.dayCode==='SG')e.dayCode='LG';
@@ -2434,13 +2436,24 @@ function alsoDateToggle(iso){
   if(i>=0)wiz._alsoDates.splice(i,1);else wiz._alsoDates.push(iso);
   renderStep('save');
 }
+/* Liegt in der Belegeablage ein Beleg mit diesem Betrag (±45 Tage, wie in der CheckBox)? */
+function belegInAblage(betrag,datum){
+  const v=parseFloat(betrag)||0;if(!(v>0))return false;
+  const t=datum?new Date(datum+'T12:00'):null;
+  return ((state.settings.mbReceipts||{})['unassigned']||[]).some(b=>{
+    if(!b||typeof b!=='object')return false;
+    if(Math.abs((parseFloat(b.gesamtkosten)||0)-v)>0.01)return false;
+    if(!t||!b.datum)return true;
+    return Math.abs(new Date(b.datum+'T12:00')-t)/86400000<=45;
+  });
+}
 /* ─── PLAUSIBILITÄTSPRÜFUNG (Speichern-Schritt, nur Hinweise, blockiert nicht) ─── */
 function plausiWarnings(w){
   const out=[];
   if(!w||!w.date)return out;
   if(state.entries.some(e=>e.date===w.date&&e.id!==editId))
     out.push(`Für den ${fmtD(w.date)} gibt es bereits einen Eintrag.`);
-  if(w.workStart&&w.workEnd&&!w.presentNoWork&&w.workEnd<=w.workStart)
+  if(w.workStart&&w.workEnd&&!w.presentNoWork&&w.workEnd!=='00:00'&&w.workEnd<=w.workStart)
     out.push(`Dienstende (${w.workEnd}) liegt vor Dienstbeginn (${w.workStart}).`);
   const segs=(w.segs||[]).filter(s=>s.enabled!==false&&s.mode);
   segs.forEach((s,i)=>{
@@ -2448,7 +2461,7 @@ function plausiWarnings(w){
     if(s.dep&&s.arr&&s.arr<s.dep)out.push(`${n}: Ankunft ${s.arr} vor Abfahrt ${s.dep} — über Mitternacht?`);
     const prev=segs[i-1];
     if(prev&&prev.arr&&s.dep&&s.dep<prev.arr)out.push(`${n} startet ${s.dep}, Abschnitt ${i} kommt erst ${prev.arr} an.`);
-    if(segCostCounts(s)&&!(s.recIds||[]).length&&!(w.recIds||[]).length)out.push(`${n}: Kosten ohne Beleg.`);
+    if(segCostCounts(s)&&!(s.recIds||[]).length&&!(w.recIds||[]).length&&!belegInAblage(s.costAmt,w.date))out.push(`${n}: Kosten ohne Beleg.`);
   });
   if(parseFloat(w.costAmt)>0&&!(w.recIds||[]).length&&!segs.some(s=>(s.recIds||[]).length))
     out.push('Sonstige Kosten ohne Beleg.');
@@ -2913,9 +2926,11 @@ function fhfEntitledUpTo(date){
 // gesetzt wurde. Die Rückfahrt (RF) gehört zur selben Reisebeihilfe und zählt nie mit.
 function fhfUsedUpTo(date){
   const d=(date instanceof Date)?date:new Date(date+'T12:00');
+  const _s=fhfStartDate();const _st=_s?(_s.getFullYear()+'-'+String(_s.getMonth()+1).padStart(2,'0')+'-'+String(_s.getDate()).padStart(2,'0')):'';
   const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   return state.entries.filter(e=>{
     if(!e.date||e.date>iso)return false;
+    if(_st&&e.date<_st)return false;  // vor Beginn des Anspruchszeitraums: zählt nicht gegen diesen Anspruch
     if(e.dayCode==='RF')return false; // Rückfahrt nie zählen
     return e.isFHF===true;            // ausschließlich mit gesetztem FHF-Häkchen
   }).length;
@@ -3335,7 +3350,7 @@ function parseBwBescheid(txt){
     o.nr=g(/Reisekostenabrechnung Nr\.?\s*(\d+)/i);
     const rv=/Reise vom\s*:?\s*(\d{2}\.\d{2}\.\d{2})[^]*?bis\s+(\d{2}\.\d{2}\.\d{2})/.exec(t);
     if(rv){o.von=bwDate(rv[1]);o.bis=bwDate(rv[2]);o.periode=o.von.slice(0,7);}
-    o.ziel=g(/Reise nach\s*:?\s*(.+)/);
+    o.ziel=bwZielClean(g(/Reise nach\s*:?\s*(.+)/));
     o.anlass=g(/Anlass\s*:?\s*(.+)/);
     o.land=g(/Land\s*:?\s*(.+)/);
     const fk=/Fahrkosten und sonstige Kosten[^\n]*?\s([\d.,]+)\s+([\d.,]+)\s+([\d.,-]+)/.exec(t);
@@ -3377,6 +3392,8 @@ function parseBwBescheid(txt){
   o.id='bw_'+o.typ+'_'+o.nr;
   return o;
 }
+/* Reiseziel endet vor „Beginn Dienstg.“ — PDF-Texte kommen oft ohne Zeilenumbruch */
+function bwZielClean(z){return String(z||'').split(/\s+Beginn\s+Dienstg/i)[0].replace(/\s+/g,' ').trim();}
 function bwList(){if(!Array.isArray(state.settings.bwBescheide))state.settings.bwBescheide=[];return state.settings.bwBescheide;}
 /* ═══ NACHTRÄGE 2025 — Hilfstool ═══
    Lädt eine lokale Vorschlagsdatei (aus Belegen + Bescheiden erzeugt), zeigt je Tag den
@@ -4421,7 +4438,7 @@ function checkBoxAnalyze(){
     const hasS=!!e.workStart,hasE=!!e.workEnd;
     if(hasS!==hasE)add('err','Arbeitszeit',`Nur ${hasS?'Beginn':'Ende'} erfasst – Gegenstück fehlt`,e.date,e.id);
     if(dt.noT&&(hasS||hasE))add('warn','Arbeitszeit',`Arbeitszeit trotz Code „${dt.n}" (kein Dienst erwartet)`,e.date,e.id);
-    if(!dt.noT&&!hasS&&!hasE&&e.dayCode!=='HF'&&e.dayCode!=='RF'&&e.dayCode!=='BF')
+    if(!dt.noT&&!hasS&&!hasE&&e.dayCode!=='HF'&&e.dayCode!=='RF'&&e.dayCode!=='BF'&&e.dayCode2!=='BF'&&e.date<=todayISO())
       add('warn','Arbeitszeit',`Keine Arbeitszeit bei Code „${dt.n||e.dayCode}"`,e.date,e.id);
     if(hasS&&hasE){
       const s=toMin(e.workStart),en=toMin(e.workEnd);
@@ -4450,7 +4467,7 @@ function checkBoxAnalyze(){
     const segs=(e.segs||[]).filter(s=>s.enabled!==false);
     segs.forEach((s,ix)=>{
       const n=`Strecke ${ix+1}`;
-      if(s.mode&&!s.km)add('warn','Fahrt',`${n}: Reisemittel „${s.mode}" ohne Kilometer`,e.date,e.id);
+      if(s.mode&&!s.km&&s.mode!=='Flugzeug')add('warn','Fahrt',`${n}: Reisemittel „${s.mode}" ohne Kilometer`,e.date,e.id);
       if(s.km&&!s.mode)add('warn','Fahrt',`${n}: ${s.km} km ohne Reisemittel`,e.date,e.id);
       if(s.dep&&s.arr){
         const d=toMin(s.dep),a=toMin(s.arr);
@@ -4737,11 +4754,18 @@ function checkBoxAnalyze(){
     const bName=b=>b.dateiname||b.belegart||'Beleg';
     // Kostenpflichtige Fahrt-Segmente aus dem Wizard
     const kosten=[];
-    ents.forEach(e=>{
+    // Zuordnung über ALLE Einträge (Belege und Fahrten liegen am Jahreswechsel oft in
+    // verschiedenen Jahren); gemeldet wird nur, was im Prüfzeitraum liegt.
+    const imZR=d=>!d||imCheckBoxZeitraum(d);
+    const alleTage=new Set(state.entries.filter(e=>e.date).map(e=>e.date));
+    state.entries.filter(e=>e.date).forEach(e=>{
       (e.segs||[]).forEach((s,si)=>{
-        if(!segCostCounts(s))return;
+        // „Bereits erfasst“-Strecken zählen nicht, dürfen aber einen Beleg tragen
+        // (z. B. eigener Beleg für den Rückflug) — sonst entstehen Schein-Abweichungen.
+        const _cov=s.enabled!==false&&s.costEnabled!==false&&s.costScope==='covered'&&parseFloat(s.costAmt)>0;
+        if(!segCostCounts(s)&&!_cov)return;
         if(/Deutschlandticket|Pendlerpauschale/i.test(s.costType||''))return;
-        kosten.push({date:e.date,id:e.id,nr:si+1,betrag:segCostAmt(s),
+        kosten.push({covered:_cov,date:e.date,id:e.id,nr:si+1,betrag:_cov?(parseFloat(s.costAmt)||0):segCostAmt(s),
           curr:s.costCurr||'EUR',art:s.costType||s.mode||'Fahrt',mode:s.mode||'',
           von:s.fromLoc||'',bis:s.toLoc||'',isFHF:e.isFHF===true,code:e.dayCode,
           legacy:!!(s.recIds&&s.recIds.length)});
@@ -4768,7 +4792,7 @@ function checkBoxAnalyze(){
       });
       if(best>=0){
         belegZu[bi]=best;kostenZu[best]=bi;
-        add('info','Belege',bName(belege[bi])+': Belegdatum '+dstr(belege[bi].datum)+' weicht '
+        if(imZR(kosten[best].date))add('info','Belege',bName(belege[bi])+': Belegdatum '+dstr(belege[bi].datum)+' weicht '
           +Math.round(bestAb)+' Tag(e) vom Eintrag ('+dstr(kosten[best].date)+') ab – über den Betrag zugeordnet',
           kosten[best].date,kosten[best].id);
       }
@@ -4795,6 +4819,7 @@ function checkBoxAnalyze(){
     const erklaert=new Set();   // Kostenpositionen, deren Beleg zwar da ist, aber betraglich abweicht
     belege.forEach((b,bi)=>{
       if(belegZu[bi]!==undefined||doppelt.has(bi))return;   // Doppel schon oben gemeldet
+      if(!imZR(b.datum))return;
       if(!b.datum&&!bNum(b)){
         add('warn','Belege',bName(b)+': weder Datum noch Betrag erfasst – nicht zuordenbar. Angaben in der Belegeablage nachtragen.','','');
         return;
@@ -4815,7 +4840,7 @@ function checkBoxAnalyze(){
         // Der Beleg liegt vor, nur der Betrag passt nicht – I.3 soll das nicht
         // zusaetzlich als "Beleg fehlt" melden.
         amTag.forEach(x=>{erklaert.add(x.ki);});
-      } else if(byDate[b.datum]){
+      } else if(alleTage.has(b.datum)){
         add('warn','Belege','Beleg ohne Kosteneintrag: '+bName(b)+' ('+fmtM(bNum(b),'EUR')+') vom '
           +dstr(b.datum)+' – am Tag existiert ein Eintrag, aber keine passende Fahrtkosten-Position',b.datum,'');
       } else {
@@ -4827,9 +4852,11 @@ function checkBoxAnalyze(){
     // I.3 Kosten im Wizard ohne hinterlegten Beleg
     let fhfOffenGezaehlt=0,fhfLegacyGezaehlt=0,fhfZugeordnetGezaehlt=0;
     kosten.forEach((k,ki)=>{
+      if(!imZR(k.date))return;
       if(k.isFHF&&k.legacy)fhfLegacyGezaehlt++;
       if(k.isFHF&&kostenZu[ki]!==undefined)fhfZugeordnetGezaehlt++;
-      if(kostenZu[ki]!==undefined||k.legacy||erklaert.has(ki))return;
+      if(kostenZu[ki]!==undefined||k.legacy||erklaert.has(ki)||k.covered)return;
+      if(!imZR(k.date))return;
       if(k.isFHF)fhfOffenGezaehlt++;
       add(k.isFHF?'err':'warn','Belege',(k.isFHF?'Familienheimfahrt – kein Beleg: ':'Kein Beleg vorhanden: ')
         +'Strecke '+k.nr+' '+k.art+' '+k.von+' → '+k.bis+' ('+fmtM(k.betrag,k.curr)+')',
@@ -4840,10 +4867,10 @@ function checkBoxAnalyze(){
     // Erklärt, wie viele FHF-Kostenpositionen es gibt und was mit jeder passiert ist —
     // damit „warum nur 4?" nachvollziehbar wird statt geraten werden zu müssen.
     {
-      const fhfKostenGesamt=kosten.filter(k=>k.isFHF).length;
+      const fhfKostenGesamt=kosten.filter(k=>k.isFHF&&!k.covered&&imZR(k.date)).length;
       const fhfTripsGesamt=[...new Set(ents.filter(e=>e.isFHF===true&&e.dayCode!=='RF').map(e=>e.id))].length;
       const fhfOhneKostenGesamt=[...new Set(ents.map(e=>e.date.slice(0,4)))]
-        .reduce((n,y)=>n+fhfOhneKostenListe(y).length,0);
+        .reduce((n,y)=>n+fhfOhneKostenListe(y).filter(e=>imZR(e.date)).length,0);
       add('info','Belege','Diagnose: '+fhfTripsGesamt+' Familienheimfahrt(en) insgesamt · '
         +fhfKostenGesamt+' Fahrtkosten-Position(en) mit Betrag, davon '
         +fhfZugeordnetGezaehlt+' über die Belegeablage zugeordnet, '
@@ -4854,14 +4881,14 @@ function checkBoxAnalyze(){
 
     // I.4 Familienheimfahrten ohne jede Kostenposition
     [...new Set(ents.map(e=>e.date.slice(0,4)))].forEach(y=>{
-      fhfOhneKostenListe(y).forEach(e=>{
+      fhfOhneKostenListe(y).filter(e=>imZR(e.date)).forEach(e=>{
         add('warn','Belege','Familienheimfahrt ohne Fahrtkosten und ohne Beleg – nur die Pauschale wird angesetzt',e.date,e.id);
       });
     });
 
     // I.5 Belegart passt nicht zum erfassten Reisemittel
     belege.forEach((b,bi)=>{
-      const ki=belegZu[bi];if(ki===undefined)return;
+      const ki=belegZu[bi];if(ki===undefined||!imZR(kosten[ki].date))return;
       const kat=belegArtKategorie(b.belegart);
       if(!kat)return;
       const grp=MODE_GRUPPE[kosten[ki].mode]||'';
@@ -4878,7 +4905,8 @@ function checkBoxAnalyze(){
     belege.forEach((b,bi)=>{
       const ki=belegZu[bi];if(ki===undefined)return;
       if(!belegArtKategorie(b.belegart))return;   // nur Fahrkarten-Typen, keine sonstigen Belege
-      if(kosten[ki].isFHF)return;
+      if(kosten[ki].isFHF||!imZR(kosten[ki].date))return;
+      if(['HF','RF','BF'].includes(kosten[ki].code))return;   // Heim-/Rück-/Besuchsfahrt: Fahrkarte passt inhaltlich
       add('warn','Belege',dstr(kosten[ki].date)+': Beleg „'+bName(b)+'" ist einem Eintrag ohne '
         +'Familienheimfahrt-Kennzeichnung zugeordnet (Code '+esc(kosten[ki].code||'?')
         +') – Datum und Betrag passen zufällig, prüfen ob das wirklich die richtige Fahrt ist',
@@ -4886,7 +4914,7 @@ function checkBoxAnalyze(){
     });
 
     // I.6 Belege gegen die im TG-Bescheid erstatteten Fahrkosten
-    [...new Set(belege.map(b=>(b.datum||'').slice(0,7)).filter(Boolean))].sort().forEach(mon=>{
+    [...new Set(belege.map(b=>(b.datum||'').slice(0,7)).filter(Boolean))].filter(m=>imZR(m)).sort().forEach(mon=>{
       const q=tgQuerpruefungMonat(mon);
       if(!q.hatBescheid)return;
       [['flug','Flugkosten'],['bahn','Bahnkosten'],['bus','Buskosten']].forEach(([sl,lbl])=>{
@@ -4909,7 +4937,8 @@ function checkBoxAnalyze(){
   // ── H. Vollständigkeit: fehlende Werktage ──
   const first=ents[0].date,last=ents[ents.length-1].date;
   const have=new Set(ents.map(e=>e.date));
-  const cur=new Date(first+'T12:00'),end=new Date(last+'T12:00');
+  const _bis=last<todayISO()?last:todayISO();   // geplante Einträge in der Zukunft erzeugen keine "Lücken"
+  const cur=new Date(first+'T12:00'),end=new Date(_bis+'T12:00');
   let missing=[];
   while(cur<=end){
     const iso=cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0');
