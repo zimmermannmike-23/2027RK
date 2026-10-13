@@ -1182,10 +1182,18 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.13.0';
-const APP_BUILD=77;
-const APP_DATE='10.10.2026';
+const APP_VERSION='5.16.0';
+const APP_BUILD=80;
+const APP_DATE='13.10.2026';
 const APP_CHANGES=[
+  'Bescheide ersetzen statt doppeln: Beim Hochladen wird geprüft, ob es für denselben Zeitraum schon einen Bescheid gibt (TG: gleicher Monat · Reisekosten: gleiche Reise von–bis · oder gleiche Nummer). Der vorhandene wird durch den neuen ersetzt und seine PDF gelöscht; ein älterer Bescheid ersetzt keinen neueren',
+  'Verpflegung kommt jetzt aus BEIDEN Bescheiden: Trennungsgeldabrechnung (Dienstort-Tage) und Reisekostenabrechnung (Dienstreise-Tage, Tabelle „Tage- und Übernachtungsgelder“); der Wizard fragt sie an keinem Tag mehr ab',
+  'Trennungstagegeld-Kürzung je Jahr: Mittagessen 2025 = 1,20 € (aus 113 Abrechnungstagen 2025 belegt), 2026 = 1,03 €; Frühstück 0,43 € und Abendessen 1,03 € (2026 belegt)',
+  'Korrektur: auch die Tagesaufstellung der Reisekostenabrechnung wurde beim PDF-Upload nie erkannt; zusätzlich wird jetzt „gestellt“ und „nicht eingenommen“ getrennt gelesen',
+  'Verpflegung wird nicht mehr täglich abgefragt: Sie wird beim Hochladen der Trennungsgeldabrechnung automatisch aus deren Tagesaufstellung (U/GB/NE je Mahlzeit) in die Einträge geschrieben — der Bescheid hat Vorrang, die Übernahme lässt sich rückgängig machen',
+  'Korrektur: Die Tagesaufstellung der TG-Abrechnung wurde beim PDF-Upload bisher nie erkannt (0 Tage je Bescheid), weil der PDF-Text einzeilig ankommt — dadurch fehlten auch Verpflegungs- und Tagegeld-Abgleich in der CheckBox',
+  'Einmalig nach dem Update: Verpflegung aus allen bereits gespeicherten TG-Abrechnungen nachgetragen; Abrechnungen ohne PDF auf diesem Gerät bitte erneut hochladen',
+  'Speichern-Schritt: zeigt „Verpflegung aus TG-Abrechnung“ bzw. „folgt mit der TG-Abrechnung“; über „ändern“ im Ausnahmefall von Hand anpassbar',
   'Neu: Claude-Abgleich (Einstellungen) — liest Claude-Pakete mit neuen Belegen und Korrekturvorschlägen (z. B. Verpflegung laut Trennungsgeldabrechnung) ein; jeder Vorschlag per Häkchen übernehmen oder ablehnen, mit Rückgängig',
   'Neu: Tagesvorschlag — oben in der App steht für heute und für fehlende Werktage der letzten Woche ein Eintrag nach deinem gewohnten Muster (gleicher Wochentag) zum Übernehmen oder Anpassen; sonntags Erinnerung an das Backup für Claude',
   'Beleg-Abgleich (CheckBox, Zeiterfassungsblatt, Wizard) nutzt nur noch Dateien, die tatsächlich in der Belegablage liegen; gelöschte Belege werden gemerkt und tauchen auch nach einem Cloud-Abgleich nicht wieder auf; eine Betragsabweichung (z. B. Buskarte) verdeckt keinen fehlenden Beleg einer anderen Art (z. B. Flug) mehr; nach dem Löschen wird die Prüfung sofort aktualisiert',
@@ -1219,7 +1227,21 @@ const DRPKW=0.30; // Dienstreise PKW
    Gekuerzt wird nur, wenn die Mahlzeit gestellt UND eingenommen wurde; im
    Bescheid ist das die Spalte GB=1 bei NE=0. Steht NE, bleibt der volle Satz. */
 const TG_GRUND=14.00;
-const TG_ABZUG={'frühstück':0.43,'mittag':1.03,'abend':1.03};
+const TG_ABZUG={'frühstück':0.43,'mittag':1.03,'abend':1.03};   // Stand 2026 (Default)
+/* Kuerzungssaetze je Jahr, aus den Monatsabrechnungen abgeleitet:
+   2026: F 0,43 · M 1,03 · A 1,03 — 65× 12,97 / 2× 12,54 / 8× 11,51 (jeder Tag stimmt)
+   2025: M 1,20 — 113× 12,80 in allen Abrechnungen 2025. Frühstück/Abend kommen 2025
+         in keiner Abrechnung als eingenommen vor; dafür gelten bis zur Bestaetigung
+         die Werte von 2026 (siehe Aufgabenliste). Jahre vor 2025 → Saetze 2025. */
+const TG_ABZUG_JAHR={
+  '2025':{'frühstück':0.43,'mittag':1.20,'abend':1.03},
+  '2026':{'frühstück':0.43,'mittag':1.03,'abend':1.03}
+};
+function tgAbzugSatz(datum,m){
+  const y=String(datum||'').slice(0,4);
+  const t=TG_ABZUG_JAHR[y]||(y&&y<'2025'?TG_ABZUG_JAHR['2025']:TG_ABZUG_JAHR['2026']);
+  return t[m];
+}
 const VERPFL_MAHL=['frühstück','mittag','abend'];
 const VERPFL_LABEL={'frühstück':'Frühstück','mittag':'Mittagessen','abend':'Abendessen'};
 const VERPFL_ICON={'frühstück':'🥐','mittag':'🍽','abend':'🌙'};
@@ -1231,7 +1253,116 @@ function verpflStatus(e,m){
   return (e.verpflegungNE||'').split(',').includes(m)?'ne':'ja';
 }
 function verpflAbzug(e){
-  return VERPFL_MAHL.reduce((s,m)=>s+(verpflStatus(e,m)==='ja'?TG_ABZUG[m]:0),0);
+  return VERPFL_MAHL.reduce((s,m)=>s+(verpflStatus(e,m)==='ja'?tgAbzugSatz(e.date,m):0),0);
+}
+/* ═══ Verpflegung aus der TG-Abrechnung (ab v5.14) ═══════════════════════════
+   Die Verpflegung wird nicht mehr taeglich im Wizard abgefragt. Sie kommt aus der
+   Tagesaufstellung der Monatsabrechnung Trennungsgeld: je Mahlzeit U/GB = gestellt,
+   NE = nicht eingenommen. Beim Hochladen wird sie in die Eintraege geschrieben; der
+   Bescheid hat Vorrang vor Handeingaben. Die vorherigen Werte werden in
+   settings.verpflUndo gemerkt (letzter Lauf, rueckgaengig machbar). */
+const VERPFL_REISE=['DR','LG','ÜB','ES','EGV'];
+function tgVerpflWerte(d){
+  const g=[],ne=[];
+  [['frühstück','f'],['mittag','m'],['abend','a']].forEach(([m,k])=>{if(d[k+'Gestellt']){g.push(m);if(d[k+'NichtEing'])ne.push(m);}});
+  return{verpflegung:g.join(','),verpflegungNE:ne.join(',')};
+}
+/* Verpflegung eines Tages aus allen Bescheiden (TG + Reisekosten) zusammenfuehren:
+   gestellt, wenn ein Bescheid sie als gestellt fuehrt; nicht eingenommen nur, wenn
+   ALLE Bescheide, die sie als gestellt fuehren, NE angeben. */
+function bwVerpflTag(datum){
+  const src=[];
+  (state.settings.bwBescheide||[]).forEach(b=>{if(b.typ!=='TG'&&b.typ!=='RK')return;
+    (b.tage||[]).forEach(d=>{if(d.datum===datum&&d.fGestellt!==undefined)src.push({d,b});});});
+  if(!src.length)return null;
+  const g=[],ne=[];
+  [['frühstück','f'],['mittag','m'],['abend','a']].forEach(([m,k])=>{
+    const gs=src.filter(s=>s.d[k+'Gestellt']);
+    if(gs.length){g.push(m);if(gs.every(s=>s.d[k+'NichtEing']))ne.push(m);}});
+  return{verpflegung:g.join(','),verpflegungNE:ne.join(','),src,hatRK:src.some(s=>s.b.typ==='RK'),
+    quelle:[...new Set(src.map(s=>tgQuelle(s.b)))].join(' + ')};
+}
+function tgQuelle(b){return b.typ==='RK'?'Reisekostenabrechnung'+(b.nr?' Nr. '+b.nr:''):'TG-Abrechnung '+(b.periode||'')+(b.nr?' Nr. '+b.nr:'');}
+/* Darf der Bescheidwert den App-Wert ersetzen? Nein nur bei: TG-Reisetag ohne Mahlzeiten und
+   ohne Reisekostenabrechnung fuer den Tag (dann fehlt die Quelle fuer die Reiseverpflegung). */
+function bwVerpflAnwendbar(h,e,art){
+  if(!h)return false;
+  if(h.verpflegung||h.hatRK)return true;
+  return !(/^(DR|ZA|FO)$/.test(art||'')||VERPFL_REISE.includes(e.dayCode));
+}
+function tgVerpflAusBescheid(b){
+  const r={gesetzt:0,gleich:0,ohneEintrag:[],alt:{},leer:false};
+  if(!b||(b.typ!=='TG'&&b.typ!=='RK'))return r;
+  if(!Array.isArray(b.tage)||!b.tage.length){r.leer=true;return r;}
+  b.tage.forEach(d=>{
+    const e=state.entries.find(x=>x.date===d.datum);
+    if(!e){r.ohneEintrag.push(d.datum);return;}
+    const w=bwVerpflTag(d.datum);if(!w)return;
+    const q=w.quelle;
+    // TG-Reisetag ohne Mahlzeiten und ohne Reisekostenabrechnung: App-Wert bleiben lassen
+    if(!bwVerpflAnwendbar(w,e,d.art)){r.reise=(r.reise||0)+1;return;}
+    if((e.verpflegung||'')===w.verpflegung&&(e.verpflegungNE||'')===w.verpflegungNE){r.gleich++;e.verpflQuelle=q;return;}
+    r.alt[e.id]={verpflegung:e.verpflegung||'',verpflegungNE:e.verpflegungNE||'',verpflQuelle:e.verpflQuelle||''};
+    e.verpflegung=w.verpflegung;e.verpflegungNE=w.verpflegungNE;e.verpflQuelle=q;e.updated=Date.now();r.gesetzt++;
+  });
+  return r;
+}
+/* Nach jedem Bescheid-Import aufrufen; fasst mehrere Bescheide zu einem Lauf zusammen. */
+function tgVerpflNachImport(liste,still){
+  const tg=(liste||[]).filter(b=>b&&(b.typ==='TG'||b.typ==='RK'));if(!tg.length)return null;
+  const s={gesetzt:0,gleich:0,ohne:[],leer:[],alt:{}};
+  tg.forEach(b=>{const r=tgVerpflAusBescheid(b);s.gesetzt+=r.gesetzt;s.gleich+=r.gleich;s.ohne.push(...r.ohneEintrag);
+    if(r.leer)s.leer.push(b.periode||b.nr||'?');Object.keys(r.alt).forEach(id=>{if(!(id in s.alt))s.alt[id]=r.alt[id];});});
+  if(s.gesetzt)state.settings.verpflUndo={at:new Date().toISOString(),n:s.gesetzt,alt:s.alt};
+  persist();
+  if(!still){
+    if(s.leer.length)setTimeout(()=>toast('Bescheid '+s.leer.join(', ')+': Tagesaufstellung nicht erkannt – Verpflegung nicht übernommen','err'),900);
+    else toast('🍽 Verpflegung aus Bescheid: '+s.gesetzt+' Tag(e) eingetragen'+(s.gleich?', '+s.gleich+' bereits richtig':'')
+      +(s.ohne.length?', '+s.ohne.length+' Tag(e) ohne Eintrag (werden beim Anlegen gefüllt)':''),'ok');
+  }
+  if(typeof renderBwList==='function')renderBwList();
+  return s;
+}
+function tgVerpflUndo(){
+  const u=state.settings.verpflUndo;if(!u||!u.alt){toast('Nichts rückgängig zu machen');return;}
+  let n=0;Object.entries(u.alt).forEach(([id,v])=>{const e=state.entries.find(x=>x.id===id);if(e){Object.assign(e,v);e.updated=Date.now();n++;}});
+  delete state.settings.verpflUndo;persist();renderBwList();if(typeof renderOverview==='function')renderOverview();
+  toast('Verpflegung an '+n+' Tag(en) zurückgesetzt','ok');
+}
+/* Gespeicherte TG-Bescheide aus der Belegablage neu einlesen (Tagesaufstellung)
+   und die Verpflegung uebernehmen. Bescheide ohne PDF auf diesem Geraet werden
+   gezaehlt und gemeldet. */
+async function tgVerpflNeuEinlesen(still){
+  const l=(state.settings.bwBescheide||[]).filter(b=>b.typ==='TG'||b.typ==='RK');
+  const lbl=b=>(b.typ==='RK'?'RK ':'TG ')+(b.periode||'')+(b.typ==='RK'&&b.von?' ('+b.von.slice(8)+'.'+b.von.slice(5,7)+'.)':'');
+  let neu=0,ohnePdf=[],fehl=[];
+  for(const b of l){
+    if(Array.isArray(b.tage)&&b.tage.length&&b.tage[0].fGestellt!==undefined)continue;
+    if(!b.fileId){ohnePdf.push(lbl(b));continue;}
+    try{
+      const rec=await idbGetF(b.fileId);
+      if(!rec||!rec.blob){ohnePdf.push(lbl(b));continue;}
+      const f=new File([rec.blob],rec.name||b.dateiname||'tg.pdf',{type:'application/pdf'});
+      const p=parseBwBescheid(await window.extractPdfText(f));
+      if(p&&p.tage&&p.tage.length){b.tage=p.tage;neu++;}else fehl.push(lbl(b));
+    }catch(e){console.warn('Bescheid neu einlesen',b.periode,e);fehl.push(lbl(b));}
+  }
+  const s=tgVerpflNachImport(l.filter(b=>b.tage&&b.tage.length),true)||{gesetzt:0,gleich:0,ohne:[]};
+  s.neu=neu;s.ohnePdf=ohnePdf.sort();s.fehl=fehl.sort();
+  if(!still)toast('🍽 '+s.gesetzt+' Tag(e) Verpflegung aus TG-/Reisekostenabrechnungen eingetragen'+(s.ohnePdf.length?' · ohne PDF: '+s.ohnePdf.join(', ')+' – bitte erneut hochladen':''),s.ohnePdf.length?'err':'ok');
+  return s;
+}
+async function tgVerpflAutoNachholen(){
+  if(state.settings.migVerpflBw515)return;
+  if(!(state.settings.bwBescheide||[]).some(b=>b.typ==='TG'||b.typ==='RK'))return;
+  try{
+    const s=await tgVerpflNeuEinlesen(true);
+    const lesbar=(state.settings.bwBescheide||[]).filter(b=>(b.typ==='TG'||b.typ==='RK')&&b.tage&&b.tage.length).length;
+    if(!lesbar)return;              // z. B. PDF.js offline — beim naechsten Start erneut
+    state.settings.migVerpflBw515=true;persist();
+    toast('🍽 Update: Verpflegung aus '+lesbar+' Bescheid(en) übernommen – '+s.gesetzt+' Tag(e) geändert'
+      +(s.ohnePdf.length?' · ohne PDF: '+s.ohnePdf.join(', '):'')+'. Rückgängig unter Belege › Bescheide.','ok');
+  }catch(e){console.warn('Verpflegung nachholen',e);}
 }
 
 const DT={ // day types
@@ -1331,7 +1462,7 @@ let lastNom=0, folderHandle=null;
 function freshW(){return{costEnabled:true,useFahrt:true,useAufenthalt:false,
   date:todayISO(),dayCode:'AW',vorhaben:'',isFHF:false,presentNoWork:false,
   workStart:'',workEnd:'',workLocation:'',workLocation2:'',workLocation3:'',workNotes:'',
-  verpflegung:'',verpflegungNE:'',stayLocation:'',nachweis:'',bemerkung:'',zeActivity:'',zeActivity2:'',dayCode2:'',dual:false,
+  verpflegung:'',verpflegungNE:'',verpflQuelle:'',stayLocation:'',nachweis:'',bemerkung:'',zeActivity:'',zeActivity2:'',dayCode2:'',dual:false,
   segs:[],recIds:[],
 };}
 function freshSeg(){return{mode:'',fromLoc:'',toLoc:'',fromGeo:null,toGeo:null,
@@ -1392,7 +1523,11 @@ function firstL(s){if(!s)return'';const ls=(s||'').split(/[\n,]+/).map(x=>x.trim
 /* STEPS */
 function getSteps(code,code2){
   const dt=effDT(code,code2);
-  const vStep=dt.verpfl?[{id:'verpfl',l:'Verpflegung'}]:[];
+  // Verpflegung wird seit v5.14 an normalen Tagen nicht mehr abgefragt, sondern aus der
+  // TG-Abrechnung uebernommen (tgVerpflNachImport). Ausnahme: Dienstreise/Lehrgang/Uebung/
+  // Einsatz — dort steht die Verpflegung NICHT in der TG-Abrechnung, wird aber fuer die
+  // Abwesenheits-/Negativbescheinigung gebraucht. Korrektur sonst im Speichern-Schritt.
+  const vStep=[];   // v5.15: Reisetage bekommen die Verpflegung aus der Reisekostenabrechnung
   // noT = UR/WF/KR: Tagesart → Aufenthalt+Segmente → Verpflegung → Kosten → Speichern
   if(dt.noT){return[{id:'daytype',l:'Tagesart'},{id:'travel',l:'Aufenthalt & Fahrt'},...vStep,{id:'costs',l:'Allg. Kosten'},{id:'save',l:'Speichern'}];}
   // noW = DR/LG/ÜB/HF/RF: Tagesart → Fahrt+Segmente → Verpflegung → Kosten → Speichern
@@ -1432,6 +1567,7 @@ async function load(){
     const s=localStorage.getItem(SETK);if(s)state.settings=Object.assign(state.settings,JSON.parse(s));}catch(e){}}
   migrate();persist();
   bwRelinkDateien();
+  setTimeout(()=>tgVerpflAutoNachholen(),3000);
 }
 let pt=null;
 function persist(){
@@ -2135,7 +2271,7 @@ function buildWork(){
 function buildVerpflStep(){
   const stepNum=getSteps(wiz.dayCode,wiz.dayCode2).findIndex(s=>s.id==='verpfl')+1;
   return`<div class="wcard">
-    <div class="wcard-head"><h3>Schritt ${stepNum} · Verpflegung</h3><div class="sub">Unentgeltlich gestellte Mahlzeiten erfassen.</div></div>
+    <div class="wcard-head"><h3>Schritt ${stepNum} · Verpflegung</h3><div class="sub">Unentgeltlich gestellte Mahlzeiten während der Abwesenheit erfassen (stehen nicht in der TG-Abrechnung).</div></div>
     ${navBtns(true,true)}
     <div class="wbody">
       ${buildVerpfl()}
@@ -2163,7 +2299,7 @@ function buildVerpfl(){
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
         <span style="font-size:13px;font-weight:500">${VERPFL_ICON[m]} ${VERPFL_LABEL[m]}</span>
         <span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:${st==='ja'?'var(--warn)':'var(--muted)'}">
-          ${st==='ja'?'&minus;'+eur(TG_ABZUG[m])+' &euro;':(st==='ne'?'kein Abzug':'&mdash;')}</span>
+          ${st==='ja'?'&minus;'+eur(tgAbzugSatz(wiz.date,m))+' &euro;':(st==='ne'?'kein Abzug':'&mdash;')}</span>
       </div>
       <div style="display:flex;gap:4px">
         ${b('','nicht gestellt','var(--muted)','#fff')}
@@ -2193,6 +2329,8 @@ function setVerpfl(m,v){
   else if(v==='ne'){gb.push(m);ne.push(m);}
   wiz.verpflegung=VERPFL_MAHL.filter(x=>gb.includes(x)).join(',');
   wiz.verpflegungNE=VERPFL_MAHL.filter(x=>ne.includes(x)).join(',');
+  wiz.verpflQuelle='manuell';
+  const sz=document.getElementById('verpflSaveZeile');if(sz)sz.outerHTML=verpflSaveZeile(wiz);
   const el=document.getElementById('verpflCard');
   if(el)el.outerHTML=buildVerpfl();
 }
@@ -2583,6 +2721,23 @@ function buildTplChips(){
       <button class="btn-xs d" type="button" onclick="tplDelete('${t.id}')" title="Vorlage löschen">✕</button></span>`).join('')}</div>
   </div>`;
 }
+function verpflSaveZeile(w){
+  // Neuer Eintrag ohne Verpflegung: liegt fuer den Tag schon eine TG-Abrechnung vor, gleich uebernehmen
+  if(!w.verpflegung&&!w.verpflegungNE&&w.verpflQuelle!=='manuell'){
+    const h=bwVerpflTag(w.date);
+    if(bwVerpflAnwendbar(h,w,'')){w.verpflegung=h.verpflegung;w.verpflegungNE=h.verpflegungNE;w.verpflQuelle=h.quelle;}
+  }
+  const txt=VERPFL_MAHL.filter(m=>verpflStatus(w,m)!=='').map(m=>VERPFL_LABEL[m]+(verpflStatus(w,m)==='ne'?' (nicht eingenommen)':'')).join(', ');
+  const tg=verpflAbzug(w)>0?` &middot; TG ${(TG_GRUND-verpflAbzug(w)).toFixed(2).replace('.',',')} &euro;`:'';
+  const q=w.verpflQuelle&&w.verpflQuelle!=='manuell'?esc(w.verpflQuelle):(w.verpflQuelle==='manuell'?'von Hand':'');
+  const inhalt=txt?esc(txt)+tg:(q?'keine gestellt':'<span style="color:var(--muted)">folgt mit der TG- bzw. Reisekostenabrechnung</span>');
+  return`<div id="verpflSaveZeile"><b style="color:var(--navy)">Verpflegung:</b> ${inhalt}${q?` <span style="font-size:11px;color:var(--muted)">(${q})</span>`:''}
+    <a href="#" onclick="verpflManuell();return false" style="font-size:11px;margin-left:6px">ändern</a></div>`;
+}
+function verpflManuell(){
+  const host=document.getElementById('verpflEditHost');if(!host)return;
+  host.innerHTML=buildVerpfl()+'<div style="font-size:10.5px;color:var(--muted);margin-top:4px">Nur für Ausnahmen. Beim nächsten Hochladen einer TG- oder Reisekostenabrechnung für diesen Tag wird der Wert aus dem Bescheid übernommen.</div>';
+}
 function buildSave(){
   const w=wiz;const dt=DT[w.dayCode]||{n:'—'};
   const ttlCur={};
@@ -2609,9 +2764,10 @@ function buildSave(){
         ${segsStr!=='—'?`<div><b style="color:var(--navy)">Reisemittel:</b> <span style="line-height:1.7">${segsStr}</span></div>`:''}
         ${costs!=='—'?`<div><b style="color:var(--navy)">Kosten:</b> ${esc(costs)}</div>`:''}
 
-        ${w.verpflegung?`<div><b style="color:var(--navy)">Verpflegung:</b> ${esc(VERPFL_MAHL.filter(m=>verpflStatus(w,m)!=='').map(m=>VERPFL_LABEL[m]+(verpflStatus(w,m)==='ne'?' (nicht eingenommen)':'')).join(', '))}${verpflAbzug(w)>0?` &middot; TG ${(TG_GRUND-verpflAbzug(w)).toFixed(2).replace('.',',')} &euro;`:''}</div>`:''}
+        ${verpflSaveZeile(w)}
         ${w.workNotes?`<div style="color:var(--muted)"><b>Bemerkung:</b> ${esc(w.workNotes)}</div>`:''}
       </div>
+      <div id="verpflEditHost"></div>
       ${(()=>{const ws=plausiWarnings(w);return ws.length?`<div style="margin-top:12px;padding:10px 12px;background:#fffdf5;border:1px solid var(--warn);border-radius:10px;font-size:12px">
         <div style="font-weight:700;color:#8D6E00;margin-bottom:4px">&#9888;&#65039; Bitte prüfen (${ws.length})</div>
         ${ws.map(x=>`<div style="padding:2px 0">• ${esc(x)}</div>`).join('')}
@@ -2807,6 +2963,9 @@ function saveEntry(){
     if(state.entries.some(e=>e.date===d&&e.id!==entry.id)){uebersprungen++;return;}
     const clone=JSON.parse(JSON.stringify(entry));
     clone.id=uid();clone.date=d;clone.created=Date.now();clone.updated=Date.now();
+    // Verpflegung nicht kopieren — sie kommt je Tag aus der TG-Abrechnung
+    clone.verpflegung='';clone.verpflegungNE='';clone.verpflQuelle='';
+    {const h=bwVerpflTag(d);if(bwVerpflAnwendbar(h,clone,'')){clone.verpflegung=h.verpflegung;clone.verpflegungNE=h.verpflegungNE;clone.verpflQuelle=h.quelle;}}
     state.entries.push(clone);angelegt++;
   });
   editId=null;persist();renderCal();
@@ -3292,7 +3451,10 @@ function parseBwBescheid(txt){
     if(tgz){o.tagegeld=bwNum(tgz[1]);o.tgSteuerfrei=bwNum(tgz[2]);o.tgStpfl=bwNum(tgz[3]);}
     // Tagesaufstellung: Datum, Art, unentgeltliche Verpflegung, Tagegeldbetrag
     o.tage=[];
-    const reT=/^(\d{2}\.\d{2}\.\d{2})\s+(?:\u00a7\s*3\s*\(2\)\s*)?(DR|FH)?\s*((?:\d+\s+){9})(\d)\s+(\d)\s+([\d.,]+)\s+([\d.,]+)/gm;
+    // Nicht zeilenverankert: extractPdfText() liefert je Seite EINE Zeile (PDF.js-Stuecke mit
+    // Leerzeichen verkettet). Das alte ^…/m traf deshalb nie — alle hochgeladenen TG-Bescheide
+    // hatten tage:[] (Befund 13.10.2026). Je Mahlzeit stehen genau drei 0/1-Spalten.
+    const reT=/(?:^|\s)(\d{2}\.\d{2}\.\d{2})\s+(?:\u00a7\s*3\s*\(2\)\s*)?([A-Z]{1,2})?\s*((?:[01]\s+){9})(\d)\s+(\d)\s+([\d.,]+)\s+([\d.,]+)/gm;
     while((m=reT.exec(t))){
       const v=m[3].trim().split(/\s+/).map(Number);
       // Je Mahlzeit drei Spalten: U (unentgeltlich), GB (bereitgestellt),
@@ -3309,6 +3471,7 @@ function parseBwBescheid(txt){
         tagGanz:Number(m[4])>0,
         tg:bwNum(m[7])});
     }
+    { const seen={};o.tage=o.tage.filter(d=>d.datum&&!seen[d.datum]&&(seen[d.datum]=1)); }
     const fk=/Fahrkosten aus Familienheimfahrten\s+([\d.,]+)\s+([\d.,]+)\s+([-\d.,]+)/.exec(t);
     if(fk){o.fahrkosten=bwNum(fk[1]);o.fkSteuerfrei=bwNum(fk[2]);o.fkStpfl=bwNum(fk[3]);}
     o.gesamt=bwNum(g(/festgesetzt auf\s+([\d.,]+)/));
@@ -3398,14 +3561,19 @@ function parseBwBescheid(txt){
     o.tagegeld=(o.auslandstagegeld||0)+(o.inlandstagegeld||0);
     // Tagesaufstellung mit Mahlzeiten, Abwesenheitsdauer und Einbehalt
     o.tage=[];let ein=0;
-    const reD=/^(\d{2}\.\d{2}\.\d{2})\s+((?:\d+\s+){10,11})(\d)\s+(\d)\s+(\d{1,2}:\d{2})\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/gm;
+    // Spalten: Morgens U GB NE · Mittags U GB NE K · Abends U GB NE · Tag ganz · Nacht · Aufw. · Std.
+    // Nicht zeilenverankert (PDF.js liefert eine Zeile je Seite), Flags nur 0/1.
+    const reD=/(?:^|\s)(\d{2}\.\d{2}\.\d{2})\s+((?:[01]\s+){10})(\d+)\s+(\d+)\s+\d+\s+(\d{1,2}:\d{2})\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/gm;
     while((m=reD.exec(t))){
       const v=m[2].trim().split(/\s+/).map(Number);
       const eb=bwNum(m[8]);ein+=eb;
       o.tage.push({datum:bwDate(m[1]),art:'DR',
-        fruehstueck:(v[0]+v[1]+v[2])>0,
-        mittag:(v[3]+v[4]+v[5]+(v[6]||0))>0,
-        abend:(v[7]+v[8]+v[9])>0,
+        fGestellt:(v[0]+v[1])>0,fNichtEing:v[2]>0,
+        mGestellt:(v[3]+v[4]+v[6])>0,mNichtEing:v[5]>0,
+        aGestellt:(v[7]+v[8])>0,aNichtEing:v[9]>0,
+        fruehstueck:(v[0]+v[1])>0&&!v[2],
+        mittag:(v[3]+v[4]+v[6])>0&&!v[5],
+        abend:(v[7]+v[8])>0&&!v[9],
         dauer:m[5],tg:bwNum(m[6]),einbehalt:eb});
     }
     o.einbehalt=ein;
@@ -3426,6 +3594,60 @@ function parseBwBescheid(txt){
 /* Reiseziel endet vor „Beginn Dienstg.“ — PDF-Texte kommen oft ohne Zeilenumbruch */
 function bwZielClean(z){return String(z||'').split(/\s+Beginn\s+Dienstg/i)[0].replace(/\s+/g,' ').trim();}
 function bwList(){if(!Array.isArray(state.settings.bwBescheide))state.settings.bwBescheide=[];return state.settings.bwBescheide;}
+/* ═══ Bescheide ersetzen statt doppeln (v5.16) ═══════════════════════════════
+   Derselbe Bescheid liegt vor bei gleicher Art UND (gleicher Nummer ODER
+   TG: gleicher Abrechnungsmonat ODER RK: gleiche Reise von–bis).
+   Der neue ersetzt den alten; die PDF des alten wird geloescht (inkl. Cloud-
+   Loeschmerker). Ist der neue nachweislich aelter (Erstelldatum), bleibt der
+   vorhandene und die gerade hochgeladene Datei wird wieder entfernt. */
+function bwVorhanden(b){
+  if(!b)return[];
+  return bwList().filter(x=>x!==b&&x.typ===b.typ&&(
+    (x.nr&&x.nr===b.nr)||
+    (b.typ==='TG'&&x.periode&&x.periode===b.periode)||
+    (b.typ==='RK'&&x.von&&x.von===b.von&&(x.bis||x.von)===(b.bis||b.von)
+      &&(!x.dienstVonZeit||!b.dienstVonZeit||x.dienstVonZeit===b.dienstVonZeit))));
+}
+function bwAelterAls(b,alt){return !!(b.erstellt&&alt.some(x=>x.erstellt&&x.erstellt>b.erstellt));}
+function bwVorhandenHinweis(b){
+  const alt=bwVorhanden(b);if(!alt.length)return'';
+  const d=s=>s?s.slice(8,10)+'.'+s.slice(5,7)+'.'+s.slice(2,4):'?';
+  const liste=alt.map(x=>'Nr. '+esc(x.nr||'?')+' (erstellt '+d(x.erstellt)+')').join(', ');
+  return bwAelterAls(b,alt)
+    ?'<div style="font-size:11px;color:var(--err);margin-bottom:7px">⚠ Dieser Bescheid ist älter als der vorhandene '+liste+' und wird nicht übernommen.</div>'
+    :'<div style="font-size:11px;color:var(--warn);margin-bottom:7px">⚠ Ersetzt den vorhandenen Bescheid '+liste+' – dessen PDF wird gelöscht.</div>';
+}
+async function bwAlteDateiLoeschen(id){
+  if(!id)return;
+  try{await idbDelF(id);}catch(e){}
+  if(typeof belegAlsGeloeschtMerken==='function')belegAlsGeloeschtMerken([id]);
+  if(ablageIds)ablageIds.delete(id);
+  const mb=state.settings.mbReceipts||{};
+  Object.keys(mb).forEach(k=>{mb[k]=(mb[k]||[]).filter(r=>(r&&typeof r==='object'?r.id:r)!==id);});
+}
+/* Traegt b ein. Rueckgabe: {status:'neu'|'ersetzt'|'aelter', alt:[…]} */
+async function bwBescheidEinfuegen(b){
+  const l=bwList();const alt=bwVorhanden(b);
+  if(alt.length&&bwAelterAls(b,alt)){
+    if(b.fileId&&!alt.some(x=>x.fileId===b.fileId))await bwAlteDateiLoeschen(b.fileId);
+    return{status:'aelter',alt};
+  }
+  for(const x of alt){
+    // Gleicher Bescheid ohne neue PDF (z. B. Text eingefuegt): vorhandene PDF weiter nutzen
+    if(!b.fileId&&x.fileId&&x.nr===b.nr){b.fileId=x.fileId;b.dateiname=b.dateiname||x.dateiname;}
+    else if(x.fileId&&x.fileId!==b.fileId)await bwAlteDateiLoeschen(x.fileId);
+    const i=l.indexOf(x);if(i>=0)l.splice(i,1);
+  }
+  l.push(b);
+  return{status:alt.length?'ersetzt':'neu',alt};
+}
+function bwEinfuegenText(b,r){
+  if(r.status==='aelter')return b.typ+' Nr. '+(b.nr||'?')+' nicht übernommen – vorhandener Bescheid Nr. '+r.alt.map(x=>x.nr).join(', ')+' ist neuer';
+  if(r.status==='ersetzt')return r.alt.every(x=>x.nr===b.nr)
+    ?b.typ+' Nr. '+(b.nr||'?')+' erneut hochgeladen – vorhandene Fassung ersetzt, alte PDF gelöscht'
+    :b.typ+' Nr. '+(b.nr||'?')+' ersetzt Nr. '+r.alt.map(x=>x.nr).join(', ')+' (alte PDF gelöscht)';
+  return 'Übernommen: '+b.typ+' Nr. '+(b.nr||'?');
+}
 /* ═══ Prüfbefunde im Zeiterfassungsblatt ═══
    Nach „Prüfen“ (oder der CheckBox in der Übersicht) werden Tage mit Befunden rot markiert.
    Klick auf das Datum öffnet die Befunde des Tages; „Beheben“ springt in den passenden
@@ -3464,7 +3686,7 @@ function cbStepFor(f,e){
   const steps=getSteps(e.dayCode,e.dayCode2).map(s=>s.id);const c=f.cat,m=f.msg||'';
   let want='travel';
   if(c==='Struktur')want='daytype';
-  else if(/Mahlzeit|Verpflegung/i.test(m))want='verpfl';
+  else if(/Mahlzeit|Verpflegung/i.test(m))want=steps.includes('verpfl')?'verpfl':'save';
   else if(['Arbeitszeit','Zulagen','Dienstort','Arbeitsstätte','Vollständigkeit'].includes(c))want='work';
   else if(c==='Bw-Abgleich'&&/Reiseziel|Dienstort|Ort „/.test(m))want='work';
   let i=steps.indexOf(want);if(i<0)i=steps.indexOf(want==='work'?'daytype':'travel');
@@ -3596,7 +3818,7 @@ async function cpBelegeImport(){
   const bl=CP.data.belege||[];if(!bl.length)return;
   if(!state.settings.mbReceipts)state.settings.mbReceipts={};
   if(!state.settings.mbReceipts['unassigned'])state.settings.mbReceipts['unassigned']=[];
-  const mb=state.settings.mbReceipts['unassigned'];let neu=0,da=0,bw=0;
+  const mb=state.settings.mbReceipts['unassigned'];let neu=0,da=0,bw=0;const tgCp=[];
   for(const b of bl){
     try{
       const dup=mb.some(x=>x&&typeof x==='object'&&x.dateiname===b.dateiname&&inAblage(x.id));
@@ -3608,12 +3830,13 @@ async function cpBelegeImport(){
       const monat=b.datum?b.datum.slice(0,7):(daten&&daten.periode)||null;
       const id=await storeOriginalFile(file,{prefix:(isBw?b.typ.toLowerCase():'beleg')+'_import',monat,typ:isBw?b.typ:'BELEG',belegart:b.belegart,datum:b.datum||null,
         betrag:isBw?(daten&&daten.gesamt):(b.gesamtkosten!=null?b.gesamtkosten:null)});
-      if(daten){daten.fileId=id;daten.dateiname=b.dateiname;daten.belegart=b.belegart;const l=bwList();const ix=l.findIndex(x=>x.id===daten.id);if(ix<0)l.push(daten);else l[ix]=daten;bw++;}
+      if(daten){daten.fileId=id;daten.dateiname=b.dateiname;daten.belegart=b.belegart;const r=await bwBescheidEinfuegen(daten);if(r.status!=='aelter'){bw++;tgCp.push(daten);}}
       else mb.push({id,dateiname:b.dateiname,belegart:b.belegart,datum:b.datum||null,gesamtkosten:b.gesamtkosten!=null?b.gesamtkosten:null});
       if(ablageIds)ablageIds.add(id);neu++;
     }catch(e){console.error('Claude-Beleg',e);}
   }
   CP.data.belegeImportiert=true;
+  if(tgCp.length)setTimeout(()=>tgVerpflNachImport(tgCp),1500);
   persist();if(typeof scheduleCloudPush==='function')scheduleCloudPush();
   if(typeof renderBelegeablage==='function')renderBelegeablage();renderCp();
   toast(neu+' Belege übernommen'+(bw?' (davon '+bw+' Bescheide)':'')+(da?', '+da+' schon vorhanden':''),'ok');
@@ -3690,7 +3913,7 @@ function tvVorschlag(iso){
 function tvEntry(v){
   const w=freshW();w.date=v.date;w.dayCode=v.dayCode;
   const t=v.vorlage;
-  if(t){['workLocation','workLocation2','workLocation3','stayLocation','useFahrt','useAufenthalt','costEnabled','verpflegung','verpflegungNE','zeActivity','nachweis'].forEach(k=>{if(t[k]!==undefined)w[k]=JSON.parse(JSON.stringify(t[k]));});
+  if(t){['workLocation','workLocation2','workLocation3','stayLocation','useFahrt','useAufenthalt','costEnabled','zeActivity','nachweis'].forEach(k=>{if(t[k]!==undefined)w[k]=JSON.parse(JSON.stringify(t[k]));});
     w.segs=(t.segs||[]).map(s=>{const x=Object.assign(freshSeg(),JSON.parse(JSON.stringify(s)));x.recIds=[];if(!istDTicket(x)){x.costAmt='';}return x;});}
   if(v.workStart){w.workStart=v.workStart;w.workEnd=v.workEnd;}
   if(['HF','RF','BF'].includes(v.dayCode))w.segs=[];   // Heimfahrten nicht blind kopieren
@@ -3782,8 +4005,8 @@ function ntApplyAllSafe(){
 function ntSetPend(v){NT.pend=v;renderNt();}
 function ntBescheide(){
   const l=bwList();let neu=0,upd=0;
-  (NT.data.bescheide||[]).forEach(b=>{const i=l.findIndex(x=>x.id===b.id);if(i<0){l.push(b);neu++;}else upd++;});
-  persist();renderNt();toast(neu+' Bescheide neu übernommen'+(upd?' ('+upd+' bereits vorhanden)':''),'ok');
+  const tgNt=[];(NT.data.bescheide||[]).forEach(b=>{const i=l.findIndex(x=>x.id===b.id);if(i<0){l.push(b);neu++;tgNt.push(b);}else upd++;});
+  persist();if(tgNt.length)setTimeout(()=>tgVerpflNachImport(tgNt),1200);renderNt();toast(neu+' Bescheide neu übernommen'+(upd?' ('+upd+' bereits vorhanden)':''),'ok');
 }
 async function ntCalcKm(){
   if(NT.busy)return;
@@ -3905,7 +4128,7 @@ function bwAnalyse(){
   const b=parseBwBescheid(txt);
   if(!b){el.innerHTML='<div style="font-size:12px;color:var(--err)">\u2715 Kein Trennungsgeld- oder Reisekostenbescheid erkannt. Wurde der komplette Text kopiert?</div>';return;}
   _bwPend=b;
-  const vorh=bwList().find(x=>x.id===b.id);
+  const vorh=bwVorhanden(b)[0];
   const e=v=>(v||0).toLocaleString('de-DE',{minimumFractionDigits:2});
   const kachel=(n,l,farbe,bg)=>`<div style="flex:1;min-width:88px;background:${bg};border-radius:8px;padding:8px;text-align:center">
     <div style="font-size:15px;font-weight:800;color:${farbe}">${n}</div>
@@ -3941,27 +4164,27 @@ function bwAnalyse(){
     <div style="display:flex;gap:7px;margin-bottom:9px;flex-wrap:wrap">
       ${kachel(b.typ==='TG'?'Trennungsgeld':'Reisekosten','Bescheidart','var(--navy)','var(--lsoft)')}
       ${kachel(esc(b.nr),'Nummer','var(--navy)','var(--lsoft)')}
-      ${kachel(vorh?'Update':'Neu',vorh?'ersetzt vorhandenen':'noch nicht erfasst',vorh?'var(--warn)':'var(--ok)',vorh?'#fffdf5':'var(--oks)')}
+      ${kachel(vorh?'Ersetzt':'Neu',vorh?'Nr. '+esc(vorh.nr||'?'):'noch nicht erfasst',vorh?'var(--warn)':'var(--ok)',vorh?'#fffdf5':'var(--oks)')}
     </div>
-    ${vorh?'<div style="font-size:11px;color:var(--warn);margin-bottom:7px">\u26a0 Bescheid Nr. '+esc(b.nr)+' ist bereits erfasst und wird \u00fcberschrieben.</div>':''}
+    ${bwVorhandenHinweis(b)}
     <div style="border:1px solid var(--line);border-radius:8px;padding:9px 11px">${rows}${kmBlock}${stBlock}</div>
-    <button class="btn" style="width:100%;margin-top:9px" onclick="bwUebernehmen()">\u2713 ${vorh?'Bescheid aktualisieren':'Bescheid \u00fcbernehmen'}</button>`;
+    <button class="btn" style="width:100%;margin-top:9px" onclick="bwUebernehmen()">\u2713 ${vorh?'Bescheid ersetzen':'Bescheid \u00fcbernehmen'}</button>`;
 }
-function bwUebernehmen(){
+async function bwUebernehmen(){
   if(!_bwPend){toast('Bitte zuerst analysieren','err');return;}
   const b=_bwPend;
-  const l=bwList();
-  const ix=l.findIndex(x=>x.id===b.id);
-  const neu=ix<0;
-  if(neu)l.push(b);else l[ix]=b;
+  const r=await bwBescheidEinfuegen(b);
+  const neu=r.status==='neu';
   persist();
+  if(r.status==='aelter'){toast(bwEinfuegenText(b,r),'err');_bwPend=null;return;}
+  tgVerpflNachImport([b]);
   _bwPend=null;
   document.getElementById('bwPaste').value='';
   document.getElementById('bwPreview').innerHTML=
     '<div style="background:var(--oks);border:1px solid var(--ok);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--ok);font-weight:600">\u2713 '
-    +(neu?'\u00dcbernommen':'Aktualisiert')+': '+b.typ+' Nr. '+esc(b.nr)+'</div>';
-  renderBwList();renderOverview();
-  toast(neu?'Bescheid \u00fcbernommen':'Bescheid aktualisiert','ok');
+    +esc(bwEinfuegenText(b,r))+'</div>';
+  renderBwList();renderOverview();if(window.renderBelegeablage)window.renderBelegeablage();
+  toast(neu?'Bescheid \u00fcbernommen':'Bescheid ersetzt, alte PDF gelöscht','ok');
 }
 /* Auf-/Zuklapp-Zustand der Belegeablage-Box — rein UI-seitig (keine Persistierung),
    Standard offen wie bisher, damit sich nach dem Update nichts unerwartet versteckt. */
@@ -3996,7 +4219,12 @@ function renderBwList(){
       <span style="font-weight:600;white-space:nowrap">${e(b.gesamt)} €</span>
       <button class="btn-xs" onclick="delBwBescheid('${b.id}')">✕</button>
     </div>`).join('');
-  el.innerHTML=kopf+`<div id="beleg_bescheide_body" style="display:${belegCollapse.bescheide?'block':'none'}">${inhalt}</div>`;
+  const u=state.settings.verpflUndo;
+  const verpflBar=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+      <button class="btn-xs" onclick="tgVerpflNeuEinlesen()">🍽 Verpflegung aus TG-Abrechnungen übernehmen</button>
+      ${u&&u.alt?`<button class="btn-xs" onclick="tgVerpflUndo()">↶ Letzte Verpflegungs-Übernahme rückgängig (${u.n} Tag${u.n===1?'':'e'})</button>`:''}
+    </div>`;
+  el.innerHTML=kopf+`<div id="beleg_bescheide_body" style="display:${belegCollapse.bescheide?'block':'none'}">${inhalt}${verpflBar}</div>`;
 }
 function delBwBescheid(id){
   showModal('Bescheid entfernen?','Der eingelesene Bescheid wird gelöscht.',()=>{
@@ -4969,12 +5197,14 @@ function checkBoxAnalyze(){
           const e=ents.find(x=>x.date===d.datum);
           if(!e){add('warn','Bw-Abgleich','Bescheid '+b.periode+' führt den '+dstr(d.datum)+' auf, in der App fehlt der Eintrag',d.datum,'');return;}
           // Art abgleichen
-          if(d.art==='FH'&&!['HF','RF'].includes(e.dayCode))
+          if(d.art==='FH'&&['AW','DR','LG','ÜB','ES','EGV'].includes(e.dayCode))   // FH markiert die ganze Heimfahrt-Zeit; WF/UR/WFH dazwischen sind korrekt
             add('info','Bw-Abgleich',dstr(d.datum)+': Bescheid weist Familienheimfahrt aus, App hat Code '+e.dayCode,d.datum,e.id);
           if(d.art==='DR'&&!['DR','LG','ÜB','ES','EGV'].includes(e.dayCode))
             add('info','Bw-Abgleich',dstr(d.datum)+': Bescheid weist Dienstreise aus, App hat Code '+e.dayCode,d.datum,e.id);
           // Verpflegung je Mahlzeit abgleichen — verglichen wird, was tatsaechlich
           // eingenommen wurde, denn nur das kuerzt das Trennungstagegeld.
+          const reiseOhne=(!(d.fGestellt||d.mGestellt||d.aGestellt)&&(/^(DR|ZA|FO)$/.test(d.art||'')||VERPFL_REISE.includes(e.dayCode)))
+            ||bwList().some(x=>x.typ==='RK'&&(x.tage||[]).some(t=>t.datum===d.datum&&t.fGestellt!==undefined));   // Reisetag: RK-Bescheid ist massgeblich
           const bEing={'frühstück':!!d.fruehstueck,'mittag':!!d.mittag,'abend':!!d.abend};
           const bGest={'frühstück':!!d.fGestellt,'mittag':!!d.mGestellt,'abend':!!d.aGestellt};
           const stTxt={'':'nicht gestellt',ja:'gegessen',ne:'nicht gegessen'};
@@ -4985,7 +5215,7 @@ function checkBoxAnalyze(){
               abw.push(VERPFL_LABEL[m]+' (Bescheid: '+(bEing[m]?'gegessen':bGest[m]?'nicht gegessen':'nicht gestellt')
                 +', App: '+stTxt[aSt]+')');
           });
-          if(abw.length){
+          if(abw.length&&!reiseOhne){
             const leer=!(e.verpflegung||'');
             add(leer?'warn':'info','Bw-Abgleich',dstr(d.datum)+': Verpflegung weicht ab — '+abw.join(', '),d.datum,e.id);
           }
@@ -5030,7 +5260,7 @@ function checkBoxAnalyze(){
         // Mahlzeiten
         (b.tage||[]).forEach(d=>{
           const e=ents.find(x=>x.date===d.datum);if(!e)return;
-          const bV=[d.fruehstueck&&'Frühstück',d.mittag&&'Mittag',d.abend&&'Abend'].filter(Boolean);
+          const bV=[(d.fGestellt??d.fruehstueck)&&'Frühstück',(d.mGestellt??d.mittag)&&'Mittag',(d.aGestellt??d.abend)&&'Abend'].filter(Boolean);
           const aV=(e.verpflegung||'').toLowerCase();
           if(bV.length&&(aV===''||aV==='keine'||aV==='nein'))
             add('warn','Bw-Abgleich',dstr(d.datum)+': Reisekostenbescheid weist gestellte Mahlzeiten aus ('
@@ -8567,7 +8797,7 @@ function calcTG(yr,mo){
       if(!z.anspruch)return'<td style="padding:2px 5px;border:1px solid #eee;text-align:center;color:var(--muted)">&middot;</td>';
       const st=verpflStatus(z.e,m);
       const wirkt=st==='ja'&&!z.reisetag;
-      const txt=wirkt?'&minus;'+eur(TG_ABZUG[m]):st===''?'&mdash;':(z.reisetag?'ohne Abzug':'n. eing.');
+      const txt=wirkt?'&minus;'+eur(tgAbzugSatz(z.e.date,m)):st===''?'&mdash;':(z.reisetag?'ohne Abzug':'n. eing.');
       const col=wirkt?'var(--warn)':st===''?'var(--muted)':'var(--ok)';
       return'<td style="padding:2px 5px;border:1px solid #eee;text-align:center;font-size:9.5px;color:'+col+';font-weight:'+(wirkt?'600':'400')+'">'+txt+'</td>';
     };
@@ -8594,7 +8824,7 @@ function calcTG(yr,mo){
   html+=tgBescheidAbgleich(yr,mo,zeilen,summe);
   // Hinweis auf nicht erfasste Tage
   const offen=anspruchsTage-erfasst;
-  if(offen>0)html+='<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:6px 10px;font-size:11px;color:#856404;margin-top:6px"><b>Hinweis:</b> An '+offen+' Anspruchstag(en) ist keine Verpflegung erfasst &ndash; diese Tage rechnen mit dem vollen Satz. Die Angabe steht im Wizard unter <i>Arbeitszeit &rarr; Unentgeltliche Verpflegung</i>.</div>';
+  if(offen>0)html+='<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:6px 10px;font-size:11px;color:#856404;margin-top:6px"><b>Hinweis:</b> An '+offen+' Anspruchstag(en) ist keine Verpflegung erfasst &ndash; diese Tage rechnen mit dem vollen Satz. Sie wird beim Hochladen der TG-Abrechnung des Monats automatisch eingetragen (Belege &rsaquo; Ablage).</div>';
 
   html+='<div style="font-size:9px;color:var(--muted);margin-top:8px">Sätze aus den Monatsabrechnungen 1&ndash;7/2026 abgeleitet: Grundbetrag 14,00 &middot; Frühstück &minus;0,43 &middot; Mittag &minus;1,03 &middot; Abend &minus;1,03 EUR. Gekürzt wird nur, was gestellt <b>und</b> eingenommen wurde. Steuerpflichtig (kein §3b EStG).</div>';
 
@@ -10000,7 +10230,7 @@ window.renderImportPreview = function() {
     // Detaillierte Preview für erfolgreich geparste Bescheide (TG/RK)
     if (imp.daten && (imp.typ === 'TG' || imp.typ === 'RK')) {
       const b = imp.daten;
-      const vorh = bwList().find(x => x.id === b.id);
+      const vorh = bwVorhanden(b)[0];
       let rows = '';
 
       if (b.typ === 'TG') {
@@ -10032,9 +10262,9 @@ window.renderImportPreview = function() {
         <div style="display:flex;gap:7px;margin-bottom:9px;flex-wrap:wrap">
           ${kachel(b.typ==='TG'?'Trennungsgeld':'Reisekosten','Bescheidart','var(--navy)','var(--lsoft)')}
           ${kachel(esc(b.nr),'Nummer','var(--navy)','var(--lsoft)')}
-          ${kachel(vorh?'Update':'Neu',vorh?'ersetzt vorhandenen':'noch nicht erfasst',vorh?'var(--warn)':'var(--ok)',vorh?'#fffdf5':'var(--oks)')}
+          ${kachel(vorh?'Ersetzt':'Neu',vorh?'Nr. '+esc(vorh.nr||'?'):'noch nicht erfasst',vorh?'var(--warn)':'var(--ok)',vorh?'#fffdf5':'var(--oks)')}
         </div>
-        ${vorh?'<div style="font-size:11px;color:var(--warn);margin-bottom:7px">⚠ Bescheid Nr. '+esc(b.nr)+' ist bereits erfasst und wird überschrieben.</div>':''}
+        ${bwVorhandenHinweis(b)}
         <div style="border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:var(--card)">${rows}${kmBlock}${stBlock}</div>
         <div style="display:flex;gap:8px;margin-top:9px">
           <button class="btn" style="flex:1" onclick="window.confirmSingleImport('${imp.id}')">✓ Übernehmen</button>
@@ -10129,17 +10359,14 @@ window.confirmSingleImport = async function(impId) {
       imp.daten.fileId = id;
       imp.daten.dateiname = imp.dateiname;
       imp.daten.belegart = imp.belegart;
-      const l = bwList();
-      const ix = l.findIndex(x => x.id === imp.daten.id);
-      const neu = ix < 0;
-      if (neu) l.push(imp.daten);
-      else l[ix] = imp.daten;
+      const r = await bwBescheidEinfuegen(imp.daten);
       persist();
+      if (r.status !== 'aelter') tgVerpflNachImport([imp.daten]);
       scheduleCloudPush();
       window.hideProgressBar();
       pendingImports = pendingImports.filter(x => x.id !== impId);
       window.renderImportPreview();
-      toast((neu ? 'Übernommen' : 'Aktualisiert') + ': ' + imp.daten.typ + ' Nr. ' + (imp.daten.nr || imp.daten.id), 'ok');
+      toast(bwEinfuegenText(imp.daten, r), r.status === 'aelter' ? 'err' : 'ok');
       renderBwList();
       renderOverview();
       window.renderBelegeablage();
@@ -10173,6 +10400,8 @@ window.confirmImports = async function() {
   if (!pendingImports.length) return;
   window.showProgressBar();
   const imported = [];
+  const tgNeu = [];
+  const bwMeld = [];
   for (let i = 0; i < pendingImports.length; i++) {
     const imp = pendingImports[i];
     window.updateProgressBar(i, pendingImports.length);
@@ -10194,10 +10423,9 @@ window.confirmImports = async function() {
         imp.daten.fileId = id;
         imp.daten.dateiname = imp.dateiname;
         imp.daten.belegart = imp.belegart;
-        const l = bwList();
-        const ix = l.findIndex(x => x.id === imp.daten.id);
-        if (ix < 0) l.push(imp.daten);
-        else l[ix] = imp.daten;
+        const r = await bwBescheidEinfuegen(imp.daten);
+        if (r.status !== 'aelter') tgNeu.push(imp.daten);
+        if (r.status !== 'neu') bwMeld.push(bwEinfuegenText(imp.daten, r));
       } else {
         // Deckt auch den Fall ab, dass ein PDF per Stichwort als 'TG'/'RK' erkannt wurde
         // (z. B. weil der Text "tg"/"rk" enthält), aber parseBwBescheid() daraus keinen
@@ -10227,6 +10455,8 @@ window.confirmImports = async function() {
   window.hideProgressBar();
   window.clearImports();
   toast(imported.length + ' Dateien importiert', 'ok');
+  if (bwMeld.length) setTimeout(() => toast(bwMeld.join(' · '), 'ok'), 600);
+  if (tgNeu.length) setTimeout(() => tgVerpflNachImport(tgNeu), bwMeld.length ? 3500 : 1200);
   renderOverview();
   window.renderBelegeablage();
 };
