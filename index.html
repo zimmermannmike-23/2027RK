@@ -1182,10 +1182,13 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.17.1';
-const APP_BUILD=82;
+const APP_VERSION='5.17.4';
+const APP_BUILD=85;
 const APP_DATE='13.10.2026';
 const APP_CHANGES=[
+  'Bescheid-Abgleich berücksichtigt beide Tagesarten: Hat ein Tag zwei Codes (z. B. DR + HF), genügt es, wenn einer zum Bescheid passt – gilt für Familienheimfahrten, Dienstreisen, Reisetage-Zählung und die Verpflegungsübernahme',
+  'CheckBox: „Bescheid weist Familienheimfahrt aus“ nur noch, wenn die App für den Tag Dienst an der Arbeitsstätte erfasst. Die TG-Abrechnung kennzeichnet den ganzen Heimfahrt-Zeitraum mit FH; Dienst an einem anderen Ort in dieser Zeit (z. B. Übungsplatz am 06.05.25) oder ein Reisetag am Rand ist kein Widerspruch',
+  'CheckBox Beleg-Deckung: Die TG-Abrechnung rechnet Buskarten (Salzburg Flughafen) teils in den Flugpreis oder unter „Fahrkosten DB“ ein. Buskarten-Belege decken jetzt solche Beträge mit ab – auch eine Buskarte der ersten 3 Tage des Folgemonats (z. B. 02.02.25 für den Januar-Flug)',
   'Korrektur: Tage mit mehrteiliger Kennung in der TG-Tagesaufstellung (z. B. „U U“ am 03.01.25) wurden übersprungen – jetzt werden alle Tage gelesen; bereits gespeicherte Abrechnungen werden einmalig nachgelesen',
   'Trennungstagegeld-Kürzung nur an Tagen ohne Kennung oder mit BF – an Tagen mit DR, FH, FO, ZA, AD oder Urlaub zahlt die Abrechnung trotz Mahlzeit den vollen Satz (z. B. 27.02.25, 04.09.26)',
   'Korrektur Trennungstagegeld: Gekürzt wird nur nach der TG-Abrechnung. Frühstück auf Dienstreisen (Reisekostenabrechnung) bleibt als Verpflegung sichtbar, kürzt aber nicht zusätzlich das Trennungstagegeld (betraf z. B. 16.–18.09.25 und 11.12.25: App 12,37 € statt 12,80 €)',
@@ -1305,7 +1308,7 @@ function tgQuelle(b){return b.typ==='RK'?'Reisekostenabrechnung'+(b.nr?' Nr. '+b
 function bwVerpflAnwendbar(h,e,art){
   if(!h)return false;
   if(h.verpflegung||h.hatRK)return true;
-  return !(/^(DR|ZA|FO)$/.test(art||'')||VERPFL_REISE.includes(e.dayCode));
+  return !(/^(DR|ZA|FO)$/.test(art||'')||hatCode(e,VERPFL_REISE));
 }
 function tgVerpflAusBescheid(b){
   const r={gesetzt:0,gleich:0,ohneEintrag:[],alt:{},leer:false};
@@ -1473,6 +1476,10 @@ const WS_CODES=new Set(['AW','WFH','LG','ÜB']);
 // AUSSCHLIESSLICH der eingetragene Ort entscheidet - DayCode, Bemerkung,
 // Taetigkeit etc. werden NICHT beruecksichtigt.
 const AW_HOME_KW=['bad reichenhall','freilassing'];
+/* Beide Tagesarten eines Eintrags (dayCode + optionaler dayCode2) */
+function tagCodes(e){return e?[e.dayCode,e.dayCode2].filter(Boolean):[];}
+function hatCode(e,liste){return tagCodes(e).some(c=>liste.includes(c));}
+function codeText(e){return tagCodes(e).join(' + ')||'?';}
 function isArbeitsstaetteDay(e){
   if(!e)return false;
   const ort=(e.workLocation||'').toLowerCase().trim();
@@ -5227,19 +5234,19 @@ function checkBoxAnalyze(){
         const mitB=fhfB.filter(r=>!r.ohneReisebeihilfe).length;
         const ohneB=fhfB.filter(r=>r.ohneReisebeihilfe).length;
         const imMonat=ents.filter(e=>(e.date||'').startsWith(b.periode));
-        const mitA=imMonat.filter(e=>e.dayCode==='HF'&&e.isFHF===true).length;
-        const ohneA=imMonat.filter(e=>e.dayCode==='HF'&&e.isFHF!==true).length;
+        const mitA=imMonat.filter(e=>hatCode(e,['HF'])&&e.isFHF===true).length;
+        const ohneA=imMonat.filter(e=>hatCode(e,['HF'])&&e.isFHF!==true).length;
         if(mitA!==mitB)add('warn','Bw-Abgleich','Familienheimfahrten MIT Reisebeihilfe '+b.periode
           +': Bescheid '+mitB+', App '+mitA+' (Code HF mit FHF-Haken)','','');
         if(ohneA!==ohneB)add('warn','Bw-Abgleich','Familienheimfahrten OHNE Reisebeihilfe '+b.periode
           +': Bescheid '+ohneB+', App '+ohneA+' (Code HF ohne FHF-Haken)','','');
         // Einzelabgleich der Zeiträume
         fhfB.forEach(r=>{
-          const tr=imMonat.filter(e=>e.date>=r.von&&e.date<=r.bis&&['HF','RF'].includes(e.dayCode));
+          const tr=imMonat.filter(e=>e.date>=r.von&&e.date<=r.bis&&hatCode(e,['HF','RF']));
           if(!tr.length){add('warn','Bw-Abgleich','Bescheid führt eine Familienheimfahrt '
             +(r.ohneReisebeihilfe?'ohne':'mit')+' Reisebeihilfe vom '+dstr(r.von)+' bis '+dstr(r.bis)
             +' – in der App kein HF/RF-Eintrag',r.von,'');return;}
-          const hf=tr.find(e=>e.dayCode==='HF');
+          const hf=tr.find(e=>hatCode(e,['HF']));
           if(hf){
             if(r.ohneReisebeihilfe&&hf.isFHF===true)
               add('warn','Bw-Abgleich',dstr(hf.date)+': Bescheid weist die Fahrt OHNE Reisebeihilfe aus, in der App ist der FHF-Haken gesetzt',hf.date,hf.id);
@@ -5254,13 +5261,16 @@ function checkBoxAnalyze(){
           const e=ents.find(x=>x.date===d.datum);
           if(!e){add('warn','Bw-Abgleich','Bescheid '+b.periode+' führt den '+dstr(d.datum)+' auf, in der App fehlt der Eintrag',d.datum,'');return;}
           // Art abgleichen
-          if(d.art==='FH'&&['AW','DR','LG','ÜB','ES','EGV'].includes(e.dayCode))   // FH markiert die ganze Heimfahrt-Zeit; WF/UR/WFH dazwischen sind korrekt
-            add('info','Bw-Abgleich',dstr(d.datum)+': Bescheid weist Familienheimfahrt aus, App hat Code '+e.dayCode,d.datum,e.id);
-          if(d.art==='DR'&&!['DR','LG','ÜB','ES','EGV'].includes(e.dayCode))
-            add('info','Bw-Abgleich',dstr(d.datum)+': Bescheid weist Dienstreise aus, App hat Code '+e.dayCode,d.datum,e.id);
+          // FH markiert den GANZEN Heimfahrt-Zeitraum (Abreise bis Rueckkehr). Widerspruch nur, wenn die App
+          // fuer den Tag Dienst AN DER ARBEITSSTAETTE erfasst – Dienst anderswo (z. B. Uebungsplatz) oder ein
+          // Reisetag am Rand des Zeitraums passt dazu.
+          if(d.art==='FH'&&tagCodes(e).every(c=>['AW','WFH'].includes(c))&&isArbeitsstaetteDay(e))
+            add('info','Bw-Abgleich',dstr(d.datum)+': Tag liegt laut Bescheid im Zeitraum einer Familienheimfahrt, die App erfasst Dienst an der Arbeitsstätte ('+esc(e.workLocation||'')+')',d.datum,e.id);
+          if(d.art==='DR'&&!hatCode(e,['DR','LG','ÜB','ES','EGV']))
+            add('info','Bw-Abgleich',dstr(d.datum)+': Bescheid weist Dienstreise aus, App hat Code '+codeText(e),d.datum,e.id);
           // Verpflegung je Mahlzeit abgleichen — verglichen wird, was tatsaechlich
           // eingenommen wurde, denn nur das kuerzt das Trennungstagegeld.
-          const reiseOhne=(!(d.fGestellt||d.mGestellt||d.aGestellt)&&(/^(DR|ZA|FO)$/.test(d.art||'')||VERPFL_REISE.includes(e.dayCode)))
+          const reiseOhne=(!(d.fGestellt||d.mGestellt||d.aGestellt)&&(/^(DR|ZA|FO)$/.test(d.art||'')||hatCode(e,VERPFL_REISE)))
             ||bwList().some(x=>x.typ==='RK'&&(x.tage||[]).some(t=>t.datum===d.datum&&t.fGestellt!==undefined));   // Reisetag: RK-Bescheid ist massgeblich
           const bEing={'frühstück':!!d.fruehstueck,'mittag':!!d.mittag,'abend':!!d.abend};
           const bGest={'frühstück':!!d.fGestellt,'mittag':!!d.mGestellt,'abend':!!d.aGestellt};
@@ -5301,7 +5311,7 @@ function checkBoxAnalyze(){
       bj.filter(b=>b.typ==='RK').forEach(b=>{
         if(!b.von)return;
         const tr=ents.filter(e=>e.date>=b.von&&e.date<=(b.bis||b.von));
-        const dr=tr.filter(e=>['DR','LG','ÜB','ES','EGV'].includes(e.dayCode));
+        const dr=tr.filter(e=>hatCode(e,['DR','LG','ÜB','ES','EGV']));
         if(!dr.length){add('warn','Bw-Abgleich','Reisekostenbescheid '+b.nr+' ('+dstr(b.von)+'–'+dstr(b.bis||b.von)
           +', '+esc(b.ziel||'')+') hat keinen Dienstreise-Eintrag in der App',b.von,'');return;}
         // Tageszahl
@@ -5385,7 +5395,7 @@ function checkBoxAnalyze(){
         if(/Deutschlandticket|Pendlerpauschale/i.test(s.costType||''))return;
         kosten.push({covered:_cov,date:e.date,id:e.id,nr:si+1,betrag:_cov?(parseFloat(s.costAmt)||0):segCostAmt(s),
           curr:s.costCurr||'EUR',art:s.costType||s.mode||'Fahrt',mode:s.mode||'',
-          von:s.fromLoc||'',bis:s.toLoc||'',isFHF:e.isFHF===true,code:e.dayCode,
+          von:s.fromLoc||'',bis:s.toLoc||'',isFHF:e.isFHF===true,code:e.dayCode,code2:e.dayCode2||'',
           legacy:!!(s.recIds&&s.recIds.some(inAblage))});
       });
     });
@@ -5528,7 +5538,7 @@ function checkBoxAnalyze(){
       const ki=belegZu[bi];if(ki===undefined)return;
       if(!belegArtKategorie(b.belegart))return;   // nur Fahrkarten-Typen, keine sonstigen Belege
       if(kosten[ki].isFHF||!imZR(kosten[ki].date))return;
-      if(['HF','RF','BF'].includes(kosten[ki].code))return;   // Heim-/Rück-/Besuchsfahrt: Fahrkarte passt inhaltlich
+      if(['HF','RF','BF'].includes(kosten[ki].code)||['HF','RF','BF'].includes(kosten[ki].code2))return;   // Heim-/Rück-/Besuchsfahrt: Fahrkarte passt inhaltlich
       add('warn','Belege',dstr(kosten[ki].date)+': Beleg „'+bName(b)+'" ist einem Eintrag ohne '
         +'Familienheimfahrt-Kennzeichnung zugeordnet (Code '+esc(kosten[ki].code||'?')
         +') – Datum und Betrag passen zufällig, prüfen ob das wirklich die richtige Fahrt ist',
@@ -5536,9 +5546,31 @@ function checkBoxAnalyze(){
     });
 
     // I.6 Belege gegen die im TG-Bescheid erstatteten Fahrkosten
+    // Buskarten-Topf: Die Abrechnung bucht die Buskarten zum Flughafen nicht als „Fahrkosten Bus“,
+    // sondern rechnet sie in den Flugpreis ein (z. B. 01/2025: je Flug +5 €) oder als „Fahrkosten DB“
+    // (ÖPNV 18 km). Ueberschuessige Buskarten-Belege decken deshalb Fehlbetraege bei Flug/Bahn;
+    // Buskarten der ersten 3 Tage des Folgemonats gehoeren meist zur Rueckreise und zaehlen mit.
+    const busGeliehen={};
+    const naechsterMon=m=>{const [y,mo]=m.split('-').map(Number);return mo===12?(y+1)+'-01':y+'-'+String(mo+1).padStart(2,'0');};
+    const busFrueh=m=>ablageBelege().filter(r=>(r.datum||'').startsWith(m)&&parseInt((r.datum||'').slice(8,10),10)<=3&&belegArtKategorie(r.belegart)==='Buskarte')
+      .reduce((a,r)=>a+(parseFloat(r.gesamtkosten)||0),0);
     [...new Set(belege.map(b=>(b.datum||'').slice(0,7)).filter(Boolean))].filter(m=>imZR(m)).sort().forEach(mon=>{
       const q=tgQuerpruefungMonat(mon);
       if(!q.hatBescheid)return;
+      let topf=Math.max(0,q.bus.bezahlt-q.bus.erstattet-(busGeliehen[mon]||0));
+      const nm=naechsterMon(mon);let frueh=busFrueh(nm);
+      const verrechnet=[];
+      ['flug','bahn'].forEach(sl=>{
+        let fehl=q[sl].erstattet-q[sl].bezahlt;if(fehl<0.005)return;
+        const ausTopf=Math.min(fehl,topf);topf-=ausTopf;fehl-=ausTopf;
+        const ausFrueh=Math.min(fehl,frueh);frueh-=ausFrueh;busGeliehen[nm]=(busGeliehen[nm]||0)+ausFrueh;
+        const summe=ausTopf+ausFrueh;
+        if(summe>0.005){q[sl].bezahlt+=summe;verrechnet.push(fmtM(summe,'EUR')+' Buskarten in den '+(sl==='flug'?'Flugkosten':'Bahnkosten'));}
+      });
+      if(verrechnet.length){
+        q.bus.bezahlt=q.bus.erstattet+topf;
+        add('info','Belege',mon+': Die Abrechnung enthält '+verrechnet.join(' und ')+' – durch Buskarten-Belege gedeckt','','');
+      }
       [['flug','Flugkosten'],['bahn','Bahnkosten'],['bus','Buskosten']].forEach(([sl,lbl])=>{
         const d=q[sl].bezahlt-q[sl].erstattet;
         if(Math.abs(d)<0.005)return;
