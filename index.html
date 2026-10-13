@@ -1080,6 +1080,7 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
       <div class="f"><label>Kosten/Monat (&#8364;)</label><input type="number" id="sDT" min="0" step="0.01" placeholder="58.00"></div>
       <div class="f"><label>G&#252;ltig ab</label><input type="month" id="sDTd"></div>
     </div>
+    <p style="font-size:11px;color:var(--muted);margin:-4px 0 14px">Preis je Jahr: 2024 = 49 &#8364;, 2025 = 58 &#8364;, 2026 = 63 &#8364;. F&#252;r sp&#228;tere Jahre gilt der Betrag oben.</p>
     <h3 style="margin-top:22px;margin-bottom:8px">&#9888;&#65039; Kostenpr&#252;fung</h3>
     <p style="font-size:11px;color:var(--muted);margin-bottom:8px">Warnt in der &#220;bersicht bei m&#246;glicher Doppelerfassung von <b>Flugkosten</b> (gleicher Betrag innerhalb 45 Tagen). Bahn, Bus und &#214;PNV werden nicht gepr&#252;ft.</p>
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;margin-bottom:4px">
@@ -1182,10 +1183,11 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.17.4';
-const APP_BUILD=85;
+const APP_VERSION='5.17.5';
+const APP_BUILD=86;
 const APP_DATE='13.10.2026';
 const APP_CHANGES=[
+  'Deutschlandticket: Preis je Jahr (2024: 49 €, 2025: 58 €, 2026: 63 €/Monat); „Gültig ab“ im Format TT.MM.JJJJ wird jetzt erkannt; Beginn auf 01/2024 gesetzt',
   'Bescheid-Abgleich berücksichtigt beide Tagesarten: Hat ein Tag zwei Codes (z. B. DR + HF), genügt es, wenn einer zum Bescheid passt – gilt für Familienheimfahrten, Dienstreisen, Reisetage-Zählung und die Verpflegungsübernahme',
   'CheckBox: „Bescheid weist Familienheimfahrt aus“ nur noch, wenn die App für den Tag Dienst an der Arbeitsstätte erfasst. Die TG-Abrechnung kennzeichnet den ganzen Heimfahrt-Zeitraum mit FH; Dienst an einem anderen Ort in dieser Zeit (z. B. Übungsplatz am 06.05.25) oder ein Reisetag am Rand ist kein Widerspruch',
   'CheckBox Beleg-Deckung: Die TG-Abrechnung rechnet Buskarten (Salzburg Flughafen) teils in den Flugpreis oder unter „Fahrkosten DB“ ein. Buskarten-Belege decken jetzt solche Beträge mit ab – auch eine Buskarte der ersten 3 Tage des Folgemonats (z. B. 02.02.25 für den Januar-Flug)',
@@ -1655,6 +1657,14 @@ function migrate(){
   if(!state.settings.drReceipts)state.settings.drReceipts={};
   if(!state.settings.dtKosten)state.settings.dtKosten=0;
   if(!state.settings.dtStart)state.settings.dtStart='';
+  // v5.17.5: „Gültig ab“ kam teils als TT.MM.JJJJ an – das Monatsfeld und die Berechnung erwarten JJJJ-MM
+  {const m=/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(state.settings.dtStart);if(m)state.settings.dtStart=m[3]+'-'+m[2].padStart(2,'0');}
+  if(!state.settings.dtPreise||typeof state.settings.dtPreise!=='object')state.settings.dtPreise={'2024':49,'2025':58,'2026':63};
+  if(!state.settings.migDT5175){
+    // Mike: Deutschlandticket seit 2024 (Angabe 13.10.2026)
+    if(!state.settings.dtStart||state.settings.dtStart>'2024-01')state.settings.dtStart='2024-01';
+    state.settings.migDT5175=true;
+  }
   if(!state.settings.fkReceipts)state.settings.fkReceipts={};
   if(!state.settings.abReceipts)state.settings.abReceipts={};if(!state.settings.daReceipts)state.settings.daReceipts={};
   if(!Array.isArray(state.settings.fkRoutes))state.settings.fkRoutes=[];
@@ -4584,7 +4594,8 @@ function fhfTatsaechlicheKosten(yr,kmFhfPauschale,epKm){
    keine Wege von der Zweitwohnung zur Arbeitsstaette. */
 function dtKostenImJahr(yr){
   const s=state.settings,y=parseInt(yr);
-  const proMonat=parseFloat(s.dtKosten)||0;
+  const jp=s.dtPreise&&s.dtPreise[String(y)];
+  const proMonat=(jp!=null&&jp!=='')?(parseFloat(jp)||0):(parseFloat(s.dtKosten)||0);   // Preis des Jahres, sonst aktueller Preis
   const leer={proMonat,monate:0,gesamt:0,von:null,bis:null};
   if(!proMonat)return leer;
   const mon=v=>{const m=/^(\d{4})-(\d{2})/.exec(v||'');return m?{y:parseInt(m[1]),m:parseInt(m[2])}:null;};
