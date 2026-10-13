@@ -1182,10 +1182,12 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.17.0';
-const APP_BUILD=81;
+const APP_VERSION='5.17.1';
+const APP_BUILD=82;
 const APP_DATE='13.10.2026';
 const APP_CHANGES=[
+  'Korrektur: Tage mit mehrteiliger Kennung in der TG-Tagesaufstellung (z. B. „U U“ am 03.01.25) wurden übersprungen – jetzt werden alle Tage gelesen; bereits gespeicherte Abrechnungen werden einmalig nachgelesen',
+  'Trennungstagegeld-Kürzung nur an Tagen ohne Kennung oder mit BF – an Tagen mit DR, FH, FO, ZA, AD oder Urlaub zahlt die Abrechnung trotz Mahlzeit den vollen Satz (z. B. 27.02.25, 04.09.26)',
   'Korrektur Trennungstagegeld: Gekürzt wird nur nach der TG-Abrechnung. Frühstück auf Dienstreisen (Reisekostenabrechnung) bleibt als Verpflegung sichtbar, kürzt aber nicht zusätzlich das Trennungstagegeld (betraf z. B. 16.–18.09.25 und 11.12.25: App 12,37 € statt 12,80 €)',
   'Belegablage: identische Kopien einer Bescheid-PDF, die mit keinem Bescheid mehr verknüpft sind, werden beim Hochladen und einmalig nach dem Update entfernt',
   'Bescheide ersetzen statt doppeln: Beim Hochladen wird geprüft, ob es für denselben Zeitraum schon einen Bescheid gibt (TG: gleicher Monat · Reisekosten: gleiche Reise von–bis · oder gleiche Nummer). Der vorhandene wird durch den neuen ersetzt und seine PDF gelöscht; ein älterer Bescheid ersetzt keinen neueren',
@@ -1259,6 +1261,9 @@ function verpflAbzug(e){
   // e.verpflegung kann zusaetzlich Reiseverpflegung aus der Reisekostenabrechnung enthalten
   // (Einbehalt beim Reise-Tagegeld) — die darf das Trennungstagegeld nicht nochmals kuerzen.
   const t=tgTagAusBescheid(e&&e.date);
+  // Gekuerzt wird laut allen Abrechnungen 01/2025–09/2026 nur an Tagen ohne Kennung oder mit BF;
+  // DR, FH, FO, ZA, AD, U, „U U“ zahlen trotz eingenommener Mahlzeit den vollen Satz.
+  if(t&&t.art&&t.art!=='BF')return 0;
   if(t)return VERPFL_MAHL.reduce((s,m,i)=>s+([t.fruehstueck,t.mittag,t.abend][i]?tgAbzugSatz(e.date,m):0),0);
   return VERPFL_MAHL.reduce((s,m)=>s+(verpflStatus(e,m)==='ja'?tgAbzugSatz(e.date,m):0),0);
 }
@@ -1363,6 +1368,23 @@ async function tgVerpflNeuEinlesen(still){
   s.neu=neu;s.ohnePdf=ohnePdf.sort();s.fehl=fehl.sort();
   if(!still)toast('🍽 '+s.gesetzt+' Tag(e) Verpflegung aus TG-/Reisekostenabrechnungen eingetragen'+(s.ohnePdf.length?' · ohne PDF: '+s.ohnePdf.join(', ')+' – bitte erneut hochladen':''),s.ohnePdf.length?'err':'ok');
   return s;
+}
+/* v5.17.1: TG-Abrechnungen mit unvollstaendiger Tagesaufstellung (Tage mit Kennung
+   „U U“ fehlten) einmalig aus der PDF neu einlesen. */
+async function tgUnvollstaendigNachlesen(){
+  if(state.settings.migTgUU5171)return;
+  const l=(state.settings.bwBescheide||[]).filter(b=>{
+    if(b.typ!=='TG'||!b.fileId||!b.periode||!Array.isArray(b.tage))return false;
+    const [y,m]=b.periode.split('-').map(Number);return b.tage.length<new Date(y,m,0).getDate();});
+  let ok=true;const neu=[];
+  for(const b of l){
+    try{const rec=await idbGetF(b.fileId);if(!rec||!rec.blob){continue;}
+      const p=parseBwBescheid(await window.extractPdfText(new File([rec.blob],rec.name||b.dateiname||'tg.pdf',{type:'application/pdf'})));
+      if(p&&p.tage&&p.tage.length>b.tage.length){b.tage=p.tage;neu.push(b);}
+    }catch(e){ok=false;console.warn('TG nachlesen',b.periode,e);}
+  }
+  if(neu.length)tgVerpflNachImport(neu,true);
+  if(ok){state.settings.migTgUU5171=true;persist();}
 }
 async function tgVerpflAutoNachholen(){
   if(state.settings.migVerpflBw515)return;
@@ -1581,6 +1603,7 @@ async function load(){
   bwRelinkDateien();
   setTimeout(()=>tgVerpflAutoNachholen(),3000);
   setTimeout(()=>bwWaisenAufraeumenEinmal(),6000);
+  setTimeout(()=>tgUnvollstaendigNachlesen(),8000);
 }
 let pt=null;
 function persist(){
@@ -3467,14 +3490,14 @@ function parseBwBescheid(txt){
     // Nicht zeilenverankert: extractPdfText() liefert je Seite EINE Zeile (PDF.js-Stuecke mit
     // Leerzeichen verkettet). Das alte ^…/m traf deshalb nie — alle hochgeladenen TG-Bescheide
     // hatten tage:[] (Befund 13.10.2026). Je Mahlzeit stehen genau drei 0/1-Spalten.
-    const reT=/(?:^|\s)(\d{2}\.\d{2}\.\d{2})\s+(?:\u00a7\s*3\s*\(2\)\s*)?([A-Z]{1,2})?\s*((?:[01]\s+){9})(\d)\s+(\d)\s+([\d.,]+)\s+([\d.,]+)/gm;
+    const reT=/(?:^|\s)(\d{2}\.\d{2}\.\d{2})\s+(?:\u00a7\s*3\s*\(2\)\s*)?((?:[A-Z]{1,2}\s+){0,3})((?:[01]\s+){9})(\d)\s+(\d)\s+([\d.,]+)\s+([\d.,]+)/gm;
     while((m=reT.exec(t))){
       const v=m[3].trim().split(/\s+/).map(Number);
       // Je Mahlzeit drei Spalten: U (unentgeltlich), GB (bereitgestellt),
       // NE (nicht eingenommen). Gekuerzt wird nur bei GB/U ohne NE — deshalb
       // stehen fruehstueck/mittag/abend fuer "tatsaechlich eingenommen".
       const gest=(u,gb)=>(v[u]+v[gb])>0;
-      o.tage.push({datum:bwDate(m[1]),art:m[2]||'',
+      o.tage.push({datum:bwDate(m[1]),art:(m[2]||'').trim().replace(/\s+/g,' '),
         fruehstueck:gest(0,1)&&v[2]===0,
         mittag:     gest(3,4)&&v[5]===0,
         abend:      gest(6,7)&&v[8]===0,
