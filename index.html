@@ -1182,10 +1182,12 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.16.0';
-const APP_BUILD=80;
+const APP_VERSION='5.17.0';
+const APP_BUILD=81;
 const APP_DATE='13.10.2026';
 const APP_CHANGES=[
+  'Korrektur Trennungstagegeld: Gekürzt wird nur nach der TG-Abrechnung. Frühstück auf Dienstreisen (Reisekostenabrechnung) bleibt als Verpflegung sichtbar, kürzt aber nicht zusätzlich das Trennungstagegeld (betraf z. B. 16.–18.09.25 und 11.12.25: App 12,37 € statt 12,80 €)',
+  'Belegablage: identische Kopien einer Bescheid-PDF, die mit keinem Bescheid mehr verknüpft sind, werden beim Hochladen und einmalig nach dem Update entfernt',
   'Bescheide ersetzen statt doppeln: Beim Hochladen wird geprüft, ob es für denselben Zeitraum schon einen Bescheid gibt (TG: gleicher Monat · Reisekosten: gleiche Reise von–bis · oder gleiche Nummer). Der vorhandene wird durch den neuen ersetzt und seine PDF gelöscht; ein älterer Bescheid ersetzt keinen neueren',
   'Verpflegung kommt jetzt aus BEIDEN Bescheiden: Trennungsgeldabrechnung (Dienstort-Tage) und Reisekostenabrechnung (Dienstreise-Tage, Tabelle „Tage- und Übernachtungsgelder“); der Wizard fragt sie an keinem Tag mehr ab',
   'Trennungstagegeld-Kürzung je Jahr: Mittagessen 2025 = 1,20 € (aus 113 Abrechnungstagen 2025 belegt), 2026 = 1,03 €; Frühstück 0,43 € und Abendessen 1,03 € (2026 belegt)',
@@ -1253,7 +1255,17 @@ function verpflStatus(e,m){
   return (e.verpflegungNE||'').split(',').includes(m)?'ne':'ja';
 }
 function verpflAbzug(e){
+  // v5.17: Liegt fuer den Tag eine TG-Abrechnung vor, kuerzt nur, was DORT eingenommen ist.
+  // e.verpflegung kann zusaetzlich Reiseverpflegung aus der Reisekostenabrechnung enthalten
+  // (Einbehalt beim Reise-Tagegeld) — die darf das Trennungstagegeld nicht nochmals kuerzen.
+  const t=tgTagAusBescheid(e&&e.date);
+  if(t)return VERPFL_MAHL.reduce((s,m,i)=>s+([t.fruehstueck,t.mittag,t.abend][i]?tgAbzugSatz(e.date,m):0),0);
   return VERPFL_MAHL.reduce((s,m)=>s+(verpflStatus(e,m)==='ja'?tgAbzugSatz(e.date,m):0),0);
+}
+function tgTagAusBescheid(datum){
+  if(!datum)return null;let hit=null;
+  (state.settings.bwBescheide||[]).forEach(b=>{if(b.typ!=='TG')return;(b.tage||[]).forEach(d=>{if(d.datum===datum&&d.fGestellt!==undefined)hit=d;});});
+  return hit;
 }
 /* ═══ Verpflegung aus der TG-Abrechnung (ab v5.14) ═══════════════════════════
    Die Verpflegung wird nicht mehr taeglich im Wizard abgefragt. Sie kommt aus der
@@ -1568,6 +1580,7 @@ async function load(){
   migrate();persist();
   bwRelinkDateien();
   setTimeout(()=>tgVerpflAutoNachholen(),3000);
+  setTimeout(()=>bwWaisenAufraeumenEinmal(),6000);
 }
 let pt=null;
 function persist(){
@@ -3625,6 +3638,26 @@ async function bwAlteDateiLoeschen(id){
   const mb=state.settings.mbReceipts||{};
   Object.keys(mb).forEach(k=>{mb[k]=(mb[k]||[]).filter(r=>(r&&typeof r==='object'?r.id:r)!==id);});
 }
+/* Unverknuepfte Kopien einer Bescheid-PDF (gleicher Dateiname, nirgends referenziert)
+   aus der Ablage entfernen. Gibt die Anzahl geloeschter Dateien zurueck. */
+async function bwWaisenEntfernen(namen){
+  const set=new Set((namen||[]).filter(Boolean));if(!set.size)return 0;
+  const ref=new Set(allReceiptIds());let n=0;
+  for(const f of await idbAllF()){
+    if(!set.has(f.name)||ref.has(f.id))continue;
+    if(!/_Abrechnung_(TG|DR)|Trennungsgeld|Reisekosten/i.test(f.name))continue;
+    await bwAlteDateiLoeschen(f.id);n++;
+  }
+  return n;
+}
+async function bwWaisenAufraeumenEinmal(){
+  if(state.settings.migBwWaisen517)return;
+  try{
+    const n=await bwWaisenEntfernen(bwList().map(b=>b.dateiname));
+    state.settings.migBwWaisen517=true;persist();
+    if(n){toast('🧹 '+n+' doppelte Bescheid-PDF(s) aus der Belegablage entfernt','ok');if(window.renderBelegeablage)window.renderBelegeablage();}
+  }catch(e){console.warn('Waisen',e);}
+}
 /* Traegt b ein. Rueckgabe: {status:'neu'|'ersetzt'|'aelter', alt:[…]} */
 async function bwBescheidEinfuegen(b){
   const l=bwList();const alt=bwVorhanden(b);
@@ -3639,6 +3672,7 @@ async function bwBescheidEinfuegen(b){
     const i=l.indexOf(x);if(i>=0)l.splice(i,1);
   }
   l.push(b);
+  try{await bwWaisenEntfernen([b.dateiname]);}catch(e){}
   return{status:alt.length?'ersetzt':'neu',alt};
 }
 function bwEinfuegenText(b,r){
