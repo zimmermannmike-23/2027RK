@@ -1170,10 +1170,12 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.18.0';
-const APP_BUILD=87;
-const APP_DATE='13.10.2026';
+const APP_VERSION='5.18.1';
+const APP_BUILD=88;
+const APP_DATE='14.10.2026';
 const APP_CHANGES=[
+  'Claude-Abgleich: Vorschläge können jetzt auch eine fehlende Fahrstrecke ergänzen',
+  'TG-Abrechnung: Posten „Fahrkosten ÖPNV“ werden jetzt gelesen (09/2025: 8,20 € und 126,99 €) – die Meldung „Einzelaufstellung weicht von der Bescheid-Summe ab“ entfällt; gespeicherte Abrechnungen werden einmalig neu eingelesen',
   'Deutschlandticket: Zeiträume mit „von – bis“ und Monatsbetrag (Einstellungen), jahresweise fortschreibbar – „+ Zeitraum“ legt den nächsten Abschnitt an; die Berechnung nimmt für jeden Monat den gültigen Betrag',
   'Hilfstool „Nachträge 2025“ entfernt (Nachträge sind abgeschlossen)',
   'Deutschlandticket: Preis je Jahr (2024: 49 €, 2025: 58 €, 2026: 63 €/Monat); „Gültig ab“ im Format TT.MM.JJJJ wird jetzt erkannt; Beginn auf 01/2024 gesetzt',
@@ -1379,6 +1381,18 @@ async function tgUnvollstaendigNachlesen(){
   }
   if(neu.length)tgVerpflNachImport(neu,true);
   if(ok){state.settings.migTgUU5171=true;persist();}
+}
+/* v5.18.1: TG-Abrechnungen mit „Fahrkosten ÖPNV“ (bisher nicht erkannt) einmalig neu einlesen */
+async function tgOepnvNachlesen(){
+  if(state.settings.migTgOepnv5181)return;
+  let ok=true;
+  for(const b of (state.settings.bwBescheide||[]).filter(x=>x.typ==='TG'&&x.fahrkostenAbweichung&&x.fileId)){
+    try{const rec=await idbGetF(b.fileId);if(!rec||!rec.blob)continue;
+      const p=parseBwBescheid(await window.extractPdfText(new File([rec.blob],rec.name||b.dateiname||'tg.pdf',{type:'application/pdf'})));
+      if(p&&p.typ==='TG'){b.posten=p.posten;b.km=p.km;if(p.fahrkostenAbweichung)b.fahrkostenAbweichung=p.fahrkostenAbweichung;else delete b.fahrkostenAbweichung;}
+    }catch(e){ok=false;console.warn('ÖPNV nachlesen',b.periode,e);}
+  }
+  if(ok){state.settings.migTgOepnv5181=true;persist();}
 }
 async function tgVerpflAutoNachholen(){
   if(state.settings.migVerpflBw515)return;
@@ -1602,6 +1616,7 @@ async function load(){
   setTimeout(()=>tgVerpflAutoNachholen(),3000);
   setTimeout(()=>bwWaisenAufraeumenEinmal(),6000);
   setTimeout(()=>tgUnvollstaendigNachlesen(),8000);
+  setTimeout(()=>tgOepnvNachlesen(),10000);
 }
 let pt=null;
 function persist(){
@@ -3538,7 +3553,7 @@ function parseBwBescheid(txt){
     while((m=reOev.exec(t)))o.km.push({art:'Bahn/ÖPNV',km:bwNum(m[1]),kosten:bwNum(m[2]),steuerfrei:bwNum(m[3])});
     const reFlug=/Flugzeug im Linienverkehr benutzt\.\s*Kosten:\s*([\d.,]+)\s*(?:EUR)?\s*Steuerfreier Betrag:\s*([\d.,]+)/g;
     while((m=reFlug.exec(t)))o.km.push({art:'Flugzeug',km:0,kosten:bwNum(m[1]),steuerfrei:bwNum(m[2])});
-    const reP=/Fahrkosten (DB|Flugzeug|Bus)\s+([\d.,]+)\s*EUR/g;
+    const reP=/Fahrkosten (DB|Flugzeug|Bus|ÖPNV)\s+([\d.,]+)\s*EUR/g;
     while((m=reP.exec(t)))o.posten.push({art:'Fahrkosten '+m[1],betrag:bwNum(m[2])});
     // Zweite, gleichwertige Formulierung: bei Familienheimfahrten steht die Kosten-
     // aufstellung je Verkehrsmittel direkt unter dem Reiseabschnitt als "Reisebeihilfe
@@ -3547,7 +3562,7 @@ function parseBwBescheid(txt){
     // leer, obwohl der Betrag im Bescheid stand (z. B. "Reisebeihilfe Flugzeug 119,98 EUR").
     // Bewusst in dieselbe o.posten-Struktur ('Fahrkosten '+Art) eingetragen, damit
     // tgQuerpruefungMonat() und alle anderen Leser ohne Aenderung beide Formen abdecken.
-    const reRB=/Reisebeihilfe (DB|Flugzeug|Bus)\s+([\d.,]+)\s*EUR/g;
+    const reRB=/Reisebeihilfe (DB|Flugzeug|Bus|ÖPNV)\s+([\d.,]+)\s*EUR/g;
     while((m=reRB.exec(t)))o.posten.push({art:'Fahrkosten '+m[1],betrag:bwNum(m[2])});
     const reW=/Wegstrecke KFZ[^\n]*?([\d.,]+)\s*km\s+([\d.,]+)\s*EUR/g;
     while((m=reW.exec(t))){
@@ -3566,7 +3581,7 @@ function parseBwBescheid(txt){
     // dritten, noch unbekannten Formulierung nicht erkannt — Geld wuerde sonst wieder
     // unbemerkt in der Querpruefung fehlen. Nur informativ, greift in keine Berechnung ein.
     if(fk){
-      const postenSumme=o.posten.filter(p=>/^Fahrkosten (DB|Flugzeug|Bus)$/.test(p.art)||p.art==='Wegstrecke Kfz')
+      const postenSumme=o.posten.filter(p=>/^Fahrkosten (DB|Flugzeug|Bus|ÖPNV)$/.test(p.art)||p.art==='Wegstrecke Kfz')
         .reduce((a,p)=>a+(p.betrag||0),0);
       if(Math.abs(o.fahrkosten-postenSumme)>0.01)o.fahrkostenAbweichung=+(o.fahrkosten-postenSumme).toFixed(2);
     }
@@ -3864,7 +3879,11 @@ function cpStatus(v){
   const e=state.entries.find(x=>x.date===v.date);if(!e)return'veraltet';
   const a=v.aenderung||{};
   if(a.set&&Object.entries(a.set).every(([k,val])=>_cpEq(e[k],val))&&!(a.segs||[]).length)return'erfuellt';
-  for(const sg of(a.segs||[])){const s=(e.segs||[])[sg.i];if(!s)return'veraltet';
+  const segPasst=(s,set)=>s&&Object.entries(set||{}).filter(([k])=>['mode','fromLoc','toLoc'].includes(k)).every(([k,val])=>_cpEq(s[k],val));
+  if((a.segs||[]).length&&(a.segs||[]).every(sg=>sg.neu)){
+    return (a.segs||[]).every(sg=>(e.segs||[]).some(s=>segPasst(s,sg.set)))?'erfuellt':'offen';
+  }
+  for(const sg of(a.segs||[])){if(sg.neu)continue;const s=(e.segs||[])[sg.i];if(!s)return'veraltet';
     if(sg.set&&Object.entries(sg.set).every(([k,val])=>_cpEq(s[k],val)))continue;
     if(sg.expect&&!Object.entries(sg.expect).every(([k,val])=>_cpEq(s[k],val)))return'veraltet';}
   if((a.segs||[]).length&&(a.segs||[]).every(sg=>{const s=(e.segs||[])[sg.i];return s&&Object.entries(sg.set||{}).every(([k,val])=>_cpEq(s[k],val));}))return'erfuellt';
@@ -3874,7 +3893,7 @@ function cpApplyOne(v){
   if(cpStatus(v)!=='offen')return false;
   const e=state.entries.find(x=>x.date===v.date);const a=v.aenderung||{};
   if(a.set)Object.assign(e,JSON.parse(JSON.stringify(a.set)));
-  (a.segs||[]).forEach(sg=>{const s=e.segs[sg.i];if(s)Object.assign(s,JSON.parse(JSON.stringify(sg.set||{})));});
+  (a.segs||[]).forEach(sg=>{if(sg.neu){if(!Array.isArray(e.segs))e.segs=[];e.segs.push(Object.assign(freshSeg(),JSON.parse(JSON.stringify(sg.set||{}))));return;}const s=e.segs[sg.i];if(s)Object.assign(s,JSON.parse(JSON.stringify(sg.set||{})));});
   e.updated=Date.now();cpErledigt()[v.id]='ok';return true;
 }
 function cpApplyMany(list){
