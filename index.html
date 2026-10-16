@@ -1170,8 +1170,8 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.18.1';
-const APP_BUILD=88;
+const APP_VERSION='5.18.2';
+const APP_BUILD=89;
 const APP_DATE='14.10.2026';
 const APP_CHANGES=[
   'Claude-Abgleich: Vorschläge können jetzt auch eine fehlende Fahrstrecke ergänzen',
@@ -9211,10 +9211,11 @@ function startAutoSync(){
   if(!fbUser||!fbDB)return;
   // Realtime-Listener auf das State-Dokument
   fbUnsub=fbDB.collection('users').doc(fbUser.uid).collection('state').doc('main')
-    .onSnapshot(doc=>{
-      if(!doc.exists)return;
+    .onSnapshot(async doc=>{
+      if(!doc.exists||doc.metadata.hasPendingWrites)return;
       const d=doc.data();
-      if(d&&d.payload){mergeRemote(JSON.parse(d.payload),d.updatedAt);}
+      try{const p=await cloudStateLesen(d);if(p)mergeRemote(JSON.parse(p),d.updatedAt);}
+      catch(e){console.error('Sync listener:',e);}
     },err=>console.error('Sync listener:',err));
   document.getElementById('fbSyncInfo').textContent='Auto-Sync l\u00e4uft';
 }
@@ -9379,6 +9380,43 @@ async function scanSave(){
   toast(e?`Beleg dem ${fmtD(datum)} angehängt ✓`:'Beleg in der Belegeablage gespeichert ✓','ok');
   scanClose();
 }
+
+/* v5.18.2: Firestore erlaubt max. 1 MiB je Dokument. Der Gesamtstand (Einträge + Einstellungen inkl.
+   Bescheid-Tagestabellen) ist größer geworden → „payload is longer than 1048487 bytes“.
+   Neu: Stand wird in Teile zu je ≤250.000 Zeichen (≤ ~750 KB UTF-8) aufgeteilt und in einem
+   atomaren Batch geschrieben: state/main_p0…main_pN (Teile) + state/main (Kopf mit chunks, updatedAt).
+   Lesen: altes Format (payload im Kopf) wird weiter verstanden; Teile müssen denselben updatedAt
+   tragen wie der Kopf, sonst gilt der Stand als unvollständig und wird übersprungen. */
+const FB_TEIL=250000;
+function cloudStateTeilen(str){
+  const teile=[];let i=0;
+  while(i<str.length){
+    let j=Math.min(i+FB_TEIL,str.length);
+    const c=str.charCodeAt(j-1);
+    if(j<str.length&&c>=0xD800&&c<=0xDBFF)j--; // Surrogatpaar (Emoji) nicht zerschneiden
+    teile.push(str.slice(i,j));i=j;
+  }
+  return teile.length?teile:[''];
+}
+async function cloudStateSchreiben(payload,now){
+  const col=fbDB.collection('users').doc(fbUser.uid).collection('state');
+  const teile=cloudStateTeilen(payload);
+  const batch=fbDB.batch();
+  teile.forEach((t,i)=>batch.set(col.doc('main_p'+i),{data:t,i,n:teile.length,updatedAt:now}));
+  batch.set(col.doc('main'),{format:2,chunks:teile.length,laenge:payload.length,updatedAt:now,device:navigator.platform||'web'});
+  await batch.commit();
+}
+async function cloudStateLesen(d){
+  if(!d)return null;
+  if(typeof d.payload==='string')return d.payload; // altes Format (bis v5.18.1)
+  const n=+d.chunks||0;if(!n)return null;
+  const col=fbDB.collection('users').doc(fbUser.uid).collection('state');
+  const snaps=await Promise.all(Array.from({length:n},(_,i)=>col.doc('main_p'+i).get()));
+  if(snaps.some(x=>!x.exists||x.data().updatedAt!==d.updatedAt))return null;
+  const p=snaps.map(x=>x.data().data).join('');
+  if(d.laenge&&p.length!==d.laenge)return null;
+  return p;
+}
 function scheduleCloudPush(){
   if(!fbUser||state.settings.fbAutoSync===false||fbApplyingRemote)return;
   if(fbSyncTimer)clearTimeout(fbSyncTimer);
@@ -9394,8 +9432,7 @@ async function cloudPush(manual){
     // 2. State-Dokument schreiben
     const payload=JSON.stringify({entries:state.entries,settings:stripLocalOnly(state.settings)});
     const now=Date.now();
-    await fbDB.collection('users').doc(fbUser.uid).collection('state').doc('main')
-      .set({payload,updatedAt:now,device:navigator.platform||'web'});
+    await cloudStateSchreiben(payload,now);
     state.settings.fbLastSync=now;persist();
     if(typeof renderSyncStatus==='function')renderSyncStatus();
     const info=document.getElementById('fbSyncInfo');if(info)info.textContent='Zuletzt: '+new Date(now).toLocaleString('de-DE');
@@ -9421,7 +9458,9 @@ async function cloudPull(manual){
     const doc=await fbDB.collection('users').doc(fbUser.uid).collection('state').doc('main').get();
     if(!doc.exists){if(manual)toast('Noch keine Cloud-Daten','err');fbStatusUI('ok','Angemeldet',fbUser.email);return;}
     const d=doc.data();
-    const r=await mergeRemote(JSON.parse(d.payload),d.updatedAt);
+    const p=await cloudStateLesen(d);
+    if(!p)throw new Error('Cloud-Stand unvollst\u00e4ndig (anderes Ger\u00e4t schreibt gerade) \u2014 bitte gleich nochmal laden');
+    const r=await mergeRemote(JSON.parse(p),d.updatedAt);
     if(manual){
       fbStatusUI('ok','Geladen',fbUser.email);
       const probleme=[];
