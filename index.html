@@ -1060,6 +1060,12 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
     <div class="f" style="margin-bottom:10px"><label>&#127968; Erstwohnung (Familienwohnsitz)</label><textarea id="sAP" placeholder="Stra&#223;e Nr., PLZ Ort"></textarea></div>
     <div class="f" style="margin-bottom:10px"><label>&#127969; Trennungsgeldwohnung (Dienstort)</label><textarea id="sAS" placeholder="Stra&#223;e Nr., PLZ Ort"></textarea></div>
     <div class="f" style="margin-bottom:10px"><label>&#127970; Arbeitsst&#228;tte / Dienststelle</label><textarea id="sAW" placeholder="Kasernenname, Stra&#223;e, PLZ Ort"></textarea></div>
+    <div class="f" style="margin-bottom:6px"><label>&#127970; Zweite Arbeitsst&#228;tte (optional)</label><textarea id="sAW2" placeholder="Kasernenname, Stra&#223;e, PLZ Ort"></textarea></div>
+    <div style="display:flex;gap:8px;margin-bottom:4px">
+      <div class="f" style="flex:1"><label>g&#252;ltig von</label><input type="date" id="sAW2Von"></div>
+      <div class="f" style="flex:1"><label>g&#252;ltig bis</label><input type="date" id="sAW2Bis"></div>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 10px">Ein Tag z&#228;hlt als Arbeitsst&#228;tten-Tag, wenn im Dienstort-Feld der Ort, die PLZ oder die erste Zeile (z. B. Kasernenname) einer der beiden Arbeitsst&#228;tten steht. Zeitraum leer = immer g&#252;ltig.</p>
     <div style="display:flex;gap:7px;margin-bottom:14px">
       <button class="btn btn-s btn-sm" onclick="geocodeAll()">&#128506; Adressen verifizieren</button>
       <span id="geoStat" style="font-size:11px;color:var(--muted);align-self:center"></span>
@@ -1170,10 +1176,13 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.18.2';
-const APP_BUILD=89;
-const APP_DATE='14.10.2026';
+const APP_VERSION='5.19.0';
+const APP_BUILD=90;
+const APP_DATE='18.10.2026';
 const APP_CHANGES=[
+  'Einstellungen: zweite Arbeitsstätte (optional mit Gültigkeitszeitraum). Steht ihr Ort, ihre PLZ oder ihr Kasernenname im Dienstort, zählt der Tag als Arbeitsstätten-Tag; Jahresübersicht zeigt „davon Arb.-St. 2“',
+  'Jahr › Sonstige Belege: nummerierte Belegarten werden zusammengefasst (Flugkarte 2 → Flugkarte, Bahnkarte 3 → Bahnkarte), mit Anzahl je Art',
+  'Jahr › Von der Bundeswehr erstattet: erstattete Kilometer Privat-Kfz (vergütet und steuerlich) und Bahn/ÖPNV werden jetzt berechnet (zeigten bisher immer 0 km)',
   'Claude-Abgleich: Vorschläge können jetzt auch eine fehlende Fahrstrecke ergänzen',
   'TG-Abrechnung: Posten „Fahrkosten ÖPNV“ werden jetzt gelesen (09/2025: 8,20 € und 126,99 €) – die Meldung „Einzelaufstellung weicht von der Bescheid-Summe ab“ entfällt; gespeicherte Abrechnungen werden einmalig neu eingelesen',
   'Deutschlandticket: Zeiträume mit „von – bis“ und Monatsbetrag (Einstellungen), jahresweise fortschreibbar – „+ Zeitraum“ legt den nächsten Abschnitt an; die Berechnung nimmt für jeden Monat den gültigen Betrag',
@@ -1485,18 +1494,45 @@ const AW_HOME_KW=['bad reichenhall','freilassing'];
 function tagCodes(e){return e?[e.dayCode,e.dayCode2].filter(Boolean):[];}
 function hatCode(e,liste){return tagCodes(e).some(c=>liste.includes(c));}
 function codeText(e){return tagCodes(e).join(' + ')||'?';}
-function isArbeitsstaetteDay(e){
-  if(!e)return false;
-  const ort=(e.workLocation||'').toLowerCase().trim();
-  if(!ort)return false;
-  return AW_HOME_KW.some(kw=>ort.includes(kw));
+/* v5.19: zweite Arbeitsstaette (Einstellungen: addrWork2, optional gueltig von/bis).
+   Erkennungsmerkmale einer Adresse: Ort und PLZ aus der PLZ-Zeile sowie die erste Zeile
+   (z. B. Kasernenname), jeweils ab 4 Zeichen. */
+function arbMerkmale(addr){
+  if(!addr)return[];
+  // Zeilen ODER Kommas trennen die Teile („Nonner Straße 23-27, 83435, Bad Reichenhall“)
+  const teile=String(addr).split(/[\n,;]+/).map(x=>x.trim()).filter(Boolean);
+  let plz='',ort='';
+  teile.forEach((t,i)=>{if(plz)return;
+    const m=t.match(/^(\d{4,5})\s*(.*)$/);
+    if(m){plz=m[1];ort=(m[2]||'').trim()||(teile[i+1]||'')||(i>0?teile[i-1]:'');return;}
+    const m2=t.match(/^(.+?)\s+(\d{4,5})$/);if(m2){ort=m2[1];plz=m2[2];}
+  });
+  return [...new Set([ort,plz,teile[0]].map(x=>(x||'').toLowerCase().trim()).filter(x=>x.length>=4))];
 }
+function arb2Gueltig(datum){
+  const s=state.settings;if(!s.addrWork2)return false;
+  if(!datum)return true;
+  if(s.addrWork2Von&&datum<s.addrWork2Von)return false;
+  if(s.addrWork2Bis&&datum>s.addrWork2Bis)return false;
+  return true;
+}
+/* 0 = keine, 1 = (erste) Arbeitsstaette, 2 = zweite Arbeitsstaette */
+function arbStaetteNr(e){
+  if(!e)return 0;
+  const ort=(e.workLocation||'').toLowerCase().trim();
+  if(!ort)return 0;
+  if(AW_HOME_KW.some(kw=>ort.includes(kw)))return 1;
+  if(arbMerkmale(state.settings.addrWork).some(kw=>ort.includes(kw)))return 1;
+  if(arb2Gueltig(e.date)&&arbMerkmale(state.settings.addrWork2).some(kw=>ort.includes(kw)))return 2;
+  return 0;
+}
+function isArbeitsstaetteDay(e){return arbStaetteNr(e)>0;}
 
 /* STATE */
 let state={entries:[],settings:{
   name:'',rank:'',unit:'',persNr:'',
-  addrPrimary:'',addrSecondary:'',addrWork:'',
-  addrPrimaryGeo:null,addrSecondaryGeo:null,addrWorkGeo:null,
+  addrPrimary:'',addrSecondary:'',addrWork:'',addrWork2:'',addrWork2Von:'',addrWork2Bis:'',
+  addrPrimaryGeo:null,addrSecondaryGeo:null,addrWorkGeo:null,addrWork2Geo:null,
   fhfCounter:0,fhfYear:new Date().getFullYear(),fhfAnlageNr:42,
   fhfStart:'',fhfEnde:'',
   dtKosten:0,dtStart:'',
@@ -1763,7 +1799,7 @@ async function calcRoute(from,to){
 }
 function lookupGeo(text){
   if(!text)return null;const s=state.settings;const t=text.toLowerCase().trim();
-  for(const[a,g]of[[s.addrPrimary,s.addrPrimaryGeo],[s.addrSecondary,s.addrSecondaryGeo],[s.addrWork,s.addrWorkGeo]]){
+  for(const[a,g]of[[s.addrPrimary,s.addrPrimaryGeo],[s.addrSecondary,s.addrSecondaryGeo],[s.addrWork,s.addrWorkGeo],[s.addrWork2,s.addrWork2Geo]]){
     if(!a)continue;const fl=firstL(a);if(fl&&t.includes(fl.toLowerCase().slice(0,15)))return g;if(fullA(a).toLowerCase()===t)return g;
   }
   return null;
@@ -1773,8 +1809,9 @@ async function geocodeAll(){
   state.settings.addrPrimary=document.getElementById('sAP').value.trim();
   state.settings.addrSecondary=document.getElementById('sAS').value.trim();
   state.settings.addrWork=document.getElementById('sAW').value.trim();
+  {const a2=document.getElementById('sAW2');if(a2)state.settings.addrWork2=a2.value.trim();}
   if(el)el.textContent='Verifiziere…';
-  const targets=[['addrPrimary','addrPrimaryGeo','EW'],['addrSecondary','addrSecondaryGeo','TGW'],['addrWork','addrWorkGeo','Arb.']];
+  const targets=[['addrPrimary','addrPrimaryGeo','EW'],['addrSecondary','addrSecondaryGeo','TGW'],['addrWork','addrWorkGeo','Arb.'],['addrWork2','addrWork2Geo','Arb.2']];
   const res=[];
   for(const[ak,gk,lbl]of targets){if(!state.settings[ak]){res.push('—');continue;}
     try{state.settings[gk]=await geocode(state.settings[ak]);res.push(`<span style="color:var(--ok)">✓${lbl}</span>`);}
@@ -1792,7 +1829,7 @@ function addToHistory(addr){if(!addr||addr.length<3)return;
 function refreshAddrList(){
   const dl=document.getElementById('addrList');if(!dl)return;
   const s=state.settings;const opts=[];
-  [[s.addrPrimary,'Erstwohnung'],[s.addrSecondary,'TGW'],[s.addrWork,'Arbeitsstätte']].forEach(([a,l])=>{
+  [[s.addrPrimary,'Erstwohnung'],[s.addrSecondary,'TGW'],[s.addrWork,'Arbeitsstätte'],[s.addrWork2,'Arbeitsstätte 2']].forEach(([a,l])=>{
     if(!a)return;const sh=firstL(a);const fu=fullA(a);
     if(sh)opts.push(`<option value="${esc(sh)}">`);if(fu&&fu!==sh)opts.push(`<option value="${esc(fu)}">`);
   });
@@ -2008,7 +2045,8 @@ function isWSDay(e){
   if(WS_CODES.has(e.dayCode))return true;
   const s=state.settings;const ws=fullA(s.addrWork).toLowerCase().slice(0,20);const tg=fullA(s.addrSecondary).toLowerCase().slice(0,20);
   const inAddr=addr=>addr&&([e.tripFrom,e.tripTo,e.workLocation,...(e.segs||[]).flatMap(sg=>[sg.fromLoc,sg.toLoc])].filter(Boolean).some(x=>x.toLowerCase().includes(addr)));
-  return inAddr(ws)||inAddr(tg);
+  const ws2=arb2Gueltig(e.date)?fullA(s.addrWork2).toLowerCase().slice(0,20):'';
+  return isArbeitsstaetteDay(e)||inAddr(ws)||inAddr(tg)||inAddr(ws2);
 }
 function show28(streak,targetId){
   const msg=`Du warst ${streak} Tage am Stück nicht an der Arbeitsstätte oder Trennungsgeldwohnung. Ab 28 Tagen kannst du erneut Verpflegungsmehraufwand (14 €/Tag für >8h, 28 €/Tag mehrtägig) steuerlich geltend machen!`;
@@ -2225,7 +2263,7 @@ function buildTravel(){
   const dt=effDT(wiz.dayCode,wiz.dayCode2)||{};
   const noT=dt.noT;
   const ss=state.settings;
-  const aItems=[{l:'EW',v:fullA(ss.addrPrimary)},{l:'TGW',v:fullA(ss.addrSecondary)},{l:'Arb.',v:fullA(ss.addrWork)}].filter(x=>x.v);
+  const aItems=[{l:'EW',v:fullA(ss.addrPrimary)},{l:'TGW',v:fullA(ss.addrSecondary)},{l:'Arb.',v:fullA(ss.addrWork)},{l:'Arb. 2',v:fullA(ss.addrWork2)}].filter(x=>x.v);
   // Toggle: Fahrt or Aufenthalt
   const useFahrt=wiz.useFahrt!==false&&!noT||wiz.useFahrt===true;
   const useAuf=wiz.useAufenthalt===true||noT;
@@ -2297,15 +2335,15 @@ function buildWork(){
       </div>
       <div class="g" style="margin-top:8px">
         <div class="f"><label>Dienstort 1</label>
-          <div class="achips" style="margin-bottom:5px">${(function(){const ss=state.settings;const it=[{l:'🏠 EW',v:fullA(ss.addrPrimary)},{l:'🏡 TGW',v:fullA(ss.addrSecondary)},{l:'🏢 Arb.',v:fullA(ss.addrWork)||'83435 Bad Reichenhall'}].filter(x=>x.v);return it.map(a=>`<button class="achip" type="button" onclick="setWLoc('wLoc','workLocation','${esc(a.v)}')">${esc(a.l)}</button>`).join('');})()}</div>
+          <div class="achips" style="margin-bottom:5px">${(function(){const ss=state.settings;const it=[{l:'🏠 EW',v:fullA(ss.addrPrimary)},{l:'🏡 TGW',v:fullA(ss.addrSecondary)},{l:'🏢 Arb.',v:fullA(ss.addrWork)||'83435 Bad Reichenhall'},{l:'🏢 Arb. 2',v:fullA(ss.addrWork2)}].filter(x=>x.v);return it.map(a=>`<button class="achip" type="button" onclick="setWLoc('wLoc','workLocation','${esc(a.v)}')">${esc(a.l)}</button>`).join('');})()}</div>
           <input type="text" id="wLoc" list="addrList" value="${esc(wiz.workLocation)}" onchange="wiz.workLocation=this.value;addToHistory(this.value)" placeholder="ma&#223;geblich f. Arbeitsst&#228;tte">
         </div>
         <div class="f"><label>Dienstort 2 <span style="font-weight:400;color:var(--muted)">(1. ausw&#228;rtiger Ort)</span></label>
-          <div class="achips" style="margin-bottom:5px">${(function(){const ss=state.settings;const it=[{l:'🏠 EW',v:fullA(ss.addrPrimary)},{l:'🏡 TGW',v:fullA(ss.addrSecondary)},{l:'🏢 Arb.',v:fullA(ss.addrWork)||'83435 Bad Reichenhall'}].filter(x=>x.v);return it.map(a=>`<button class="achip" type="button" onclick="setWLoc('wLoc2','workLocation2','${esc(a.v)}')">${esc(a.l)}</button>`).join('');})()}</div>
+          <div class="achips" style="margin-bottom:5px">${(function(){const ss=state.settings;const it=[{l:'🏠 EW',v:fullA(ss.addrPrimary)},{l:'🏡 TGW',v:fullA(ss.addrSecondary)},{l:'🏢 Arb.',v:fullA(ss.addrWork)||'83435 Bad Reichenhall'},{l:'🏢 Arb. 2',v:fullA(ss.addrWork2)}].filter(x=>x.v);return it.map(a=>`<button class="achip" type="button" onclick="setWLoc('wLoc2','workLocation2','${esc(a.v)}')">${esc(a.l)}</button>`).join('');})()}</div>
           <input type="text" id="wLoc2" list="addrList" value="${esc(wiz.workLocation2||'')}" onchange="wiz.workLocation2=this.value;addToHistory(this.value)" placeholder="z. B. Wildflecken">
         </div>
         <div class="f"><label>Dienstort 3 <span style="font-weight:400;color:var(--muted)">(2. ausw&#228;rtiger Ort)</span></label>
-          <div class="achips" style="margin-bottom:5px">${(function(){const ss=state.settings;const it=[{l:'🏠 EW',v:fullA(ss.addrPrimary)},{l:'🏡 TGW',v:fullA(ss.addrSecondary)},{l:'🏢 Arb.',v:fullA(ss.addrWork)||'83435 Bad Reichenhall'}].filter(x=>x.v);return it.map(a=>`<button class="achip" type="button" onclick="setWLoc('wLoc3','workLocation3','${esc(a.v)}')">${esc(a.l)}</button>`).join('');})()}</div>
+          <div class="achips" style="margin-bottom:5px">${(function(){const ss=state.settings;const it=[{l:'🏠 EW',v:fullA(ss.addrPrimary)},{l:'🏡 TGW',v:fullA(ss.addrSecondary)},{l:'🏢 Arb.',v:fullA(ss.addrWork)||'83435 Bad Reichenhall'},{l:'🏢 Arb. 2',v:fullA(ss.addrWork2)}].filter(x=>x.v);return it.map(a=>`<button class="achip" type="button" onclick="setWLoc('wLoc3','workLocation3','${esc(a.v)}')">${esc(a.l)}</button>`).join('');})()}</div>
           <input type="text" id="wLoc3" list="addrList" value="${esc(wiz.workLocation3||'')}" onchange="wiz.workLocation3=this.value;addToHistory(this.value)" placeholder="optional, bei weiterer Dienstreise am selben Tag">
         </div>
       </div>
@@ -2440,7 +2478,7 @@ function buildSegs(){
 function buildSeg(s,i){
   const mOpts=MODES.map(m=>`<option value="${esc(m.v)}" ${m.v===s.mode?'selected':''}>${esc(m.l)}</option>`).join('');
   const ss=state.settings;
-  const aItems=[{l:'🏠 EW',v:fullA(ss.addrPrimary)},{l:'🏡 TGW',v:fullA(ss.addrSecondary)},{l:'🏢 Arb.',v:fullA(ss.addrWork)}].filter(x=>x.v);
+  const aItems=[{l:'🏠 EW',v:fullA(ss.addrPrimary)},{l:'🏡 TGW',v:fullA(ss.addrSecondary)},{l:'🏢 Arb.',v:fullA(ss.addrWork)},{l:'🏢 Arb. 2',v:fullA(ss.addrWork2)}].filter(x=>x.v);
   const fc=aItems.map(a=>`<button class="achip" type="button" onclick="setSA(${i},'from','${esc(a.v)}')">${esc(a.l)}</button>`).join('');
   const tc=aItems.map(a=>`<button class="achip" type="button" onclick="setSA(${i},'to','${esc(a.v)}')">${esc(a.l)}</button>`).join('');
   const kmB=s.km?(s.kmSrc==='auto'?`<span class="badge ok">🗺️ ${s.km}km</span>`:`<span class="badge mu">manuell</span>`):'';
@@ -2544,6 +2582,7 @@ function locClass(t){t=(t||'').toLowerCase();
   if(/potsdam|1446\d/.test(t))return 'POTSDAM';
   if(/freilassing|83395/.test(t))return 'FRL';
   if(/bad reichenhall|83435|arbeitsst|kaserne|dienstst|nonner/.test(t))return 'WORK';
+  if(typeof state!=='undefined'&&arbMerkmale(state.settings.addrWork2).some(kw=>t.includes(kw)))return 'WORK2';
   return null;}
 const KM_DEFAULTS={'FRL|WORK':21,'FRL|POTSDAM':705,'POTSDAM|WORK':700,'FRL|SBG_AIR':9,'SBG_AIR|WORK':16,'BER_AIR|POTSDAM':50};
 function kmForRoute(a,b){const ca=locClass(a),cb=locClass(b);if(!ca||!cb||ca===cb)return null;return KM_DEFAULTS[[ca,cb].sort().join('|')]||null;}
@@ -4386,16 +4425,24 @@ function bwSummen(praefix){
   s.unterkunft=s.tgUnterkunft;
   return s;
 }
+/* v5.19: Belegarten zusammenfassen – „Flugkarte 2“, „Bahnkarte 3“ usw. zählen zur Grundart
+   (laufende Nummer am Ende entfällt); bekannte Verkehrsmittel über belegArtKategorie vereinheitlicht. */
+function belegArtGruppe(art){
+  const roh=String(art||'').trim().replace(/\s*(?:nr\.?\s*)?\(?\d+\)?$/i,'').trim();
+  if(!roh)return'Sonstiges';
+  return belegArtKategorie(roh)||(roh.charAt(0).toUpperCase()+roh.slice(1));
+}
 /* Summen der über die Belegeablage hochgeladenen sonstigen Belege (Bahn/Bus/Flug/Bilder), gefiltert nach Jahr/Monat-Präfix */
 function mbSummen(praefix){
   const items=(state.settings.mbReceipts&&state.settings.mbReceipts['unassigned'])||[];
   const l=items.filter(r=>!praefix||(r.datum||'').startsWith(praefix));
-  const s={anzahl:l.length,gesamt:0,nachArt:{}};
+  const s={anzahl:l.length,gesamt:0,nachArt:{},nachArtAnz:{}};
   l.forEach(r=>{
     const betrag=parseFloat(r.gesamtkosten)||0;
     s.gesamt+=betrag;
-    const art=r.belegart||'Sonstiges';
+    const art=belegArtGruppe(r.belegart);
     s.nachArt[art]=(s.nachArt[art]||0)+betrag;
+    s.nachArtAnz[art]=(s.nachArtAnz[art]||0)+1;
   });
   return s;
 }
@@ -4479,7 +4526,7 @@ function jahresUebersicht(yr){
   ents.forEach(e=>{
     const cd=e.dayCode||'?';
     u.codes[cd]=(u.codes[cd]||0)+1;
-    if(isArbeitsstaetteDay(e)){u.arbTage++;u.arbNachCode[cd]=(u.arbNachCode[cd]||0)+1;}
+    {const an=arbStaetteNr(e);if(an){u.arbTage++;u.arbNachCode[cd]=(u.arbNachCode[cd]||0)+1;if(an===2)u.arb2Tage=(u.arb2Tage||0)+1;}}
     if(e.isFHF===true&&e.dayCode!=='RF')u.fhf++;
     if(['DR','LG','ÜB','ES','EGV'].includes(cd))u.abwTage++;
     if(e.stayLocation||auswOrte(e).length)u.uebernacht++;
@@ -4873,7 +4920,7 @@ function renderJahresCard(){
       ${kpi(n(u.kmGesamt)+' km','Kilometer gesamt','alle Verkehrsmittel','var(--navy)','var(--lsoft)')}
       ${kpi(e(u.kostGesamt)+' €','Kosten gesamt','selbst erfasst','var(--navy)','var(--lsoft)')}
       ${kpi(e(bw.gesamt)+' €','Bw erstattet',bw.anzahl+' Bescheid(e)','var(--ok)','var(--oks)')}
-      ${kpi(u.arbTage,'Arb.-St&#228;tten-Tage',Object.keys(u.arbNachCode).sort().map(k=>k+' '+u.arbNachCode[k]).join(' &middot; '),'var(--navy)','var(--lsoft)')}
+      ${kpi(u.arbTage,'Arb.-St&#228;tten-Tage',Object.keys(u.arbNachCode).sort().map(k=>k+' '+u.arbNachCode[k]).join(' &middot; ')+(u.arb2Tage?' &middot; davon Arb.-St. 2: '+u.arb2Tage:''),'var(--navy)','var(--lsoft)')}
       ${kpi(u.fhf,'Familienheimfahrten','','var(--navy)','var(--lsoft)')}
       ${kpi(u.abwTage,'Abwesenheitstage','DR/LG/&Uuml;B/ES/EGV','var(--navy)','var(--lsoft)')}
     </div>
@@ -4895,8 +4942,11 @@ function renderJahresCard(){
           <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Trennungs-/Tagegeld</span><b>${e(bw.tagegeld)} €</b></div>
           <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Fahrkosten</span><b>${e(bw.fahrkosten)} €</b></div>
           <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Ausgezahlt</span><b>${e(bw.auszahlung)} €</b></div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Erstattete km Privat-Kfz</span><b>${n(bw.kmKfz)} km</b></div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Erstattete km Bahn/&Ouml;PNV</span><b>${n(bw.kmOev)} km</b></div>
+          <div style="font-size:10px;font-weight:700;color:var(--ok);text-transform:uppercase;letter-spacing:.4px;margin:8px 0 2px">Erstattete Kilometer</div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Privat-Kfz <span style="color:var(--muted);font-size:10px">verg&#252;tet (Wegstrecke)</span></span><b>${n(bw.kmVergKfz)} km${bw.kostKfz?' &middot; '+e(bw.kostKfz)+' €':''}</b></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Privat-Kfz <span style="color:var(--muted);font-size:10px">steuerlich (Wegstrecken-Tabelle)</span></span><b>${n(bw.kmSteuerKfz)} km</b></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Bahn/&Ouml;PNV <span style="color:var(--muted);font-size:10px">(Wegstrecken-Tabelle)</span></span><b>${n(bw.kmSteuerOev)} km${bw.kostBahn?' &middot; '+e(bw.kostBahn)+' €':''}</b></div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Aus den TG-Abrechnungen (RK-Abrechnungen enthalten keine km).</div>
           <div style="margin-top:8px;padding:7px 9px;background:var(--lsoft);border-radius:8px">
             <div style="font-size:10px;color:var(--muted)">Selbst getragen (Kosten abzgl. Erstattung)</div>
             <div style="font-size:16px;font-weight:800;color:var(--navy)">${e(u.eigen)} €</div>
@@ -4906,7 +4956,8 @@ function renderJahresCard(){
       <div style="flex:1;min-width:210px">
         <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Sonstige Belege (hochgeladen)</div>
         ${mb.anzahl?`
-          ${liste(mb.nachArt,v=>e(v)+' €','Keine Belege')}
+          ${Object.keys(mb.nachArt).sort((a,b)=>mb.nachArt[b]-mb.nachArt[a]).map(k=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)">
+      <span>${esc(k)} <span style="color:var(--muted);font-size:10px">(${(mb.nachArtAnz||{})[k]||0})</span></span><b>${e(mb.nachArt[k])} €</b></div>`).join('')}
           <div style="margin-top:8px;padding:7px 9px;background:#E3F2FD;border-radius:8px">
             <div style="font-size:10px;color:var(--muted)">${mb.anzahl} Beleg${mb.anzahl!==1?'e':''} &middot; Summe</div>
             <div style="font-size:16px;font-weight:800;color:var(--accent)">${e(mb.gesamt)} €</div>
@@ -6698,6 +6749,7 @@ function loadSettings(){
   }
   if(jSel)jSel.value=aktivesJahr();
   ['sName','sRank','sUnit','sPNr','sAP','sAS','sAW'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.value=[s.name,s.rank,s.unit,s.persNr,s.addrPrimary,s.addrSecondary,s.addrWork][i]||'';});
+  {const sv=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||'';};sv('sAW2',s.addrWork2);sv('sAW2Von',s.addrWork2Von);sv('sAW2Bis',s.addrWork2Bis);}
   renderDtPerioden();
   const fhfS=document.getElementById('sFhfStart');if(fhfS)fhfS.value=s.fhfStart||'';
   const fhfE=document.getElementById('sFhfEnde');if(fhfE)fhfE.value=s.fhfEnde||'';
@@ -6709,7 +6761,7 @@ function loadSettings(){
   ['sBK1','sBK2','sBK3','sBK4'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.value=[s.bk1,s.bk2,s.bk3,s.bk4][i]||'';});
   const geo=g=>g?`✓(${g.lat.toFixed(3)},${g.lng.toFixed(3)})`:'?';
   const gs=document.getElementById('geoStat');
-  if(gs)gs.innerHTML=[s.addrPrimary?`EW:${geo(s.addrPrimaryGeo)}`:'',s.addrSecondary?`TGW:${geo(s.addrSecondaryGeo)}`:'',s.addrWork?`Arb.:${geo(s.addrWorkGeo)}`:''].filter(Boolean).join(' · ');
+  if(gs)gs.innerHTML=[s.addrPrimary?`EW:${geo(s.addrPrimaryGeo)}`:'',s.addrSecondary?`TGW:${geo(s.addrSecondaryGeo)}`:'',s.addrWork?`Arb.:${geo(s.addrWorkGeo)}`:'',s.addrWork2?`Arb.2:${geo(s.addrWork2Geo)}`:''].filter(Boolean).join(' · ');
   updStInfo();
   // Firebase-Konfiguration ins Feld
   const fc=document.getElementById('fbConfig');
@@ -6725,6 +6777,10 @@ function saveSettings(){
     addrPrimaryGeo:np===prev.addrPrimary?prev.addrPrimaryGeo:null,
     addrSecondaryGeo:ns===prev.addrSecondary?prev.addrSecondaryGeo:null,
     addrWorkGeo:nw===prev.addrWork?prev.addrWorkGeo:null,
+    ...(function(){const g=id=>(document.getElementById(id)?.value||'').trim();const nw2=document.getElementById('sAW2')?g('sAW2'):(prev.addrWork2||'');
+      let von=document.getElementById('sAW2Von')?g('sAW2Von'):(prev.addrWork2Von||''),bis=document.getElementById('sAW2Bis')?g('sAW2Bis'):(prev.addrWork2Bis||'');
+      if(von&&bis&&bis<von){const t=von;von=bis;bis=t;}
+      return{addrWork2:nw2,addrWork2Von:von,addrWork2Bis:bis,addrWork2Geo:nw2===prev.addrWork2?(prev.addrWork2Geo||null):null};})(),
 
     fhfStart:(document.getElementById('sFhfStart')?.value)||'',
     fhfEnde:(document.getElementById('sFhfEnde')?.value)||'',
@@ -7030,7 +7086,7 @@ async function doPrint(slim){
   const addrHtml=(s.addrPrimary||s.addrSecondary||s.addrWork)?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2mm;margin-top:2mm;font-size:8pt;border:.5px solid #ddd;padding:2mm">
     <div><b style="color:#1a3a5c;display:block;font-size:7pt;text-transform:uppercase;margin-bottom:.5mm">Erstwohnung</b>${esc((s.addrPrimary||'—').replace(/\n/g,', '))}</div>
     <div><b style="color:#1a3a5c;display:block;font-size:7pt;text-transform:uppercase;margin-bottom:.5mm">TGW</b>${esc((s.addrSecondary||'—').replace(/\n/g,', '))}</div>
-    <div><b style="color:#1a3a5c;display:block;font-size:7pt;text-transform:uppercase;margin-bottom:.5mm">Arbeitsstätte</b>${esc((s.addrWork||'—').replace(/\n/g,', '))}</div>
+    <div><b style="color:#1a3a5c;display:block;font-size:7pt;text-transform:uppercase;margin-bottom:.5mm">Arbeitsstätte</b>${esc((s.addrWork||'—').replace(/\n/g,', '))}${s.addrWork2?'<br><b style="color:#1a3a5c;font-size:7pt">2.:</b> '+esc(s.addrWork2.replace(/\n/g,', '))+(s.addrWork2Von||s.addrWork2Bis?' ('+(s.addrWork2Von?fmtD(s.addrWork2Von):'…')+' – '+(s.addrWork2Bis?fmtD(s.addrWork2Bis):'…')+')':''):''}</div>
   </div>`:'';
   let recHtml='';
   if(!slim&&recs.length){
@@ -8062,6 +8118,7 @@ async function genFahrtkostenPdf(){
      ['Eigener Hausstand (Erstwohnung):', fullAd(s.addrPrimary)||'-'],
      ['Zweitwohnung am Beschaeftigungsort:', fullAd(s.addrSecondary)||'-'],
      ['Erste Taetigkeitsstaette:', fullAd(s.addrWork)||'-'],
+     ...(s.addrWork2?[['Weitere Arbeitsstaette:', fullAd(s.addrWork2)+((s.addrWork2Von||s.addrWork2Bis)?' ('+(s.addrWork2Von?fmtD(s.addrWork2Von):'...')+' - '+(s.addrWork2Bis?fmtD(s.addrWork2Bis):'...')+')':'')]]:[]),
      ['Entfernung Zweitwohnung - Arbeitsstaette:', KM_TAG+' km (einfach)'],
      ['Entfernung Hausstand - Beschaeftigungsort:', KM_FHF+' km (einfach, kuerzeste Strassenverbindung)'],
      ['Entfernungspauschale '+yr+':', Y>=2026?'0,38 EUR/km ab dem 1. km':'0,30 EUR (km 1-20), 0,38 EUR ab km 21'],
