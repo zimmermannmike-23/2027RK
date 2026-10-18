@@ -1176,10 +1176,12 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.19.5';
-const APP_BUILD=95;
+const APP_VERSION='5.19.7';
+const APP_BUILD=97;
 const APP_DATE='18.10.2026';
 const APP_CHANGES=[
+  'Abwesenheitsbescheinigung: Dienstreisen kommen aus den Reisekostenabrechnungen (Zeitraum, Zielort, Verpflegung, Abrechnungs-Nr.); Übungen, Lehrgänge, Einsätze und Home Office weiter aus dem Tool. Dienstreise-Tage ohne Abrechnung werden aus dem Tool ergänzt und gekennzeichnet',
+  'Fahrtkosten-Jahresbeleg Teil 4: Besuchsfahrten (Angehörige) zählen wie Familienheimfahrten – eigene Zeile „Besuchsfahrt“, Hin-/Rückflug zusammengefasst, Betrag in der Summe',
   'Fahrtkosten-Jahresbeleg Teil 4 Flugkosten: Beträge kommen aus den Flug-Belegen der Belegeablage; Hin- und Rückflug einer Heimfahrt stehen in einer Zeile, einzelne Flüge einzeln. Bisher fehlten alle Rückflüge',
   'Reisekosten- & Arbeitszeitnachweis: Detailtabelle hatte eine Spalte zu viel (11 statt 10) – Zeilen verrutschten. Spalten korrigiert, Eintrag bricht nicht mehr über Seiten',
   'Abwesenheitsbescheinigung: Ort nur noch PLZ, Ort (und Land); Spalte Verpflegung als Auswahlfeld im PDF: „Verpflegung wurde bereitgestellt“ / „Verpflegung wurde nicht bereitgestellt“',
@@ -8149,7 +8151,7 @@ async function genFahrtkostenPdf(){
       return (e.segs||[]).find(sg=>sg.enabled!==false&&isFlug(sg)&&Math.abs((parseFloat(sg.costAmt)||0)-amt)<0.01)
         ||(e.segs||[]).find(sg=>sg.enabled!==false&&isFlug(sg))||null;};
     const stadt=a=>{const k=ortKurz(a||'');return k.replace(/^\d{4,5}\s+/,'').split(',')[0].trim()||'?';};
-    const gruppen=new Map();const extra=[];
+    const gruppen=new Map();const extra=[];const besuche=[];
     fluege.forEach(f=>{
       const sg=segAm(f.datum,f.amt);
       f.besuch=!!(sg&&/besuch/i.test(sg.costDesc||''));
@@ -8157,7 +8159,7 @@ async function genFahrtkostenPdf(){
         const fl=((e&&e.segs)||[]).filter(x=>x.enabled!==false&&isFlug(x)&&(/besuch/i.test(x.costDesc||'')===f.besuch));
         const kette=f.besuch?(sg?[sg]:[]):fl;
         f.strecke=kette.length?stadt(kette[0].fromLoc)+' - '+stadt(kette[kette.length-1].toLoc)+(kette.length>1?' (via '+stadt(kette[0].toLoc)+')':''):'Flug';}
-      if(f.besuch){extra.push(Object.assign(f,{grund:'Besuchsfahrt*'}));return;}
+      if(f.besuch){besuche.push(f);return;}
       let t=trips.find(t=>f.datum>=t.von&&f.datum<=t.bis);
       if(!t){const nah=trips.map(t=>({t,d:Math.min(Math.abs(new Date(f.datum)-new Date(t.von)),Math.abs(new Date(f.datum)-new Date(t.bis)))/86400000})).sort((a,b)=>a.d-b.d)[0];
         if(nah&&nah.d<=3)t=nah.t;}
@@ -8172,6 +8174,17 @@ async function genFahrtkostenPdf(){
       const strecke=[...new Set(l.map(f=>f.strecke))].join(' | ');
       teilC.push({date:l[0].datum,datum:daten,strecke,hin:sum(hin),rueck:sum(rueck),amt:sum(l),
         art:hin.length&&rueck.length?'Hin- und Rueckflug':(hin.length?'nur Hinflug':'nur Rueckflug'),n:l.length});
+    });
+    // Besuchsfahrten (Angehoerige) gelten wie Familienheimfahrten: Fluege derselben Besuchsfahrt
+    // (hoechstens 14 Tage auseinander) bilden eine Zeile, erster Flug = Hinflug, weitere = Rueckflug.
+    const bGr=[];
+    besuche.forEach(f=>{const g=bGr[bGr.length-1];
+      if(g&&(new Date(f.datum)-new Date(g[0].datum))/86400000<=14)g.push(f);else bGr.push([f]);});
+    bGr.forEach(l=>{
+      const sum=a=>a.reduce((x,f)=>x+f.amt,0);
+      teilC.push({date:l[0].datum,datum:[...new Set(l.map(f=>fmtD(f.datum)))].join(' / '),
+        strecke:[...new Set(l.map(f=>f.strecke))].join(' | '),hin:l[0].amt,rueck:sum(l.slice(1)),amt:sum(l),
+        art:l.length>1?'Besuchsfahrt Hin+Rueck':'Besuchsfahrt',n:l.length});
     });
     teilC.sort((a,b)=>a.date.localeCompare(b.date));
     extra.forEach(f=>teilC.push({date:f.datum,datum:fmtD(f.datum),strecke:f.strecke,hin:0,rueck:0,amt:f.amt,art:f.grund,grau:true,n:1}));
@@ -8343,6 +8356,7 @@ async function genFahrtkostenPdf(){
     P('Fuer Flugstrecken ist die Entfernungspauschale gesetzlich ausgeschlossen; anzusetzen sind die',7.5,GR);
     P('tatsaechlichen Ticketkosten laut Beleg ('+String.fromCharCode(167)+' 9 Abs. 1 Satz 3 Nr. 4 Satz 8 EStG; BFH VI R 42/07).',7.5,GR);
     P('Betraege aus den Flug-Belegen; Hin- und Rueckflug derselben Heimfahrt stehen in einer Zeile.',7.5,GR);
+    P('Besuchsfahrten von Angehoerigen werden wie Familienheimfahrten behandelt.',7.5,GR);
     y-=4;
     if(teilC.length){
       table([{t:'Datum',k:'d',w:92,max:24},{t:'Flugstrecke',k:'st',w:170,max:48},{t:'Art',k:'a',w:78,max:20},
@@ -8350,7 +8364,7 @@ async function genFahrtkostenPdf(){
         teilC.map(x=>({d:x.datum,st:x.strecke,a:x.art,h1:x.hin?eur(x.hin):'',h2:x.rueck?eur(x.rueck):'',
           b:eur(x.amt),grau:!!x.grau})),
         'Summe Teil 4  ('+teilC.filter(x=>!x.grau).reduce((a,x)=>a+x.n,0)+' Fluege)',sumC);
-      if(teilC.some(x=>x.grau))P('* grau: zaehlt nicht in die Summe - Besuchsfahrt von Angehoerigen bzw. Flug ausserhalb einer Familienheimfahrt.',7.5,GR);
+      if(teilC.some(x=>x.grau))P('* grau: zaehlt nicht in die Summe - Flug ausserhalb einer Familienheim- oder Besuchsfahrt.',7.5,GR);
     } else P('Keine Flugkosten erfasst.',8,GR);
 
     /* TEIL D */
@@ -8453,10 +8467,18 @@ async function genAbwesenheitPdf(){
   const s=state.settings;
   if(!s.name){toast('Bitte Name in Einstellungen eintragen','err');return;}
   const yrEntries=state.entries.filter(e=>e.date&&e.date.startsWith(yr));
-  const abEntries=yrEntries.filter(e=>['DR','LG','\u00dcB','ES','EGV'].includes(e.dayCode))
+  /* v5.19.7: Dienstreisen aus den Reisekostenabrechnungen (RK-Bescheide). Tage, die eine
+     Abrechnung abdeckt, werden fuer Code DR nicht mehr aus dem Tool genommen. Uebrige Abwesenheiten
+     (LG/UeB/ES/EGV) und Home Office kommen weiter aus dem Tool. */
+  const isoPlus=(ds,n)=>{const d=new Date(ds+'T12:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+  const rkJahr=bwList().filter(b=>b.typ==='RK'&&b.von&&(String(b.von).startsWith(yr)||String(b.bis||'').startsWith(yr)))
+    .sort((a,b)=>String(a.von).localeCompare(String(b.von)));
+  const rkTage=new Set();
+  rkJahr.forEach(b=>{let d=b.von;const bis=b.bis||b.von;for(let i=0;i<400&&d<=bis;i++){rkTage.add(d);d=isoPlus(d,1);}});
+  const abEntries=yrEntries.filter(e=>['DR','LG','\u00dcB','ES','EGV'].includes(e.dayCode)&&!(e.dayCode==='DR'&&rkTage.has(e.date)))
     .sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   const wfhEntries=yrEntries.filter(e=>e.dayCode==='WFH');
-  if(!abEntries.length&&!wfhEntries.length){toast('Keine Abwesenheiten/HO-Tage im Jahr '+yr,'err');return;}
+  if(!abEntries.length&&!wfhEntries.length&&!rkJahr.length){toast('Keine Abwesenheiten/HO-Tage im Jahr '+yr,'err');return;}
 
   toast('Abwesenheitsbescheinigung wird erstellt\u2026');
   try{
@@ -8500,7 +8522,7 @@ async function genAbwesenheitPdf(){
     y-=22;
 
     // Table: zusammenhängende Zeiträume gruppieren (gleicher Typ + gleicher Ort + lückenlos)
-    if(abEntries.length){
+    if(abEntries.length||rkJahr.length){
       const addDay=ds=>{const d=new Date(ds+'T12:00');d.setDate(d.getDate()+1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
       const ortAbw=e=>abwOrtText(e).split(' / ').map(ortKurz).filter(Boolean).join(' / ');
       const normOrt=e=>san(ortAbw(e)).toLowerCase();
@@ -8520,6 +8542,23 @@ async function genAbwesenheitPdf(){
             nachweis:e.nachweis||''});
         }
       }
+      groups.forEach(g=>{if(g.code==='DR')g.ohneRk=true;});
+      // Dienstreisen aus den Reisekostenabrechnungen
+      rkJahr.forEach(b=>{
+        const bis=b.bis||b.von;let n=0,d=b.von;while(d<=bis&&n<400){n++;d=isoPlus(d,1);}
+        const ziel=String(b.ziel||'').trim();
+        // Land/PLZ aus dem Tool ergaenzen, wenn dort derselbe Ort mit mehr Angaben steht
+        let ort=ziel;
+        if(ziel){const zl=ziel.toLowerCase();
+          const treffer=state.entries.filter(e=>e.date>=b.von&&e.date<=bis)
+            .flatMap(e=>abwOrtText(e).split(' / ').concat([e.stayLocation||'']).map(ortKurz))
+            .find(o=>o&&o.toLowerCase().includes(zl)&&o.length>ziel.length);
+          if(treffer)ort=treffer;}
+        const gestellt=(b.tage||[]).some(t=>t.fGestellt||t.mGestellt||t.aGestellt);
+        groups.push({code:'DR',from:b.von,to:bis,days:n,ort:ort||'-',ortKey:'rk'+b.nr,
+          verpfl:new Set(gestellt?['bescheid']:[]),nachweis:b.nr?'RK '+b.nr:'RK-Abr.',rk:true});
+      });
+      groups.sort((a,b)=>a.from.localeCompare(b.from)||(a.rk?-1:1));
       const colX=[40,100,180,322,346,494];
       const hdrs=['Zweck','Zeitraum','Ort(e) der Abwesenheit','Tage','Verpflegung','Nachweis'];
       const VOPT=['Verpflegung wurde bereitgestellt','Verpflegung wurde nicht bereitgestellt'];
@@ -8552,13 +8591,14 @@ async function genAbwesenheitPdf(){
         {const dd=form.createDropdown('verpflegung_'+(ri+1));dd.addOptions(VOPT);dd.select(verpfl);
           dd.addToPage(pg,{x:colX[4]+1,y:y-4,width:colX[5]-colX[4]-2,height:12,font:fn,borderWidth:0,backgroundColor:rgb(1,1,1)});
           try{dd.setFontSize(6.5);}catch(_){}}
-        pg.drawText(fit(g.nachweis||'-',W-40-colX[5]-5,7.5),{x:colX[5]+3,y:y-1,size:7.5,font:fn,color:BLK});
+        pg.drawText(fit((g.nachweis||'Befehl')+(g.ohneRk?' *':''),W-40-colX[5]-5,7.5),{x:colX[5]+3,y:y-1,size:7.5,font:fn,color:BLK});
         pg.drawLine({start:{x:40,y:y-4},end:{x:W-40,y:y-4},thickness:0.3,color:BLK});
         y-=15;ri++;
       }
       // Spaltenlinien schwarz (seitenweise)
       abVLines();
       y-=10;
+      if(groups.some(g=>g.ohneRk)){pg.drawText('* Dienstreise ohne vorliegende Reisekostenabrechnung - Angaben aus dem Tagesnachweis.',{x:40,y,size:7,font:fn,color:GR});y-=10;}
     }
 
     // Home Office section
