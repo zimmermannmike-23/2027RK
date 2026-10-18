@@ -1176,10 +1176,17 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.19.3';
-const APP_BUILD=93;
+const APP_VERSION='5.19.5';
+const APP_BUILD=95;
 const APP_DATE='18.10.2026';
 const APP_CHANGES=[
+  'Fahrtkosten-Jahresbeleg Teil 4 Flugkosten: Beträge kommen aus den Flug-Belegen der Belegeablage; Hin- und Rückflug einer Heimfahrt stehen in einer Zeile, einzelne Flüge einzeln. Bisher fehlten alle Rückflüge',
+  'Reisekosten- & Arbeitszeitnachweis: Detailtabelle hatte eine Spalte zu viel (11 statt 10) – Zeilen verrutschten. Spalten korrigiert, Eintrag bricht nicht mehr über Seiten',
+  'Abwesenheitsbescheinigung: Ort nur noch PLZ, Ort (und Land); Spalte Verpflegung als Auswahlfeld im PDF: „Verpflegung wurde bereitgestellt“ / „Verpflegung wurde nicht bereitgestellt“',
+  'Jahr › Trennungsgeld ↔ DHF: Verpflegungsmehraufwand erscheint nur noch in Jahren, in die die Dreimonatsfrist ab „Beginn doppelte Haushaltsführung“ (Einstellungen) fällt',
+  'Jahr › Familienheimfahrten: jede Heimfahrt wird einzeln berechnet (Entfernungspauschale des gewählten Jahres, einfache Strecke, Flugstrecke ausgenommen) und dann je Verkehrsmittel zusammengefasst: km, bezahlt, Pauschale, angesetzt – inkl. Taxi; aufklappbare Liste je Fahrt',
+  'Querprüfung Belege ↔ TG-Bescheid: Taxi und „Fahrkosten ÖPNV“ werden jetzt mitgeprüft; nicht zuordenbare Belege/Posten erscheinen als „Sonstige“ statt zu fehlen',
+  'Jahr › Erstattete Kilometer: Privat-Kfz laut Steuertabelle zuerst; die 650-km-Posten heißen jetzt „Reisebeihilfe Wegstrecke Kfz (Rechengröße)“ – das sind keine gefahrenen km',
   'Übersicht/Monat/Kalender „Beleg fehlt“: Belege aus der Belegeablage zählen jetzt mit (gleicher Betrag, Belegdatum bis 3 Tage Abstand, jeder Beleg nur einmal). Bisher zählten nur direkt am Tag verknüpfte Belege – dadurch z. B. 2025 „71× Beleg fehlt“, obwohl alle Belege vorlagen',
   'CheckBox Bw-Abgleich: Hinweis „Bescheid weist Dienstreise aus“ erklärt jetzt, dass die TG-Kennung DR jede dienstliche Abwesenheit umfasst (auch Übung/Lehrgang), und erkennt Rückreisetage nach einer Übung/Dienstreise (Vortag ÜB/LG/DR → zweiten Code ergänzen)',
   'CheckBox Arbeitsstätte: Meldung unterscheidet jetzt „kein Dienstort eingetragen“ und „Dienstort ist keine Arbeitsstätte“ (mit Ort) und nennt alle betroffenen Tage statt nur den ersten',
@@ -3205,6 +3212,27 @@ function auswOrte(e){
   raw.forEach(o=>{const k=o.toLowerCase();if(!seen.has(k)){seen.add(k);out.push(o);}});
   return out;
 }
+/* v5.19.5: Ort ohne Strasse – „PLZ Ort“ plus weitere Angaben (z. B. Land).
+   „Weberplatz 27, 14482, Potsdam“ → „14482 Potsdam“; „Innsbrucker Bundesstraße 95, 5020, Salzburg, Österreich“
+   → „5020 Salzburg, Österreich“; „Blaubeuren, 89143“ → „89143 Blaubeuren“. */
+function ortKurz(addr){
+  const teile=String(addr||'').split(/[,\n]+/).map(x=>x.trim()).filter(Boolean);
+  if(!teile.length)return'';
+  const istStrasse=t=>/\d/.test(t)&&!/^\d{4,5}(\s|$)/.test(t)&&(/(stra(ss|ß)e|str\.|platz|weg|allee|ring|gasse|damm|ufer|chaussee|steig|markt)\b/i.test(t)||/^[^\d]{3,}\s\d+[a-z]?(\s*[-\/]\s*\d+[a-z]?)?$/i.test(t));
+  let rest=teile.filter(t=>!istStrasse(t));
+  if(!rest.length)return teile[teile.length-1];
+  let plz='',ort='';
+  const iP=rest.findIndex(t=>/^\d{4,5}(\s|$)/.test(t));
+  if(iP>=0){
+    const m=rest[iP].match(/^(\d{4,5})\s*(.*)$/);plz=m[1];
+    if(m[2]){ort=m[2];rest.splice(iP,1);}
+    else if(rest[iP+1]){ort=rest[iP+1];rest.splice(iP,2);}
+    else if(iP>0){ort=rest[iP-1];rest.splice(iP-1,2);}
+    else rest.splice(iP,1);
+    return [plz+(ort?' '+ort:''),...rest].join(', ');
+  }
+  return rest.join(', ');
+}
 function abwOrtText(e){
   const a=auswOrte(e);
   if(a.length)return a.join(' / ');
@@ -4475,6 +4503,7 @@ function belegArtKategorie(art){
   if(a.includes('flug'))return'Flugkarte';
   if(a.includes('bahn')||a.includes('zug')||a.includes('ice')||a.includes('db'))return'Bahnkarte';
   if(a.includes('bus'))return'Buskarte';
+  if(a.includes('taxi'))return'Taxi';
   return null;
 }
 function mbBezahltFuerMonatKategorie(monat,kategorie){
@@ -4486,13 +4515,16 @@ function tgQuerpruefungMonat(monat){
   const bescheide=bwList().filter(b=>b.typ==='TG'&&b.periode===monat);
   const q={monat,hatBescheid:bescheide.length>0,
     flug:{bezahlt:0,erstattet:0},bahn:{bezahlt:0,erstattet:0},bus:{bezahlt:0,erstattet:0},
+    taxi:{bezahlt:0,erstattet:0},sonst:{bezahlt:0,erstattet:0,arten:[]},
     kfzKm:{km:0,erstattet:0},bahnOevKm:{km:0,kosten:0,steuerfrei:0}};
   bescheide.forEach(b=>{
     (b.posten||[]).forEach(p=>{
       if(p.art==='Fahrkosten Flugzeug')q.flug.erstattet+=p.betrag||0;
       else if(p.art==='Fahrkosten DB')q.bahn.erstattet+=p.betrag||0;
-      else if(p.art==='Fahrkosten Bus')q.bus.erstattet+=p.betrag||0;
+      else if(p.art==='Fahrkosten Bus'||p.art==='Fahrkosten ÖPNV')q.bus.erstattet+=p.betrag||0;
+      else if(/taxi/i.test(p.art||''))q.taxi.erstattet+=p.betrag||0;
       else if(p.art==='Wegstrecke Kfz'){q.kfzKm.erstattet+=p.betrag||0;q.kfzKm.km+=p.km||0;}
+      else if(p.betrag){q.sonst.erstattet+=p.betrag;q.sonst.arten.push(p.art||'?');}
     });
     (b.km||[]).forEach(k=>{
       if(k.art==='Bahn/ÖPNV'){q.bahnOevKm.km+=k.km||0;q.bahnOevKm.kosten+=k.kosten||0;q.bahnOevKm.steuerfrei+=k.steuerfrei||0;}
@@ -4501,10 +4533,14 @@ function tgQuerpruefungMonat(monat){
   q.flug.bezahlt=mbBezahltFuerMonatKategorie(monat,'Flugkarte');
   q.bahn.bezahlt=mbBezahltFuerMonatKategorie(monat,'Bahnkarte');
   q.bus.bezahlt=mbBezahltFuerMonatKategorie(monat,'Buskarte');
+  q.taxi.bezahlt=mbBezahltFuerMonatKategorie(monat,'Taxi');
+  ablageBelege().filter(r=>(r.datum||'').startsWith(monat)&&!belegArtKategorie(r.belegart)).forEach(r=>{
+    q.sonst.bezahlt+=parseFloat(r.gesamtkosten)||0;q.sonst.arten.push(belegArtGruppe(r.belegart));});
+  q.sonst.arten=[...new Set(q.sonst.arten)];
   q.flug.diff=q.flug.bezahlt-q.flug.erstattet;
   q.bahn.diff=q.bahn.bezahlt-q.bahn.erstattet;
   q.bus.diff=q.bus.bezahlt-q.bus.erstattet;
-  q.hatDaten=q.hatBescheid||q.flug.bezahlt||q.bahn.bezahlt||q.bus.bezahlt;
+  q.hatDaten=q.hatBescheid||q.flug.bezahlt||q.bahn.bezahlt||q.bus.bezahlt||q.taxi.bezahlt||q.sonst.bezahlt;
   return q;
 }
 /* Monatsweise Auswertung: App-Daten und Bw-Erstattung je Monat */
@@ -4637,40 +4673,56 @@ function vmaBerechnung(yr){
    Bus/ÖPNV gilt der höhere Betrag aus tatsächlichen Kosten oder Entfernungspauschale, Privat-Kfz nur
    die Pauschale (km × Satz). Für Fahrten ohne erfasste Segmentdaten (nur das FHF-Häkchen gesetzt, keine
    Fahrt-Details) greift ersatzweise die konfigurierte Pauschal-Route je Fahrt. */
+/* v5.19.4: Jede Familienheimfahrt wird EINZELN berechnet, danach je Verkehrsmittel zusammengefasst.
+   - bezahlt: tatsaechliche Kosten aller FHF-Eintraege (Hin- UND Rueckfahrt) je Verkehrsmittel
+   - Entfernungspauschale (§ 9 Abs. 1 Satz 3 Nr. 5 EStG): je Heimfahrt EINMAL fuer die einfache Entfernung
+     (Hin- und Rueckfahrt abgegolten), Saetze des gewaehlten Jahres (epKm), nur volle km.
+     Ohne Flug: Entfernung Hausstand–Taetigkeitsstaette (Route „weekly“, Standard 700 km), anteilig auf die
+     erfassten Verkehrsmittel der Hinfahrt verteilt. Mit Flug: Flugstrecke ausgenommen, Pauschale nur fuer
+     die Zubringer-Strecken der Hinfahrt (z. B. Bus zum Flughafen + Pkw Flughafen → Wohnung).
+   - Teilstrecken Zweitwohnung ↔ Arbeitsstaette zaehlen nicht (stehen beim Arbeitsstaetten-Tag).
+   - angesetzt: Flug = tatsaechliche Kosten; Bahn + Bus/OePNV = hoeherer Wert aus tatsaechlichen Kosten und
+     ihrem Pauschalanteil (Jahresvergleich); Privat-Kfz, Taxi, Mietwagen, Sonstige = nur Pauschale
+     (Taxi ist kein oeffentliches Verkehrsmittel, BFH-Urteil vom 09.06.2022); Dienst-Kfz = 0. */
 function fhfTatsaechlicheKosten(yr,kmFhfPauschale,epKm){
   const y=String(yr);
-  const ents=state.entries.filter(e=>e.date&&e.date.startsWith(y)&&e.isFHF===true);
-  let flugKosten=0,oepnvKosten=0,oepnvKm=0,oepnvPauschale=0,pkwKm=0,pkwPauschale=0;
-  let bahnKm=0,bahnKosten=0,busKm=0,busKosten=0;
-  let hfMitSegmente=0,hfOhneSegmente=0;
+  const ents=state.entries.filter(e=>e.date&&e.date.startsWith(y)&&e.isFHF===true).sort((a,b)=>a.date.localeCompare(b.date));
+  const GR=['Flugzeug','Bahn','Bus/ÖPNV','Taxi','Privat-Kfz','Mietwagen','Dienst-Kfz','Sonstige'];
+  const M={};GR.forEach(g=>M[g]={km:0,bezahlt:0,pauschKm:0,pausch:0,fahrten:0});
+  const tgwArb=sg=>{const ca=locClass(sg.fromLoc),cb=locClass(sg.toLoc);return !!(ca&&cb&&[ca,cb].sort().join('|')==='FRL|WORK');};
+  const fahrten=[];let hfMitSegmente=0,hfOhneSegmente=0,fallback=0;
   ents.forEach(e=>{
-    let hatSegment=false;
-    (e.segs||[]).forEach(s=>{
-      if(s.enabled===false||!s.mode)return;
-      const grp=MODE_GRUPPE[s.mode];
-      const km=parseFloat(s.km)||0;
-      const kosten=segCostAmt(s);
-      if(grp==='Flugzeug'){
-        if(kosten>0){flugKosten+=kosten;hatSegment=true;}
-      } else if(grp==='Bahn'||grp==='Bus/ÖPNV'){
-        if(kosten>0||km>0){
-          oepnvKosten+=kosten;oepnvKm+=km;oepnvPauschale+=epKm(km);hatSegment=true;
-          if(grp==='Bahn'){bahnKm+=km;bahnKosten+=kosten;}else{busKm+=km;busKosten+=kosten;}
-        }
-      } else if(grp==='Privat-Kfz'){
-        if(km>0){pkwKm+=km;pkwPauschale+=epKm(km);hatSegment=true;}
-      }
-    });
-    if(e.dayCode!=='RF'){
-      if(hatSegment)hfMitSegmente++;else hfOhneSegmente++;
-    }
+    const legs=(e.segs||[]).filter(sg=>sg.enabled!==false&&sg.mode&&!tgwArb(sg)).map(sg=>({g:GR.includes(MODE_GRUPPE[sg.mode])?MODE_GRUPPE[sg.mode]:'Sonstige',km:parseFloat(sg.km)||0,k:segCostAmt(sg)}));
+    legs.forEach(l=>{M[l.g].km+=l.km;M[l.g].bezahlt+=l.k;});
+    const hin=!hatCode(e,['RF']);
+    if(!hin)return;
+    const mitFlug=legs.some(l=>l.g==='Flugzeug');
+    const boden=legs.filter(l=>l.g!=='Flugzeug'&&l.km>0);
+    const bodenKm=boden.reduce((a,l)=>a+l.km,0);
+    if(!legs.length||(!mitFlug&&!bodenKm)){
+      hfOhneSegmente++;const p=epKm(Math.floor(kmFhfPauschale));fallback+=p;
+      fahrten.push({datum:e.date,basis:Math.floor(kmFhfPauschale),pausch:p,anteile:{},flug:false,ohne:true,kosten:legs.reduce((a,l)=>a+l.k,0)});return;}
+    hfMitSegmente++;
+    const basis=Math.floor(mitFlug?bodenKm:kmFhfPauschale);
+    const pausch=epKm(basis);
+    const anteile={};
+    boden.forEach(l=>{const f=bodenKm?l.km/bodenKm:0;anteile[l.g]=anteile[l.g]||{km:0,eur:0};anteile[l.g].km+=basis*f;anteile[l.g].eur+=pausch*f;});
+    Object.keys(anteile).forEach(g=>{M[g].pauschKm+=anteile[g].km;M[g].pausch+=g==='Dienst-Kfz'?0:anteile[g].eur;M[g].fahrten++;});
+    if(mitFlug)M['Flugzeug'].fahrten++;
+    fahrten.push({datum:e.date,basis,pausch,anteile,flug:mitFlug,kosten:legs.reduce((a,l)=>a+l.k,0)});
   });
-  const oepnvAngesetzt=Math.max(oepnvKosten,oepnvPauschale);
-  const fallback=hfOhneSegmente*epKm(kmFhfPauschale);
-  return{flugKosten,oepnvKosten,oepnvKm,oepnvPauschale,oepnvAngesetzt,pkwKm,pkwPauschale,
-    bahnKm,bahnKosten,busKm,busKosten,
+  M['Dienst-Kfz'].pausch=0;
+  const oevKosten=M['Bahn'].bezahlt+M['Bus/ÖPNV'].bezahlt, oevPausch=M['Bahn'].pausch+M['Bus/ÖPNV'].pausch;
+  const oepnvAngesetzt=Math.max(oevKosten,oevPausch);
+  GR.forEach(g=>{M[g].angesetzt=g==='Flugzeug'?M[g].bezahlt:(g==='Bahn'||g==='Bus/ÖPNV')?null:M[g].pausch;});
+  const sonstPausch=['Taxi','Privat-Kfz','Mietwagen','Sonstige'].reduce((a,g)=>a+M[g].pausch,0);
+  return{M,GR,fahrten,
+    flugKosten:M['Flugzeug'].bezahlt,oepnvKosten:oevKosten,oepnvKm:M['Bahn'].km+M['Bus/ÖPNV'].km,oepnvPauschale:oevPausch,oepnvAngesetzt,
+    pkwKm:M['Privat-Kfz'].km,pkwPauschale:M['Privat-Kfz'].pausch,
+    bahnKm:M['Bahn'].km,bahnKosten:M['Bahn'].bezahlt,busKm:M['Bus/ÖPNV'].km,busKosten:M['Bus/ÖPNV'].bezahlt,
+    taxiKosten:M['Taxi'].bezahlt,taxiPauschale:M['Taxi'].pausch,
     hfMitSegmente,hfOhneSegmente,fallback,kmFhfPauschale,
-    gesamt:flugKosten+oepnvAngesetzt+pkwPauschale+fallback};
+    gesamt:M['Flugzeug'].bezahlt+oepnvAngesetzt+sonstPausch+fallback};
 }
 /* Deutschlandticket als tatsaechliche Kosten oeffentlicher Verkehrsmittel.
    § 9 Abs. 2 Satz 2 EStG: Die Aufwendungen fuer oeffentliche Verkehrsmittel sind ansetzbar,
@@ -4795,7 +4847,7 @@ function dhfVergleich(yr){
       {n:'Unterkunft Zweitwohnung (max. 1.000 EUR/Monat)',dhf:dhfUnterkunft,erst:erstUnterkunft},
       {n:'Fahrten Zweitwohnung - Arbeitsstaette',dhf:dhfFahrten,erst:0},
       {n:'Familienheimfahrten',dhf:dhfFhf,erst:erstFahrt,fhfDetail:FHF},
-      {n:'Verpflegungsmehraufwand (erste 3 Monate)',dhf:VMA.betrag||0,erst:0,vma:VMA},
+      ...(VMA.aktiv?[{n:'Verpflegungsmehraufwand (erste 3 Monate)',dhf:VMA.betrag||0,erst:0,vma:VMA}]:[]),
     ],
     vma:VMA,fhf:FHF,dt:DTK,fahrtPausch,arbTage:U.arbTage,kmTag:KM_TAG,
     dhfSumme:dhfSumme+(VMA.betrag||0),erstSumme,rest:Math.max(0,dhfSumme+(VMA.betrag||0)-erstSumme),
@@ -4961,10 +5013,10 @@ function renderJahresCard(){
           <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Fahrkosten</span><b>${e(bw.fahrkosten)} €</b></div>
           <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Ausgezahlt</span><b>${e(bw.auszahlung)} €</b></div>
           <div style="font-size:10px;font-weight:700;color:var(--ok);text-transform:uppercase;letter-spacing:.4px;margin:8px 0 2px">Erstattete Kilometer</div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Privat-Kfz <span style="color:var(--muted);font-size:10px">verg&#252;tet (Wegstrecke)</span></span><b>${n(bw.kmVergKfz)} km${bw.kostKfz?' &middot; '+e(bw.kostKfz)+' €':''}</b></div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Privat-Kfz <span style="color:var(--muted);font-size:10px">steuerlich (Wegstrecken-Tabelle)</span></span><b>${n(bw.kmSteuerKfz)} km</b></div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Bahn/&Ouml;PNV <span style="color:var(--muted);font-size:10px">(Wegstrecken-Tabelle)</span></span><b>${n(bw.kmSteuerOev)} km${bw.kostBahn?' &middot; '+e(bw.kostBahn)+' €':''}</b></div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Aus den TG-Abrechnungen (RK-Abrechnungen enthalten keine km).</div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Privat-Kfz <span style="color:var(--muted);font-size:10px">(Steuertabelle)</span></span><b>${n(bw.kmSteuerKfz)} km</b></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Bahn/&Ouml;PNV <span style="color:var(--muted);font-size:10px">(Steuertabelle)</span></span><b>${n(bw.kmSteuerOev)} km${bw.kostBahn?' &middot; '+e(bw.kostBahn)+' €':''}</b></div>
+          ${bw.kmVergKfz?`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Reisebeihilfe Wegstrecke Kfz <span style="color:var(--muted);font-size:10px">(Rechengröße, keine gefahrenen km)</span></span><b>${n(bw.kmVergKfz)} km${bw.kostKfz?' &middot; '+e(bw.kostKfz)+' €':''}</b></div>`:''}
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Aus den TG-Abrechnungen (RK-Abrechnungen enthalten keine km). Die Reisebeihilfe rechnet je Heimfahrt eine Kfz-Wegstrecke ab (0,20 €/km, höchstens 650 km = 130 €) – auch wenn geflogen wurde.</div>
           <div style="margin-top:8px;padding:7px 9px;background:var(--lsoft);border-radius:8px">
             <div style="font-size:10px;color:var(--muted)">Selbst getragen (Kosten abzgl. Erstattung)</div>
             <div style="font-size:16px;font-weight:800;color:var(--navy)">${e(u.eigen)} €</div>
@@ -5026,24 +5078,38 @@ function renderDhfCard(){
       ${D.dt.gesamt>D.fahrtPausch?'Hier ist das <b>Deutschlandticket</b> g&#252;nstiger.':'Hier ist die <b>Entfernungspauschale</b> h&#246;her &ndash; das Ticket wirkt sich nicht aus.'}
       Pr&#252;fe selbst, ob das Ticket im gesamten Zeitraum tats&#228;chlich f&#252;r diesen Arbeitsweg genutzt wurde.</div>
     </div>`:''}
-    ${D.fhf?`<div style="margin-top:9px;padding:9px 11px;background:var(--lsoft);border-radius:8px;font-size:11px">
-      <div style="font-weight:700;color:var(--navy);margin-bottom:5px">&#9992;&#65039; Familienheimfahrten &ndash; wie sich ${e(D.fhf.gesamt)} &euro; zusammensetzen</div>
-      <div style="display:flex;justify-content:space-between;padding:2px 0"><span>Flugzeug (immer tats&#228;chliche Kosten)</span><b>${e(D.fhf.flugKosten)} &euro;</b></div>
-      <div style="display:flex;justify-content:space-between;padding:2px 0"><span>&nbsp;&nbsp;davon Bahn</span><span>${e(D.fhf.bahnKosten)} &euro; (${Math.round(D.fhf.bahnKm)} km)</span></div>
-      <div style="display:flex;justify-content:space-between;padding:2px 0"><span>&nbsp;&nbsp;davon Bus/&Ouml;PNV</span><span>${e(D.fhf.busKosten)} &euro; (${Math.round(D.fhf.busKm)} km)</span></div>
-      <div style="display:flex;justify-content:space-between;padding:2px 0"><span>Bahn+Bus/&Ouml;PNV gesamt: tats&#228;chlich ${e(D.fhf.oepnvKosten)} &euro; vs. Pauschale ${e(D.fhf.oepnvPauschale)} &euro; (${Math.round(D.fhf.oepnvKm)} km) &rarr; angesetzt (h&#246;herer Betrag)</span><b>${e(D.fhf.oepnvAngesetzt)} &euro;</b></div>
-      <div style="display:flex;justify-content:space-between;padding:2px 0"><span>Privat-Kfz: ${Math.round(D.fhf.pkwKm)} km &times; Pauschale (nur Entfernungspauschale)</span><b>${e(D.fhf.pkwPauschale)} &euro;</b></div>
-      ${D.fhf.hfOhneSegmente?`<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${D.fhf.hfOhneSegmente} Fahrt(en) ohne erfasste Fahrt-Segmente &times; Pauschale (${Math.round(D.fhf.kmFhfPauschale)} km-Route)</span><b>${e(D.fhf.fallback)} &euro;</b></div>`:''}
-      <div style="margin-top:4px;color:var(--muted)">${D.fhf.hfMitSegmente} Fahrt(en) mit erfassten Segmenten &middot; ${D.fhf.hfOhneSegmente} ohne Segmentdaten (Pauschale-Fallback) &middot; nur Eintr&#228;ge mit gesetztem FHF-H&#228;kchen, nicht alle Dienstreisen</div>
-    </div>`:''}
+    ${D.fhf?(()=>{const F=D.fhf,n0=v=>Math.round(v||0).toLocaleString('de-DE');
+      const zeilen=F.GR.filter(g=>F.M[g].km||F.M[g].bezahlt||F.M[g].pausch).map(g=>{const m=F.M[g];
+        const ang=g==='Flugzeug'?m.bezahlt:(g==='Bahn'||g==='Bus/ÖPNV')?null:m.pausch;
+        return `<tr><td style="padding:3px 5px">${esc(g)}</td><td style="padding:3px 5px;text-align:right">${n0(m.km)}</td>
+          <td style="padding:3px 5px;text-align:right">${e(m.bezahlt)}</td>
+          <td style="padding:3px 5px;text-align:right">${g==='Flugzeug'?'<span style="color:var(--muted)">entfällt</span>':g==='Dienst-Kfz'?'0,00':e(m.pausch)+(m.pauschKm?' <span style="color:var(--muted)">('+n0(m.pauschKm)+' km)</span>':'')}</td>
+          <td style="padding:3px 5px;text-align:right;font-weight:700">${ang==null?'<span style="color:var(--muted)">s. u.</span>':e(ang)}</td></tr>`;}).join('');
+      const satz=parseInt(D.jahr)>=2026?'0,38 € ab dem 1. km':'0,30 € (km 1–20), 0,38 € ab km 21';
+      const liste=F.fahrten.map(f=>`<tr><td style="padding:2px 5px">${fmtD(f.datum)}</td><td style="padding:2px 5px">${f.ohne?'ohne Fahrtdaten (Standardentfernung)':f.flug?'Flug + Zubringer':'Boden'}</td>
+          <td style="padding:2px 5px;text-align:right">${n0(f.basis)} km</td><td style="padding:2px 5px">${Object.keys(f.anteile).map(g=>esc(g)+' '+n0(f.anteile[g].km)+' km').join(', ')}</td>
+          <td style="padding:2px 5px;text-align:right">${e(f.pausch)} €</td></tr>`).join('');
+      return `<div style="margin-top:9px;padding:9px 11px;background:var(--lsoft);border-radius:8px;font-size:11px">
+      <div style="font-weight:700;color:var(--navy);margin-bottom:5px">&#9992;&#65039; Familienheimfahrten &ndash; wie sich ${e(F.gesamt)} &euro; zusammensetzen</div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead><tr style="color:var(--muted)"><th style="text-align:left;padding:3px 5px">Verkehrsmittel</th><th style="text-align:right;padding:3px 5px">km gefahren</th><th style="text-align:right;padding:3px 5px">bezahlt €</th><th style="text-align:right;padding:3px 5px">Pauschale €</th><th style="text-align:right;padding:3px 5px">angesetzt €</th></tr></thead>
+        <tbody>${zeilen}
+          <tr style="border-top:1px solid var(--line)"><td colspan="4" style="padding:3px 5px">Bahn + Bus/&Ouml;PNV: bezahlt ${e(F.oepnvKosten)} € vs. Pauschalanteil ${e(F.oepnvPauschale)} € &rarr; h&#246;herer Wert</td><td style="padding:3px 5px;text-align:right;font-weight:700">${e(F.oepnvAngesetzt)}</td></tr>
+          ${F.hfOhneSegmente?`<tr><td colspan="4" style="padding:3px 5px">${F.hfOhneSegmente} Heimfahrt(en) ohne Fahrtdaten &times; ${n0(F.kmFhfPauschale)} km</td><td style="padding:3px 5px;text-align:right;font-weight:700">${e(F.fallback)}</td></tr>`:''}
+          <tr style="background:var(--card,#fff);font-weight:700"><td colspan="4" style="padding:4px 5px">Familienheimfahrten gesamt</td><td style="padding:4px 5px;text-align:right">${e(F.gesamt)}</td></tr>
+        </tbody></table></div>
+      <details style="margin-top:6px"><summary style="cursor:pointer;color:var(--navy)">Berechnung je Heimfahrt (${F.fahrten.length})</summary>
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:10.5px;margin-top:4px">
+          <thead><tr style="color:var(--muted)"><th style="text-align:left;padding:2px 5px">Hinfahrt</th><th style="text-align:left;padding:2px 5px">Art</th><th style="text-align:right;padding:2px 5px">Basis</th><th style="text-align:left;padding:2px 5px">Aufteilung</th><th style="text-align:right;padding:2px 5px">Pauschale</th></tr></thead>
+          <tbody>${liste}</tbody></table></div></details>
+      <div style="margin-top:5px;color:var(--muted)">Entfernungspauschale ${D.jahr}: ${satz}, je Heimfahrt einmal f&#252;r die einfache Entfernung (volle km). Flugstrecken sind ausgenommen &ndash; dort z&#228;hlen nur die Zubringer. Ohne Flug gilt die Entfernung Hausstand&ndash;Arbeitsst&#228;tte (${n0(F.kmFhfPauschale)} km). Bezahlt = tats&#228;chliche Kosten aller Hin- und R&#252;ckfahrten. Taxi gilt nicht als &#246;ffentliches Verkehrsmittel (BFH-Urteil vom 09.06.2022) &ndash; nur Pauschale.</div>
+    </div>`;})():''}
     ${D.stpflTG?`<div style="margin-top:9px;padding:7px 10px;background:#fff8e1;border-radius:8px;font-size:11px;color:#8D6E00">
       <b>Hinweis:</b> Das Trennungstagegeld von ${e(D.tagegeldGesamt)} &euro; wurde <b>steuerpflichtig</b> gezahlt
-      (${e(D.stpflTG)} &euro; im Steuerbrutto). Es mindert den Werbungskostenabzug daher <b>nicht</b> &ndash;
-      der Verpflegungsmehraufwand der ersten drei Monate bleibt zus&#228;tzlich ansetzbar.
+      (${e(D.stpflTG)} &euro; im Steuerbrutto). Es mindert den Werbungskostenabzug daher <b>nicht</b>${D.vma&&D.vma.aktiv?' &ndash; der Verpflegungsmehraufwand der ersten drei Monate bleibt zus&#228;tzlich ansetzbar':''}.
     </div>`:''}
-    ${D.vma&&!D.vma.aktiv?`<div style="margin-top:8px;padding:7px 10px;background:var(--lsoft);border-radius:8px;font-size:11px;color:var(--navy)">
-      <b>Verpflegungsmehraufwand:</b> ${esc(D.vma.grund||'nicht anwendbar')}. F&#252;r ${D.jahr} daher kein Ansatz aus der doppelten Haushaltsf&#252;hrung.
-      Verpflegungspauschalen f&#252;r einzelne Dienstreisen bleiben davon unber&#252;hrt.
+    ${D.vma&&!D.vma.aktiv&&!state.settings.dhfStart?`<div style="margin-top:8px;padding:7px 10px;background:var(--lsoft);border-radius:8px;font-size:11px;color:var(--navy)">
+      <b>Verpflegungsmehraufwand:</b> Trag in den Einstellungen den <b>Beginn der doppelten Haushaltsf&#252;hrung</b> ein &ndash; daraus ergibt sich die Dreimonatsfrist.
     </div>`:''}
     ${D.vma&&D.vma.aktiv?`<div style="margin-top:8px;padding:7px 10px;background:var(--oks);border-radius:8px;font-size:11px;color:var(--ok)">
       <b>Verpflegungsmehraufwand</b> (Frist bis ${fmtD(D.vma.ende.getFullYear()+'-'+String(D.vma.ende.getMonth()+1).padStart(2,'0')+'-'+String(D.vma.ende.getDate()).padStart(2,'0'))}):<br>
@@ -5083,8 +5149,8 @@ function renderQuerCard(){
       <td style="padding:5px 6px;text-align:right;font-size:12px;color:var(--muted)">&ndash;</td>
     </tr>`;
   const monatsBloecke=monate.map(({m,q})=>{
-    const gesBezahlt=q.flug.bezahlt+q.bahn.bezahlt+q.bus.bezahlt;
-    const gesErstattet=q.flug.erstattet+q.bahn.erstattet+q.bus.erstattet;
+    const gesBezahlt=q.flug.bezahlt+q.bahn.bezahlt+q.bus.bezahlt+q.taxi.bezahlt+q.sonst.bezahlt;
+    const gesErstattet=q.flug.erstattet+q.bahn.erstattet+q.bus.erstattet+q.taxi.erstattet+q.sonst.erstattet;
     const gesDiff=gesBezahlt-gesErstattet;
     const gesFarbe=Math.abs(gesDiff)<0.005?'var(--navy)':(gesDiff>0?'var(--err)':'var(--ok)');
     return`<div style="margin-bottom:14px">
@@ -5099,8 +5165,10 @@ function renderQuerCard(){
         <tbody>
           ${zeile('&#9992;&#65039; Flugkarte',q.flug.bezahlt,q.flug.erstattet)}
           ${zeile('&#128646; Bahnkarte',q.bahn.bezahlt,q.bahn.erstattet)}
-          ${zeile('&#128652; Buskarte',q.bus.bezahlt,q.bus.erstattet)}
-          ${q.kfzKm.km?kmZeile('&#128663; Privat-Kfz',q.kfzKm.km,q.kfzKm.erstattet):''}
+          ${zeile('&#128652; Bus/&Ouml;PNV',q.bus.bezahlt,q.bus.erstattet)}
+          ${(q.taxi.bezahlt||q.taxi.erstattet)?zeile('&#128661; Taxi',q.taxi.bezahlt,q.taxi.erstattet,q.taxi.erstattet?'':'kein eigener Posten im Bescheid'):''}
+          ${(q.sonst.bezahlt||q.sonst.erstattet)?zeile('Sonstige',q.sonst.bezahlt,q.sonst.erstattet,esc(q.sonst.arten.join(', '))):''}
+          ${q.kfzKm.km?kmZeile('&#128663; Reisebeihilfe Wegstrecke Kfz',q.kfzKm.km,q.kfzKm.erstattet):''}
           ${q.bahnOevKm.km?kmZeile('&#128647; Bahn/&Ouml;PNV (km)',q.bahnOevKm.km,q.bahnOevKm.steuerfrei):''}
           <tr style="background:var(--lsoft);font-weight:700">
             <td style="padding:6px">Summe Belege (Tickets)</td>
@@ -5114,16 +5182,18 @@ function renderQuerCard(){
   }).join('');
   // Jahressumme ueber alle angezeigten Monate — dieselbe Aufschluesselung wie je Monat,
   // damit man nicht jeden Monatsblock einzeln addieren muss.
-  const jSumme={flug:{b:0,e:0},bahn:{b:0,e:0},bus:{b:0,e:0},kfzKm:{km:0,e:0},bahnOevKm:{km:0,e:0}};
+  const jSumme={flug:{b:0,e:0},bahn:{b:0,e:0},bus:{b:0,e:0},taxi:{b:0,e:0},sonst:{b:0,e:0},kfzKm:{km:0,e:0},bahnOevKm:{km:0,e:0}};
   monate.forEach(({q})=>{
     jSumme.flug.b+=q.flug.bezahlt;jSumme.flug.e+=q.flug.erstattet;
     jSumme.bahn.b+=q.bahn.bezahlt;jSumme.bahn.e+=q.bahn.erstattet;
     jSumme.bus.b+=q.bus.bezahlt;jSumme.bus.e+=q.bus.erstattet;
+    jSumme.taxi.b+=q.taxi.bezahlt;jSumme.taxi.e+=q.taxi.erstattet;
+    jSumme.sonst.b+=q.sonst.bezahlt;jSumme.sonst.e+=q.sonst.erstattet;
     jSumme.kfzKm.km+=q.kfzKm.km;jSumme.kfzKm.e+=q.kfzKm.erstattet;
     jSumme.bahnOevKm.km+=q.bahnOevKm.km;jSumme.bahnOevKm.e+=q.bahnOevKm.steuerfrei;
   });
-  const jBezahlt=jSumme.flug.b+jSumme.bahn.b+jSumme.bus.b;
-  const jErstattet=jSumme.flug.e+jSumme.bahn.e+jSumme.bus.e;
+  const jBezahlt=jSumme.flug.b+jSumme.bahn.b+jSumme.bus.b+jSumme.taxi.b+jSumme.sonst.b;
+  const jErstattet=jSumme.flug.e+jSumme.bahn.e+jSumme.bus.e+jSumme.taxi.e+jSumme.sonst.e;
   const jDiff=jBezahlt-jErstattet;
   const jFarbe=Math.abs(jDiff)<0.005?'var(--navy)':(jDiff>0?'var(--err)':'var(--ok)');
   const jahresSumme=`<div style="margin-top:4px;padding-top:12px;border-top:2px solid var(--navy)">
@@ -5138,8 +5208,10 @@ function renderQuerCard(){
       <tbody>
         ${zeile('&#9992;&#65039; Flugkarte',jSumme.flug.b,jSumme.flug.e)}
         ${zeile('&#128646; Bahnkarte',jSumme.bahn.b,jSumme.bahn.e)}
-        ${zeile('&#128652; Buskarte',jSumme.bus.b,jSumme.bus.e)}
-        ${jSumme.kfzKm.km?kmZeile('&#128663; Privat-Kfz',jSumme.kfzKm.km,jSumme.kfzKm.e):''}
+        ${zeile('&#128652; Bus/&Ouml;PNV',jSumme.bus.b,jSumme.bus.e)}
+        ${(jSumme.taxi.b||jSumme.taxi.e)?zeile('&#128661; Taxi',jSumme.taxi.b,jSumme.taxi.e):''}
+        ${(jSumme.sonst.b||jSumme.sonst.e)?zeile('Sonstige',jSumme.sonst.b,jSumme.sonst.e):''}
+        ${jSumme.kfzKm.km?kmZeile('&#128663; Reisebeihilfe Wegstrecke Kfz',jSumme.kfzKm.km,jSumme.kfzKm.e):''}
         ${jSumme.bahnOevKm.km?kmZeile('&#128647; Bahn/&Ouml;PNV (km)',jSumme.bahnOevKm.km,jSumme.bahnOevKm.e):''}
         <tr style="background:var(--lsoft);font-weight:700">
           <td style="padding:6px">Summe Belege (Tickets)</td>
@@ -5156,7 +5228,7 @@ function renderQuerCard(){
       <span style="font-size:11px;color:var(--muted)">was bezahlt &amp; was erstattet wurde</span>
     </div>
     <p style="font-size:11px;color:var(--muted);margin:0 0 10px">
-      Vergleicht hochgeladene Belege (Flug-/Bahn-/Buskarte) mit den je Verkehrsmittel erstatteten Fahrkosten
+      Vergleicht alle hochgeladenen Belege (Flug-, Bahn-, Buskarte, Taxi, Sonstige) mit den je Verkehrsmittel erstatteten Fahrkosten
       aus dem TG-Bescheid. Eine positive Differenz (rot) ist selbst getragen, eine negative (gr&#252;n) &#252;bererstattet.
       Kilometerpauschalen (Privat-Kfz, Bahn/&Ouml;PNV) haben keinen eigenen Kauf-Beleg und zeigen nur den erstatteten Betrag.
       Nur f&#252;r Trennungsgeld-Bescheide verf&#252;gbar &ndash; Reisekostenabrechnungen (RK) enthalten keine Aufschl&#252;sselung je Verkehrsmittel.
@@ -7043,37 +7115,34 @@ async function doPrint(slim){
     const fahrt=!dt.noT&&(e.tripFrom||e.tripTo)?`${esc(e.tripFrom||'?')} → ${esc(e.tripTo||'?')}`:e.stayLocation?esc(e.stayLocation):'—';
     const numRefs=recs.filter(r=>r.entry===e).map(r=>`#${r.num}`).join(',');
     const activeSegs=dt.noT?[]:(e.segs||[]).filter(sg=>sg.enabled!==false&&sg.mode&&DISP_KM_GRUPPEN.has(MODE_GRUPPE[sg.mode]||'Sonstige'));
-    // Hauptzeile (entry info) + sub-rows per segment
-    const mainBg='';
-    let rows=`<tr>
-      <td rowspan="${Math.max(1,activeSegs.length)+1}" style="${TD}white-space:nowrap;background:#fafaf3">
+    /* v5.19.5: genau 10 Spalten wie der Kopf. Die drei rechten Spalten (Reisemittel, km, Kosten) tragen je
+       Abschnitt eine Zeile; die erste davon steht in der Hauptzeile. Allgemeine Kosten sind eine weitere
+       Unterzeile. Vorher hatte die Hauptzeile 11 Spalten (colspan 4) – alle Folgezeilen verrutschten. */
+    const sub=activeSegs.map(sg=>`<td style="${TD}">${esc(sg.mode)}</td><td style="${TD}text-align:right">${sg.km||'—'}</td><td style="${TD}text-align:right;color:#a86b1f">${sg.costAmt?fmtM(parseFloat(sg.costAmt),sg.costCurr):'—'}</td>`);
+    if(e.costAmt)sub.push(`<td colspan="2" style="${TD}font-size:6.5pt;color:#a86b1f">Allg. Kosten (${esc(e.costType||'Sonstiges')})</td><td style="${TD}text-align:right;color:#a86b1f">${fmtM(parseFloat(e.costAmt),e.costCurr)}</td>`);
+    if(!sub.length)sub.push(`<td colspan="3" style="${TD}color:#888;font-size:6.5pt">—</td>`);
+    const n=sub.length;
+    let rows=`<tbody style="break-inside:avoid;page-break-inside:avoid"><tr>
+      <td rowspan="${n}" style="${TD}white-space:nowrap;background:#fafaf3">
         <b style="font-size:8pt">${fmtD(e.date)}</b><br><span style="color:#888;font-size:6.5pt">${dayN(e.date)}</span>
       </td>
-      <td rowspan="${Math.max(1,activeSegs.length)+1}" style="${TD}text-align:center">
-        <span style="background:#c9a84c;color:#1a3a5c;padding:0 4px;border-radius:2px;font-size:7.5pt;font-weight:700">${e.dayCode}</span>
+      <td rowspan="${n}" style="${TD}text-align:center">
+        <span style="background:#c9a84c;color:#1a3a5c;padding:0 4px;border-radius:2px;font-size:7.5pt;font-weight:700">${e.dayCode}</span>${e.dayCode2?`<br><span style="font-size:6.5pt;color:#1a3a5c">+ ${esc(e.dayCode2)}</span>`:''}
       </td>
-      <td rowspan="${Math.max(1,activeSegs.length)+1}" style="${TD}text-align:center;font-size:7.5pt">${fhfTag}</td>
-      <td rowspan="${Math.max(1,activeSegs.length)+1}" style="${TD}font-size:7.5pt">${esc(dt.n)}</td>
-      <td rowspan="${Math.max(1,activeSegs.length)+1}" style="${TD}font-size:7pt">${esc(arbSt)}</td>
-      <td rowspan="${Math.max(1,activeSegs.length)+1}" style="${TD}font-size:7pt">${esc(dienst)}</td>
-      <td rowspan="${Math.max(1,activeSegs.length)+1}" style="${TD}font-size:7pt">${fahrt}${numRefs?`<br><span style="color:#1a3a5c;font-size:6.5pt">📎${numRefs}</span>`:''}</td>
-      <td colspan="4" style="${TD}color:var(--muted);font-size:6.5pt">${activeSegs.length?'':'—'}</td>
+      <td rowspan="${n}" style="${TD}text-align:center;font-size:7.5pt">${fhfTag}</td>
+      <td rowspan="${n}" style="${TD}font-size:7.5pt">${esc(dt.n)}</td>
+      <td rowspan="${n}" style="${TD}font-size:7pt">${esc(arbSt)}</td>
+      <td rowspan="${n}" style="${TD}font-size:7pt">${esc(dienst)}</td>
+      <td rowspan="${n}" style="${TD}font-size:7pt">${fahrt}${numRefs?`<br><span style="color:#1a3a5c;font-size:6.5pt">📎${numRefs}</span>`:''}</td>
+      ${sub[0]}
     </tr>`;
-    activeSegs.forEach(sg=>{
-      rows+=`<tr>
-        <td style="${TD}">${esc(sg.mode)}</td>
-        <td style="${TD}text-align:right">${sg.km||'—'}</td>
-        <td style="${TD}text-align:right;color:#a86b1f">${sg.costAmt?fmtM(parseFloat(sg.costAmt),sg.costCurr):'—'}</td>
-      </tr>`;
-    });
-    if(e.costAmt){
-      rows+=`<tr><td colspan="3" style="${TD}font-size:6.5pt;color:#a86b1f">Allg. Kosten (${esc(e.costType||'Sonstiges')}): ${fmtM(parseFloat(e.costAmt),e.costCurr)}</td><td style="${TD}"></td></tr>`;
-    }
+    sub.slice(1).forEach(c=>{rows+=`<tr>${c}</tr>`;});
+    rows+='</tbody>';
     return rows;
   };
   let tbody='';
   if(sort==='code'){const grps={};list.forEach(e=>(grps[e.dayCode]=grps[e.dayCode]||[]).push(e));
-    Object.keys(grps).sort().forEach(c=>{tbody+=`<tr><td colspan="11" style="background:#1a3a5c;color:#fff;padding:1.5mm 2mm;font-weight:700;font-size:8pt"><span style="background:#c9a84c;color:#1a3a5c;padding:0 5px;border-radius:2px;margin-right:5px">${c}</span>${esc(DT[c]?.n||c)} · ${grps[c].length}</td></tr>`;grps[c].forEach(e=>{tbody+=buildRow(e);});});}
+    Object.keys(grps).sort().forEach(c=>{tbody+=`<tbody><tr><td colspan="10" style="background:#1a3a5c;color:#fff;padding:1.5mm 2mm;font-weight:700;font-size:8pt"><span style="background:#c9a84c;color:#1a3a5c;padding:0 5px;border-radius:2px;margin-right:5px">${c}</span>${esc(DT[c]?.n||c)} · ${grps[c].length}</td></tr></tbody>`;grps[c].forEach(e=>{tbody+=buildRow(e);});});}
   else tbody=list.map(buildRow).join('');
   const ppHtml='';
   // Gesamtkosten section (after PP)
@@ -7153,7 +7222,7 @@ async function doPrint(slim){
         <th style="width:8%">Art</th><th style="width:9%">Arb.-Stätte</th><th style="width:8%">Dienstzeit</th>
         <th style="width:24%">Fahrtstrecke/Aufenthalt</th>
         <th style="width:15%">Reisemittel</th><th style="width:8%">km</th><th style="width:18%">Kosten</th>
-      </tr></thead><tbody>${tbody}</tbody></table>
+      </tr></thead>${tbody}</table>
       ${costsHtml}${wsHtml}${dtNote}${warnHtml}
     </div>
     <div style="margin-top:10mm;display:grid;grid-template-columns:1fr 1fr 1fr;gap:7mm">
@@ -8050,11 +8119,6 @@ async function genFahrtkostenPdf(){
       const zub=sg.filter(x=>!isFlug(x)&&!istPendelStrecke(x));
       const zubKm=zub.reduce((a,x)=>a+(parseFloat(x.km)||0),0);
       teilB.push({date:e.date,km:zubKm,ep:epKm(zubKm),art:'Zubringer Flughafen',bva:e.isFHF===true?'ja':'nein'});
-      flug.forEach(fl=>{
-        const amt=parseFloat(fl.costAmt)||0;
-        if(amt>0)teilC.push({date:e.date,von:fl.fromLoc||'',nach:fl.toLoc||'',
-          amt,curr:fl.costCurr||'EUR',scope:fl.costScope||'',desc:fl.costDesc||''});
-      });
     } else {
       // Massgeblich ist die Entfernung Hausstand <-> Beschaeftigungsort,
       // NICHT die Summe der tatsaechlich gefahrenen Teilstrecken.
@@ -8064,7 +8128,55 @@ async function genFahrtkostenPdf(){
     }
   });
   const sumB=teilB.reduce((a,x)=>a+x.ep,0);
-  const sumC=teilC.reduce((a,x)=>a+x.amt,0);
+  /* v5.19.5 TEIL C aus den Flug-BELEGEN der Belegeablage. Jede Heimfahrt (Hinfahrt HF bis Rueckfahrt RF)
+     wird einzeln betrachtet; Hin- und Rueckflug derselben Heimfahrt stehen in EINER Zeile, ein einzelner
+     Flug allein. Belege einer Besuchsfahrt (Angehoerige) und Fluege ausserhalb einer Heimfahrt werden
+     grau aufgefuehrt, zaehlen aber nicht in die Summe. */
+  {
+    const fluege=ablageBelege().filter(b=>(b.datum||'').startsWith(yr)&&belegArtKategorie(b.belegart)==='Flugkarte')
+      .map(b=>({id:b.id,datum:b.datum,amt:parseFloat(b.gesamtkosten)||0})).filter(b=>b.amt>0)
+      .sort((a,b)=>a.datum.localeCompare(b.datum));
+    // Heimfahrten: Beginn = Eintrag mit HF (bzw. FHF-Haken ohne RF), Ende = naechster RF-Eintrag
+    const allS=state.entries.filter(e=>e.date).sort((a,b)=>a.date.localeCompare(b.date));
+    const trips=[];
+    allS.forEach(e=>{
+      const istHin=hatCode(e,['HF'])||(e.isFHF===true&&!hatCode(e,['RF']));
+      if(istHin){trips.push({von:e.date,bis:e.date,offen:true});return;}
+      const t=trips[trips.length-1];
+      if(hatCode(e,['RF'])&&t&&t.offen){t.bis=e.date;t.offen=false;}
+    });
+    const segAm=(d,amt)=>{const e=allS.find(x=>x.date===d);if(!e)return null;
+      return (e.segs||[]).find(sg=>sg.enabled!==false&&isFlug(sg)&&Math.abs((parseFloat(sg.costAmt)||0)-amt)<0.01)
+        ||(e.segs||[]).find(sg=>sg.enabled!==false&&isFlug(sg))||null;};
+    const stadt=a=>{const k=ortKurz(a||'');return k.replace(/^\d{4,5}\s+/,'').split(',')[0].trim()||'?';};
+    const gruppen=new Map();const extra=[];
+    fluege.forEach(f=>{
+      const sg=segAm(f.datum,f.amt);
+      f.besuch=!!(sg&&/besuch/i.test(sg.costDesc||''));
+      {const e=allS.find(x=>x.date===f.datum);
+        const fl=((e&&e.segs)||[]).filter(x=>x.enabled!==false&&isFlug(x)&&(/besuch/i.test(x.costDesc||'')===f.besuch));
+        const kette=f.besuch?(sg?[sg]:[]):fl;
+        f.strecke=kette.length?stadt(kette[0].fromLoc)+' - '+stadt(kette[kette.length-1].toLoc)+(kette.length>1?' (via '+stadt(kette[0].toLoc)+')':''):'Flug';}
+      if(f.besuch){extra.push(Object.assign(f,{grund:'Besuchsfahrt*'}));return;}
+      let t=trips.find(t=>f.datum>=t.von&&f.datum<=t.bis);
+      if(!t){const nah=trips.map(t=>({t,d:Math.min(Math.abs(new Date(f.datum)-new Date(t.von)),Math.abs(new Date(f.datum)-new Date(t.bis)))/86400000})).sort((a,b)=>a.d-b.d)[0];
+        if(nah&&nah.d<=3)t=nah.t;}
+      if(!t){extra.push(Object.assign(f,{grund:'ohne Heimfahrt*'}));return;}
+      if(!gruppen.has(t))gruppen.set(t,[]);gruppen.get(t).push(f);
+    });
+    [...gruppen.entries()].forEach(([t,l])=>{
+      const mitte=t.von===t.bis?t.von:null;
+      const hin=l.filter(f=>mitte?f.datum<=mitte:f.datum<t.bis||(f.datum===t.von)),rueck=l.filter(f=>!hin.includes(f));
+      const sum=a=>a.reduce((x,f)=>x+f.amt,0);
+      const daten=[...new Set(l.map(f=>fmtD(f.datum)))].join(' / ');
+      const strecke=[...new Set(l.map(f=>f.strecke))].join(' | ');
+      teilC.push({date:l[0].datum,datum:daten,strecke,hin:sum(hin),rueck:sum(rueck),amt:sum(l),
+        art:hin.length&&rueck.length?'Hin- und Rueckflug':(hin.length?'nur Hinflug':'nur Rueckflug'),n:l.length});
+    });
+    teilC.sort((a,b)=>a.date.localeCompare(b.date));
+    extra.forEach(f=>teilC.push({date:f.datum,datum:fmtD(f.datum),strecke:f.strecke,hin:0,rueck:0,amt:f.amt,art:f.grund,grau:true,n:1}));
+  }
+  const sumC=teilC.filter(x=>!x.grau).reduce((a,x)=>a+x.amt,0);
 
   /* ── TEIL D: Dienstreisen / Auswaertstaetigkeiten (0,30 EUR je gefahrenem km) ── */
   const DR_CODES=['DR','LG','\u00dcB','ES','EGV'];
@@ -8230,14 +8342,15 @@ async function genFahrtkostenPdf(){
     H2('4  Flugkosten (tatsaechliche Aufwendungen)');
     P('Fuer Flugstrecken ist die Entfernungspauschale gesetzlich ausgeschlossen; anzusetzen sind die',7.5,GR);
     P('tatsaechlichen Ticketkosten laut Beleg ('+String.fromCharCode(167)+' 9 Abs. 1 Satz 3 Nr. 4 Satz 8 EStG; BFH VI R 42/07).',7.5,GR);
+    P('Betraege aus den Flug-Belegen; Hin- und Rueckflug derselben Heimfahrt stehen in einer Zeile.',7.5,GR);
     y-=4;
     if(teilC.length){
-      table([{t:'Datum',k:'d',w:70},{t:'Flugstrecke',k:'st',w:250},{t:'Hinweis',k:'h',w:105},
-             {t:'Betrag',k:'b',w:90,r:1}],
-        teilC.map(x=>({d:fmtD(x.date),st:(x.von||'?')+' - '+(x.nach||'?'),
-          h:x.scope==='roundtrip'?'inkl. Rueckflug':(x.scope==='covered'?'bereits erfasst':''),
-          b:eur(x.amt),grau:x.scope==='covered'})),
-        'Summe Teil 4',sumC);
+      table([{t:'Datum',k:'d',w:92,max:24},{t:'Flugstrecke',k:'st',w:170,max:48},{t:'Art',k:'a',w:78,max:20},
+             {t:'Hinflug',k:'h1',w:58,r:1},{t:'Rueckflug',k:'h2',w:58,r:1},{t:'Betrag',k:'b',w:59,r:1}],
+        teilC.map(x=>({d:x.datum,st:x.strecke,a:x.art,h1:x.hin?eur(x.hin):'',h2:x.rueck?eur(x.rueck):'',
+          b:eur(x.amt),grau:!!x.grau})),
+        'Summe Teil 4  ('+teilC.filter(x=>!x.grau).reduce((a,x)=>a+x.n,0)+' Fluege)',sumC);
+      if(teilC.some(x=>x.grau))P('* grau: zaehlt nicht in die Summe - Besuchsfahrt von Angehoerigen bzw. Flug ausserhalb einer Familienheimfahrt.',7.5,GR);
     } else P('Keine Flugkosten erfasst.',8,GR);
 
     /* TEIL D */
@@ -8389,7 +8502,8 @@ async function genAbwesenheitPdf(){
     // Table: zusammenhängende Zeiträume gruppieren (gleicher Typ + gleicher Ort + lückenlos)
     if(abEntries.length){
       const addDay=ds=>{const d=new Date(ds+'T12:00');d.setDate(d.getDate()+1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
-      const normOrt=e=>san(abwOrtText(e)).toLowerCase();
+      const ortAbw=e=>abwOrtText(e).split(' / ').map(ortKurz).filter(Boolean).join(' / ');
+      const normOrt=e=>san(ortAbw(e)).toLowerCase();
       const groups=[];
       for(const e of abEntries){
         const g=groups[groups.length-1];
@@ -8401,13 +8515,15 @@ async function genAbwesenheitPdf(){
           if(!g.nachweis&&e.nachweis)g.nachweis=e.nachweis;
         } else {
           groups.push({code:e.dayCode,from:e.date,to:e.date,days:1,
-            ort:abwOrtText(e),ortKey:normOrt(e),
+            ort:ortAbw(e),ortKey:normOrt(e),
             verpfl:new Set(VERPFL_MAHL.filter(m=>verpflStatus(e,m)==='ja')),
             nachweis:e.nachweis||''});
         }
       }
-      const colX=[40,112,214,392,424,492];
-      const hdrs=['Zweck','Zeitraum','Ort(e) der Abwesenheit','Tage','Verpfleg.','Nachweis'];
+      const colX=[40,100,180,322,346,494];
+      const hdrs=['Zweck','Zeitraum','Ort(e) der Abwesenheit','Tage','Verpflegung','Nachweis'];
+      const VOPT=['Verpflegung wurde bereitgestellt','Verpflegung wurde nicht bereitgestellt'];
+      const form=doc.getForm();
       function abHdr(){
         pg.drawRectangle({x:40,y:y-3,width:W-80,height:17,color:NAV});
         hdrs.forEach((h,i)=>{pg.drawText(h,{x:colX[i]+3,y:y,size:8,font:fb,color:rgb(1,1,1)});});
@@ -8426,14 +8542,17 @@ async function genAbwesenheitPdf(){
         if(y<100){abVLines();pg=doc.addPage([W,H]);y=H-45;tabTop=y+14;abHdr();}
         const dtName=DT[g.code]?.n||g.code;
         const zeitraum=g.from===g.to?fmtD(g.from):fmtD(g.from)+' - '+fmtD(g.to);
-        const verpfl=g.verpfl.size?[...g.verpfl].map(v=>vMap[v]||v).join(', '):'\u2013';
+        const verpfl=g.verpfl.size?VOPT[0]:VOPT[1];
         if(ri%2===0)pg.drawRectangle({x:40,y:y-4,width:W-80,height:14,color:rgb(.96,.96,.97)});
-        pg.drawText(san(dtName).slice(0,13),{x:colX[0]+3,y:y-1,size:8,font:fn,color:BLK});
-        pg.drawText(san(zeitraum),{x:colX[1]+3,y:y-1,size:8,font:fn,color:BLK});
-        pg.drawText(san(g.ort||'\u2013').slice(0,44),{x:colX[2]+3,y:y-1,size:7.5,font:fn,color:BLK});
+        const fit=(t,w,sz)=>{t=san(t);while(t.length>1&&fn.widthOfTextAtSize(t,sz)>w)t=t.slice(0,-2)+'…'.replace(/[^\x00-\xff]/g,'.');return t;};
+        pg.drawText(fit(dtName,colX[1]-colX[0]-5,7.5),{x:colX[0]+3,y:y-1,size:7.5,font:fn,color:BLK});
+        pg.drawText(san(zeitraum),{x:colX[1]+3,y:y-1,size:7,font:fn,color:BLK});
+        pg.drawText(fit(g.ort||'-',colX[3]-colX[2]-5,7),{x:colX[2]+3,y:y-1,size:7,font:fn,color:BLK});
         pg.drawText(String(g.days),{x:colX[3]+6,y:y-1,size:8,font:fn,color:BLK});
-        pg.drawText(san(verpfl).slice(0,11),{x:colX[4]+3,y:y-1,size:7.5,font:fn,color:BLK});
-        pg.drawText(san(g.nachweis||'-').slice(0,14),{x:colX[5]+3,y:y-1,size:8,font:fn,color:BLK});
+        {const dd=form.createDropdown('verpflegung_'+(ri+1));dd.addOptions(VOPT);dd.select(verpfl);
+          dd.addToPage(pg,{x:colX[4]+1,y:y-4,width:colX[5]-colX[4]-2,height:12,font:fn,borderWidth:0,backgroundColor:rgb(1,1,1)});
+          try{dd.setFontSize(6.5);}catch(_){}}
+        pg.drawText(fit(g.nachweis||'-',W-40-colX[5]-5,7.5),{x:colX[5]+3,y:y-1,size:7.5,font:fn,color:BLK});
         pg.drawLine({start:{x:40,y:y-4},end:{x:W-40,y:y-4},thickness:0.3,color:BLK});
         y-=15;ri++;
       }
@@ -8467,6 +8586,7 @@ async function genAbwesenheitPdf(){
 
     // Footer
     pg.drawText('Erstellt am '+new Date().toLocaleDateString('de-DE'),{x:40,y:25,size:7,font:fn,color:GR});
+    try{doc.getForm().updateFieldAppearances(fn);}catch(_){}
 
     const pdfBytes=await doc.save();
     const blob=new Blob([pdfBytes],{type:'application/pdf'});
