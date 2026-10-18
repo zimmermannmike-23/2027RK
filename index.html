@@ -1176,10 +1176,12 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.19.1';
-const APP_BUILD=91;
+const APP_VERSION='5.19.3';
+const APP_BUILD=93;
 const APP_DATE='18.10.2026';
 const APP_CHANGES=[
+  'Übersicht/Monat/Kalender „Beleg fehlt“: Belege aus der Belegeablage zählen jetzt mit (gleicher Betrag, Belegdatum bis 3 Tage Abstand, jeder Beleg nur einmal). Bisher zählten nur direkt am Tag verknüpfte Belege – dadurch z. B. 2025 „71× Beleg fehlt“, obwohl alle Belege vorlagen',
+  'CheckBox Bw-Abgleich: Hinweis „Bescheid weist Dienstreise aus“ erklärt jetzt, dass die TG-Kennung DR jede dienstliche Abwesenheit umfasst (auch Übung/Lehrgang), und erkennt Rückreisetage nach einer Übung/Dienstreise (Vortag ÜB/LG/DR → zweiten Code ergänzen)',
   'CheckBox Arbeitsstätte: Meldung unterscheidet jetzt „kein Dienstort eingetragen“ und „Dienstort ist keine Arbeitsstätte“ (mit Ort) und nennt alle betroffenen Tage statt nur den ersten',
   'Einstellungen: zweite Arbeitsstätte (optional mit Gültigkeitszeitraum). Steht ihr Ort, ihre PLZ oder ihr Kasernenname im Dienstort, zählt der Tag als Arbeitsstätten-Tag; Jahresübersicht zeigt „davon Arb.-St. 2“',
   'Jahr › Sonstige Belege: nummerierte Belegarten werden zusammengefasst (Flugkarte 2 → Flugkarte, Bahnkarte 3 → Bahnkarte), mit Anzahl je Art',
@@ -1991,12 +1993,27 @@ function calCat(c){
   if(['UR','FVD','WF','KR'].includes(c))return'frei';
   return'dienst';
 }
+/* v5.19.3: Eine Kostenposition gilt als belegt, wenn am Eintrag ein Beleg verknuepft ist
+   ODER in der Belegeablage ein Beleg mit gleichem Betrag (±0,01 €) und Belegdatum hoechstens
+   3 Tage vom Eintragsdatum entfernt liegt. Jeder Ablage-Beleg deckt nur EINE Position
+   (zwei Buskarten zu 2,50 € brauchen zwei Belege). Deutschlandticket-Strecken brauchen keinen Beleg. */
 function entryCostNoReceipt(e){
   const segs=(e.segs||[]).filter(x=>x.enabled!==false);
   const anyRec=(e.recIds||[]).length||segs.some(x=>(x.recIds||[]).length);
   if(anyRec)return false;
-  if(segs.some(x=>{try{return segCostCounts(x);}catch(_){return false;}}))return true;
-  return parseFloat(e.costAmt)>0;
+  const offen=[];
+  segs.forEach(x=>{try{if(segCostCounts(x)&&!istDTicket(x))offen.push(parseFloat(x.costAmt)||0);}catch(_){}});
+  if(parseFloat(e.costAmt)>0)offen.push(parseFloat(e.costAmt));
+  if(!offen.length)return false;
+  const t=e.date?new Date(e.date+'T12:00'):null;
+  let kand=[];
+  try{kand=ablageBelege().filter(b=>b.datum&&t&&Math.abs(new Date(b.datum+'T12:00')-t)/86400000<=3);}catch(_){}
+  const benutzt=new Set();
+  return offen.some(v=>{
+    const b=kand.find(b=>!benutzt.has(b.id)&&Math.abs((parseFloat(b.gesamtkosten)||0)-v)<=0.01);
+    if(b){benutzt.add(b.id);return false;}
+    return true;
+  });
 }
 function monthCloseStatus(yr,mo){
   const key=yr+'-'+mo;
@@ -5390,7 +5407,10 @@ function checkBoxAnalyze(){
           if(d.art==='FH'&&tagCodes(e).every(c=>['AW','WFH'].includes(c))&&isArbeitsstaetteDay(e))
             add('info','Bw-Abgleich',dstr(d.datum)+': Tag liegt laut Bescheid im Zeitraum einer Familienheimfahrt, die App erfasst Dienst an der Arbeitsstätte ('+esc(e.workLocation||'')+')',d.datum,e.id);
           if(d.art==='DR'&&!hatCode(e,['DR','LG','ÜB','ES','EGV']))
-            add('info','Bw-Abgleich',dstr(d.datum)+': Bescheid weist Dienstreise aus, App hat Code '+codeText(e),d.datum,e.id);
+          {const vt=ents.filter(x=>x.date<d.datum).pop();
+            const vtAbw=vt&&hatCode(vt,['DR','LG','ÜB','ES','EGV'])?vt.dayCode:'';
+            add('info','Bw-Abgleich',dstr(d.datum)+': Bescheid weist Dienstreise aus (Kennung DR = dienstliche Abwesenheit, auch Übung/Lehrgang), App hat Code '+codeText(e)
+              +(vtAbw?'. Vortag in der App: '+vtAbw+' – vermutlich Rückreisetag'+(d.tagGanz===false?' (Bescheid: kein ganzer Tag)':'')+'. Dann '+vtAbw+' als zweiten Code ergänzen.':''),d.datum,e.id);}
           // Verpflegung je Mahlzeit abgleichen — verglichen wird, was tatsaechlich
           // eingenommen wurde, denn nur das kuerzt das Trennungstagegeld.
           const reiseOhne=(!(d.fGestellt||d.mGestellt||d.aGestellt)&&(/^(DR|ZA|FO)$/.test(d.art||'')||hatCode(e,VERPFL_REISE)))
