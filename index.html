@@ -1183,10 +1183,17 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.19.8';
-const APP_BUILD=98;
+const APP_VERSION='5.19.9';
+const APP_BUILD=99;
 const APP_DATE='19.10.2026';
 const APP_CHANGES=[
+  'TG-Abrechnung: Reiseabschnitte (Dienstreise, Familienheimfahrt mit/ohne Reisebeihilfe, Besuchsfahrt, Zwischenabordnung, Urlaub, Abwesenheit Dienstort – je mit Datum und Uhrzeit) wurden wegen mehrerer Leerzeichen zwischen „Uhr“ und „bis“ nie erkannt. Jetzt erkannt; „Ort / Grund“ endet sauber vor „Ankunft Wohnung“; gespeicherte Abrechnungen werden einmalig neu eingelesen',
+  'CheckBox Familienheimfahrten: Abgleich jetzt je Heimfahrt statt Anzahl je Monat – jede HF der App muss in einer TG-Abrechnung stehen (mit/ohne Reisebeihilfe passend zum FHF-Haken), jede Heimfahrt der Abrechnung braucht in der App einen HF-Tag. Heimfahrten über den Monatswechsel (Abschnitt ab 1. um 00:00) werden dem Vormonat zugeordnet',
+  'CheckBox Ortsabgleich Dienstreisen (TG): kein Fehlalarm mehr bei Ländern/Abkürzungen (AUT, NOR, ISR, Strasbourg …) und „Besuch …“; liegt eine Reisekostenabrechnung vor, prüft nur noch deren Zielort',
+  'Datum „heute“ (neuer Eintrag, Backup-Dateiname, 28-Tage-Hinweis, Belegscan) wurde in UTC bestimmt – zwischen 0 und 2 Uhr nachts galt noch der Vortag; der 28-Tage-Zähler prüfte durchgehend den jeweils vorherigen Kalendertag',
+  'Querprüfung Belege ↔ TG-Abrechnung: bucht die Abrechnung Flug und ÖPNV einer Heimfahrt zusammen als „Fahrkosten ÖPNV“ (09/2025: 126,99 €), wird der Flugteil laut steuerlichen Daten den Flugkosten zugeordnet – keine falsche Meldung „Buskosten … Beleg fehlt“ mehr. Hinweis „Beleg ist als Taxi erfasst, das Segment als Taxi“ entfällt',
+  'Reisekostenabrechnung: Inlandstagegeld wurde nie gelesen (Zeilenanker passte nicht zum PDF-Text) – Jahresübersicht zeigte zu wenig Tagegeld; Übernachtungskosten, Übernachtungsgeld und Einbehalt werden jetzt gelesen und unter „Unterkunft / Übernachtung“ bzw. Tagegeld gezählt; gespeicherte Abrechnungen werden einmalig neu eingelesen',
+  'TG-Abrechnung: Unterkunft mit Tagen und Steueraufteilung wird jetzt gelesen (gleicher Zeilenanker-Fehler); Jahresübersicht zeigt „Sonstige Kosten (z. B. Nebenkosten)“, wenn die Abrechnung sie enthält',
   'Neuer Reiter „Bescheinigung“: Abwesenheitsbescheinigung vor dem Speichern bearbeiten – Texte, Zweck, Zeitraum, Ort, Tage, Verpflegung, Nachweis, Zeilen und ganze Spalten löschen oder hinzufügen (auch eigene Spalten), Home-Office-Tage. Grunddaten kommen unverändert aus dem Tool, Änderungen bleiben je Steuerjahr gespeichert („↺ Aus Tool neu laden“ setzt zurück). Gespeichert wird weiterhin unter Belege & Berichte › Berichte & Export',
   'Abwesenheitsbescheinigung: Unterschriften-/Stempelfeld fehlte, wenn Tabelle und Home-Office-Abschnitt die Seite füllten (wurde unterhalb des Blattrands gezeichnet) – jetzt immer vollständig auf der letzten Seite, bei Bedarf auf einer neuen Seite; Seitenzahlen bei mehreren Seiten',
   'Fahrtkosten-Jahresbeleg: weitere Arbeitsstätte erscheint nur noch, wenn ihr Gültigkeitszeitraum in das Jahr fällt (ebenso im Monatsbericht); Zusatz „zzgl. Reservierung …“ wird im Beleg nicht mehr gedruckt',
@@ -1427,6 +1434,24 @@ async function tgOepnvNachlesen(){
   }
   if(ok){state.settings.migTgOepnv5181=true;persist();}
 }
+/* v5.19.9: Gespeicherte Bescheide einmalig neu einlesen – TG: Reiseabschnitte + Unterkunft (Tage,
+   Steueraufteilung); RK: Inlandstagegeld, Uebernachtung, Einbehalt, Steueraufteilung. Tagesaufstellung
+   und Verpflegung bleiben unveraendert. */
+async function bwNachlesen5199(){
+  if(state.settings.migBw5199)return;
+  let ok=true,n=0;
+  for(const b of (state.settings.bwBescheide||[]).filter(x=>x.fileId&&(x.typ==='TG'||x.typ==='RK'))){
+    try{const rec=await idbGetF(b.fileId);if(!rec||!rec.blob)continue;
+      const p=parseBwBescheid(await window.extractPdfText(new File([rec.blob],rec.name||b.dateiname||'bw.pdf',{type:'application/pdf'})));
+      if(!p||p.typ!==b.typ)continue;
+      const felder=b.typ==='TG'?['reisen','reisenV','unterkunft','ukTage','ukSteuerfrei','ukStpfl']
+        :['inlandstagegeld','auslandstagegeld','tagegeld','tgSteuerfrei','tgStpfl','uebernachtung','ueSteuerfrei','uebernachtungsgeld','einbehaltGes','steuerfreiGes','stpflGes'];
+      felder.forEach(k=>{if(p[k]!==undefined)b[k]=p[k];});n++;
+    }catch(e){ok=false;console.warn('Bescheid nachlesen',b.typ,b.periode,e);}
+  }
+  if(ok){state.settings.migBw5199=true;persist();if(n&&typeof scheduleCloudPush==='function')scheduleCloudPush();}
+  return n;
+}
 async function tgVerpflAutoNachholen(){
   if(state.settings.migVerpflBw515)return;
   if(!(state.settings.bwBescheide||[]).some(b=>b.typ==='TG'||b.typ==='RK'))return;
@@ -1619,7 +1644,9 @@ function scopeNote(s){
 }
 
 /* HELPERS */
-function todayISO(){return new Date().toISOString().slice(0,10);}
+/* v5.19.9: lokales Datum – toISOString() liefert UTC und damit zwischen 0 und 2 Uhr den Vortag */
+function isoLocalD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function todayISO(){return isoLocalD(new Date());}
 function r5(t){if(!t)return'';const[h,m]=t.split(':').map(Number);if(isNaN(h)||isNaN(m))return t;let rm=Math.round(m/5)*5,rh=h;if(rm===60){rm=0;rh=(rh+1)%24;}return pad(rh)+':'+pad(rm);}
 function pad(n){return String(n).padStart(2,'0');}
 function uid(){return'e_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);}
@@ -1684,6 +1711,7 @@ async function load(){
   setTimeout(()=>bwWaisenAufraeumenEinmal(),6000);
   setTimeout(()=>tgUnvollstaendigNachlesen(),8000);
   setTimeout(()=>tgOepnvNachlesen(),10000);
+  setTimeout(()=>bwNachlesen5199(),13000);
 }
 let pt=null;
 function persist(){
@@ -2083,7 +2111,7 @@ function calClick(iso){if(calSelMode){calSelPick(iso);return;}const e=state.entr
 /* 28-DAY WARNING */
 function check28(targetId){
   const d=new Date(todayISO()+'T00:00');let streak=0;
-  for(let i=0;i<90;i++){const iso=d.toISOString().slice(0,10);const e=state.entries.find(x=>x.date===iso);
+  for(let i=0;i<90;i++){const iso=isoLocalD(d);const e=state.entries.find(x=>x.date===iso);
     if(e&&isWSDay(e))streak=0;else streak++;
     if(streak>=28){show28(streak,targetId);return;}d.setDate(d.getDate()-1);}
   hide28(targetId);
@@ -2800,7 +2828,7 @@ function plausiWarnings(w){
   }
   if(w.dayCode==='RF'){
     const von=new Date(w.date+'T12:00');von.setDate(von.getDate()-21);
-    const vonIso=von.toISOString().slice(0,10);
+    const vonIso=isoLocalD(von);
     if(!state.entries.some(e=>(e.dayCode==='HF'||e.dayCode==='BF')&&e.date<w.date&&e.date>=vonIso))
       out.push('In den 21 Tagen davor ist keine Hinfahrt erfasst.');
   }
@@ -2845,7 +2873,7 @@ function tplDelete(id){
 }
 function prevEntryFor(date){
   if(!date)return null;
-  const lim=new Date(date+'T00:00');lim.setDate(lim.getDate()-14);const limIso=lim.toISOString().slice(0,10);
+  const lim=new Date(date+'T00:00');lim.setDate(lim.getDate()-14);const limIso=isoLocalD(lim);
   return [...state.entries].filter(e=>e.date&&e.date<date&&e.date>=limIso&&e.id!==editId).sort((a,b)=>b.date.localeCompare(a.date))[0]||null;
 }
 function copyPrevApply(){
@@ -3621,7 +3649,7 @@ function parseBwBescheid(txt){
     if(zm)o.periode=zm[2]+'-'+String(zm[1]).padStart(2,'0');
     o.anlass=g(/Anlass\s*:?\s*(.+)/);
     // Betraege mit Steuersplit: <Gesamt> <steuerfrei> <steuerpflichtig>
-    const uk=/Auslagenersatz Unterkunft\s+(\d+)\s*\/\s*(\d+)[\s\d.,]*?([\d.,]+)\s+([\d.,]+)\s+([\d.,-]+)\s*$/m.exec(t);
+    const uk=/Auslagenersatz Unterkunft\s+(\d+)\s*\/\s*(\d+)[\s\d.,]*?([\d.,]+)\s+([\d.,]+)\s+([\d.,-]+)(?=\s+(?:Trennungstagegeld|Fahrkosten|Die\s|Anrechnung)|\s*$)/m.exec(t);
     if(uk){o.ukTage=parseInt(uk[1])||0;o.unterkunft=bwNum(uk[3]);o.ukSteuerfrei=bwNum(uk[4]);o.ukStpfl=bwNum(uk[5]);}
     else o.unterkunft=bwNum(g(/Auslagenersatz Unterkunft\s+\d+\s*\/\s*\d+\s+([\d.,]+)/));
     const tgz=/Trennungstagegeld[^\n]*?\s([\d.,]+)\s+([\d.,]+)\s+([\d.,-]+)/.exec(t);
@@ -3693,27 +3721,32 @@ function parseBwBescheid(txt){
       if(Math.abs(o.fahrkosten-postenSumme)>0.01)o.fahrkostenAbweichung=+(o.fahrkosten-postenSumme).toFixed(2);
     }
     // Reiseabschnitte: Dienstreise | Familienheimfahrt | Familienheimfahrt ohne Reisebeihilfe
-    const reR=/(\d{2}\.\d{2}\.\d{2})\s+(\d{2}:\d{2})\s*Uhr bis\s+(\d{2}\.\d{2}\.\d{2})\s+(\d{2}:\d{2})\s*Uhr\s+(Dienstreise|Familienheimfahrt(?:\s+ohne\s+Reisebeihilfe)?)/g;
+    const reR=/(\d{2}\.\d{2}\.\d{2})\s+(\d{2}:\d{2})\s*Uhr\s+bis\s+(\d{2}\.\d{2}\.\d{2})\s+(\d{2}:\d{2})\s*Uhr\s+(Dienstreise|Familienheimfahrt(?:\s+ohne\s+Reisebeihilfe)?|Besuchsfahrt|Zwischenabordnung|Urlaub|Abwesenheit\s+Dienstort)/g;
     // Zuerst alle Treffer sammeln, damit jeder Abschnitt exakt bis zum naechsten reicht
     const rTreffer=[];while((m=reR.exec(t)))rTreffer.push({m,idx:m.index});
+    o.reisenV=2;   // v5.19.9: Abschnitte werden zuverlaessig gelesen (Kennzeichen fuer die CheckBox)
     rTreffer.forEach((tr,ti)=>{
       const m=tr.m;
       const bis=ti+1<rTreffer.length?rTreffer[ti+1].idx:Math.min(t.length,tr.idx+800);
       const seg=t.slice(tr.idx,bis);
-      const ortM=/Ort \/ Grund:\s*(.+)/.exec(seg);
+      const ortM=/Ort \/ Grund:\s*(?!Ankunft\s+Wohnung|Abreise\s+Wohnung)(.+?)(?=\s{2,}|\s+Ankunft\s+Wohnung|\s+Abreise\s+Wohnung|\s+\d{2}\.\d{2}\.\d{2}\s+\d{2}:\d{2}|\n|$)/.exec(seg);
       const roh=m[5].replace(/\s+/g,' ').trim();
       const ohneRB=/ohne\s+Reisebeihilfe/i.test(roh);
-      const art=/Dienstreise/i.test(roh)?'Dienstreise':'Familienheimfahrt';
+      const art=/Dienstreise/i.test(roh)?'Dienstreise':/Familienheimfahrt/i.test(roh)?'Familienheimfahrt':/Abwesenheit/i.test(roh)?'Abwesenheit Dienstort':roh;
       // Einzelkosten dieses Abschnitts
       const kost=[];
-      let k;const reK=/(?:Fahrkosten|Reisebeihilfe) (DB|Flugzeug|Bus)\s+([\d.,]+)\s*EUR/g;
+      let k;const reK=/(?:Fahrkosten|Reisebeihilfe) (DB|Flugzeug|Bus|ÖPNV)\s+([\d.,]+)\s*EUR/g;
       while((k=reK.exec(seg)))kost.push({art:'Fahrkosten '+k[1],betrag:bwNum(k[2])});
       const wM=/Wegstrecke KFZ[^\n]*?([\d.,]+)\s*km\s+([\d.,]+)\s*EUR/.exec(seg);
+      // Steuerlich relevante Daten des Abschnitts (tatsaechliche Kosten je Verkehrsmittel)
+      let flugK=0,oevK=0,sk;
+      const reSF=/Flugzeug im Linienverkehr benutzt\.\s*Kosten:\s*([\d.,]+)/g;while((sk=reSF.exec(seg)))flugK+=bwNum(sk[1]);
+      const reSO=/öffentlichen Verkehrsmitteln zurückgelegt\.\s*Kosten:\s*([\d.,]+)/g;while((sk=reSO.exec(seg)))oevK+=bwNum(sk[1]);
       const anM=/Ankunft Wohnung:\s*(\d{2}\.\d{2}\.\d{2})\s*(\d{2}:\d{2})/.exec(seg);
       const abM=/Abreise Wohnung:\s*(\d{2}\.\d{2}\.\d{2})\s*(\d{2}:\d{2})/.exec(seg);
       o.reisen.push({von:bwDate(m[1]),vonZeit:m[2],bis:bwDate(m[3]),bisZeit:m[4],
-        art,ohneReisebeihilfe:ohneRB,ort:ortM?ortM[1].trim():'',kosten:kost,
-        wegKm:wM?bwNum(wM[1]):0,wegBetrag:wM?bwNum(wM[2]):0,
+        art,ohneReisebeihilfe:ohneRB,ort:ortM&&!/^\d{1,2}:\d{2}$/.test(ortM[1].trim())?ortM[1].trim():'',kosten:kost,
+        wegKm:wM?bwNum(wM[1]):0,wegBetrag:wM?bwNum(wM[2]):0,flugKosten:+flugK.toFixed(2),oevKosten:+oevK.toFixed(2),
         ankunftWohnung:anM?bwDate(anM[1])+' '+anM[2]:'',
         abreiseWohnung:abM?bwDate(abM[1])+' '+abM[2]:''});
     });
@@ -3732,10 +3765,15 @@ function parseBwBescheid(txt){
     // Tagegeld getrennt nach Inland und Ausland
     const aus=/Auslandstagegeld[^\n]*?\s([\d.,]+)\s+([\d.,]+)\s+([-\d.,]+)/.exec(t);
     if(aus){o.auslandstagegeld=bwNum(aus[1]);o.tgSteuerfrei=bwNum(aus[2]);o.tgStpfl=bwNum(aus[3]);}
-    const inl=/(?:^|\n)\s*(?:Inlands?tagegeld|Tagegeld)(?!\s*:)[^\n]*?\s([\d.,]+)\s+([\d.,]+)\s+([-\d.,]+)/.exec(t);
+    const inl=/(?:^|\s)(?:Inlands?tagegeld|Tagegeld)(?!\s*:)[^\n]*?\s([\d.,]+)\s+([\d.,]+)\s+([-\d.,]+)/.exec(t);
     if(inl&&!aus){o.inlandstagegeld=bwNum(inl[1]);o.tgSteuerfrei=bwNum(inl[2]);o.tgStpfl=bwNum(inl[3]);}
     else if(inl&&aus&&Math.abs(bwNum(inl[1])-(o.auslandstagegeld||0))>0.005)o.inlandstagegeld=bwNum(inl[1]);
     o.tagegeld=(o.auslandstagegeld||0)+(o.inlandstagegeld||0);
+    // v5.19.9: Uebernachtung, Uebernachtungsgeld, Einbehalt und Steueraufteilung der Festsetzung
+    {const ue=/Übernachtungskostenerstattung\s+([\d.,]+)\s+([\d.,]+)/.exec(t);if(ue){o.uebernachtung=bwNum(ue[1]);o.ueSteuerfrei=bwNum(ue[2]);}
+     const ug=/(?:Inl|Ausl)\.?-?\s*Übernachtungsgeld[^\n]*?\s(-?[\d.,]+)\s+(-?[\d.,]+)\s+(-?[\d.,]+)/.exec(t);if(ug)o.uebernachtungsgeld=bwNum(ug[1]);
+     const eb=/Einbehalt\s+(-[\d.,]+)\s+(-?[\d.,]+)\s+(-?[\d.,]+)/.exec(t);if(eb)o.einbehaltGes=-Math.abs(bwNum(eb[1]));
+     const fs=/festgesetzt auf\s+([\d.,]+)\s*EUR\s+([\d.,]+)\s+(-?[\d.,]+)/.exec(t);if(fs){o.steuerfreiGes=bwNum(fs[2]);o.stpflGes=bwNum(fs[3]);}}
     // Tagesaufstellung mit Mahlzeiten, Abwesenheitsdauer und Einbehalt
     o.tage=[];let ein=0;
     // Spalten: Morgens U GB NE · Mittags U GB NE K · Abends U GB NE · Tag ganz · Nacht · Aufw. · Std.
@@ -3770,6 +3808,18 @@ function parseBwBescheid(txt){
 }
 /* Reiseziel endet vor „Beginn Dienstg.“ — PDF-Texte kommen oft ohne Zeilenumbruch */
 function bwZielClean(z){return String(z||'').split(/\s+Beginn\s+Dienstg/i)[0].replace(/\s+/g,' ').trim();}
+/* v5.19.9: Suchbegriffe aus „Ort / Grund“ eines Bescheids – Laenderkuerzel und Schreibweisen vereinheitlicht */
+function bwOrtTokens(ort){
+  const AL={aut:'österreich',at:'österreich',nor:'norwegen',isr:'israel',uk:'großbritannien',gbr:'großbritannien',hun:'ungarn',
+    fra:'frankreich',strasbourg:'straßburg',strassburg:'straßburg',cze:'tschechien',pol:'polen',hrv:'kroatien',svn:'slowenien',can:'kanada',ltu:'litauen'};
+  const STOP=new Set(['besuch','dienststelle','und','trübpl','trpübpl','übpl','tüpl','grund']);
+  const out=new Set();
+  String(ort||'').toLowerCase().split(/[\s,\/()\-]+/).filter(Boolean).forEach(w=>{
+    if(STOP.has(w))return;const a=AL[w];if(a){out.add(a);return;}
+    if(w.length>=4)out.add(w.slice(0,6));
+  });
+  return[...out];
+}
 function bwList(){if(!Array.isArray(state.settings.bwBescheide))state.settings.bwBescheide=[];return state.settings.bwBescheide;}
 /* ═══ Bescheide ersetzen statt doppeln (v5.16) ═══════════════════════════════
    Derselbe Bescheid liegt vor bei gleicher Art UND (gleicher Nummer ODER
@@ -3984,7 +4034,7 @@ const _cpEq=(a,b)=>String(a==null?'':a).trim()===String(b==null?'':b).trim();
 function cpStatus(v){
   const er=cpErledigt()[v.id];if(er==='ok')return'uebernommen';if(er==='nein')return'abgelehnt';
   const a=v.aenderung||{};
-  if(a.beleg&&!v.date)return cpBelegStatus(a.beleg);
+  if(a.beleg&&(!v.date||(!a.set&&!(a.segs||[]).length)))return cpBelegStatus(a.beleg);
   const e=state.entries.find(x=>x.date===v.date);if(!e)return'veraltet';
   if(a.beleg){const bs=cpBelegStatus(a.beleg);if(bs==='veraltet')return bs;}
   if(a.expect&&!Object.entries(a.expect).every(([k,val])=>_cpEq(e[k],val))&&!(a.set&&Object.entries(a.set).every(([k,val])=>_cpEq(e[k],val))))return'veraltet';
@@ -4001,7 +4051,9 @@ function cpStatus(v){
   return'offen';
 }
 /* Beleg der Belegeablage (ueber den Dateinamen) – Angaben aendern, z. B. Belegart */
-function cpBelegFind(bg){return ablageBelege().find(r=>r.dateiname===bg.dateiname)||null;}
+let cpBelegUndo=[];
+function cpBelegFind(bg){const l=ablageBelege().filter(r=>r.dateiname===bg.dateiname);
+  return (bg.expect?l.find(r=>Object.entries(bg.expect).every(([k,val])=>_cpEq(r[k],val))):null)||l[0]||null;}
 function cpBelegStatus(bg){const r=cpBelegFind(bg);if(!r)return'veraltet';
   if(Object.entries(bg.set||{}).every(([k,val])=>_cpEq(r[k],val)))return'erfuellt';
   if(bg.expect&&!Object.entries(bg.expect).every(([k,val])=>_cpEq(r[k],val)))return'veraltet';
@@ -4009,7 +4061,7 @@ function cpBelegStatus(bg){const r=cpBelegFind(bg);if(!r)return'veraltet';
 function cpApplyOne(v){
   if(cpStatus(v)!=='offen')return false;
   const a=v.aenderung||{};
-  if(a.beleg){const r=cpBelegFind(a.beleg);if(r&&cpBelegStatus(a.beleg)==='offen')Object.assign(r,JSON.parse(JSON.stringify(a.beleg.set||{})));}
+  if(a.beleg){const r=cpBelegFind(a.beleg);if(r&&cpBelegStatus(a.beleg)==='offen'){cpBelegUndo.push({r,alt:Object.fromEntries(Object.keys(a.beleg.set||{}).map(k=>[k,r[k]]))});Object.assign(r,JSON.parse(JSON.stringify(a.beleg.set||{})));}}
   if(!v.date){cpErledigt()[v.id]='ok';return true;}
   const e=state.entries.find(x=>x.date===v.date);
   if(a.set)Object.assign(e,JSON.parse(JSON.stringify(a.set)));
@@ -4017,11 +4069,11 @@ function cpApplyOne(v){
   e.updated=Date.now();cpErledigt()[v.id]='ok';return true;
 }
 function cpApplyMany(list){
-  const snap=JSON.stringify(state.entries),snapE=JSON.stringify(cpErledigt()),snapB=JSON.stringify((state.settings.mbReceipts||{})['unassigned']||[]);let n=0;
+  const snap=JSON.stringify(state.entries),snapE=JSON.stringify(cpErledigt());cpBelegUndo=[];let n=0;
   list.forEach(v=>{if(cpApplyOne(v))n++;});
   if(!n){toast('Nichts zu übernehmen');return;}
   persist();scheduleCloudPush&&scheduleCloudPush();refreshAfterEntryChange();renderCp();
-  undoSnack(n+' Vorschläge übernommen',()=>{state.entries=JSON.parse(snap);state.settings.claudeErledigt=JSON.parse(snapE);if(state.settings.mbReceipts)state.settings.mbReceipts['unassigned']=JSON.parse(snapB);persist();refreshAfterEntryChange();renderCp();toast('Rückgängig gemacht','ok');});
+  undoSnack(n+' Vorschläge übernommen',()=>{state.entries=JSON.parse(snap);state.settings.claudeErledigt=JSON.parse(snapE);const bu=cpBelegUndo;cpBelegUndo=[];bu.forEach(x=>Object.assign(x.r,x.alt));persist();refreshAfterEntryChange();renderCp();toast('Rückgängig gemacht','ok');});
 }
 function cpById(id){return(CP.data&&CP.data.vorschlaege||[]).find(v=>v.id===id);}
 function cpOk(id){const v=cpById(id);if(v)cpApplyMany([v]);}
@@ -4465,7 +4517,7 @@ function bwSummen(praefix){
   const l=bwList().filter(b=>!praefix||(b.periode||'').startsWith(praefix));
   const s={anzTG:0,anzRK:0,
     tgUnterkunft:0,tgTagegeld:0,tgFahrkosten:0,tgGesamt:0,tgAuszahlung:0,
-    rkFahrkosten:0,rkTagegeld:0,rkGesamt:0,rkAuszahlung:0,
+    rkFahrkosten:0,rkTagegeld:0,rkUebernachtung:0,rkGesamt:0,rkAuszahlung:0,
     steuerfrei:0,tgSteuerfreiGes:0,sonstigeFk:0,gesamt:0,auszahlung:0,
     ukSteuerfrei:0,tgTgSteuerfrei:0,tgTgStpfl:0,fkSteuerfreiTG:0,ukTage:0,tageBescheid:0,tageVerpfl:0,
     kmVergKfz:0,kmSteuerKfz:0,kmSteuerOev:0,
@@ -4483,9 +4535,11 @@ function bwSummen(praefix){
       (b.tage||[]).forEach(d=>{s.tageBescheid++;if(d.fruehstueck||d.mittag||d.abend)s.tageVerpfl++;});
     } else {
       s.anzRK++;
-      s.rkFahrkosten+=b.fahrkosten||0;s.rkTagegeld+=b.tagegeld||0;
+      s.rkFahrkosten+=b.fahrkosten||0;s.rkTagegeld+=(b.tagegeld||0)+(b.einbehaltGes||0);
+      s.rkUebernachtung+=(b.uebernachtung||0)+(b.uebernachtungsgeld||0);
       s.rkGesamt+=b.gesamt||0;s.rkAuszahlung+=b.auszahlung||0;
-      s.steuerfrei+=(b.fkSteuerfrei||0)+(b.tgSteuerfrei||0);
+      // steuerfrei gezahlt = Festsetzung abzgl. steuerpflichtiger Anteil (Spalte „steuerfrei“ kann hoeher sein als gezahlt)
+      s.steuerfrei+=b.stpflGes!=null?Math.max(0,(b.gesamt||0)-Math.max(0,b.stpflGes)):(b.fkSteuerfrei||0)+(b.tgSteuerfrei||0);
     }
     s.gesamt+=b.gesamt||0;s.auszahlung+=b.auszahlung||0;
     // TATSAECHLICH VERGUETETE Kilometer stehen in den Einzelposten
@@ -4503,7 +4557,7 @@ function bwSummen(praefix){
   s.anzahl=l.length;
   s.fahrkosten=s.tgFahrkosten+s.rkFahrkosten;
   s.tagegeld=s.tgTagegeld+s.rkTagegeld;
-  s.unterkunft=s.tgUnterkunft;
+  s.unterkunft=s.tgUnterkunft+s.rkUebernachtung;
   return s;
 }
 /* v5.19: Belegarten zusammenfassen – „Flugkarte 2“, „Bahnkarte 3“ usw. zählen zur Grundart
@@ -4560,6 +4614,13 @@ function tgQuerpruefungMonat(monat){
       else if(/taxi/i.test(p.art||''))q.taxi.erstattet+=p.betrag||0;
       else if(p.art==='Wegstrecke Kfz'){q.kfzKm.erstattet+=p.betrag||0;q.kfzKm.km+=p.km||0;}
       else if(p.betrag){q.sonst.erstattet+=p.betrag;q.sonst.arten.push(p.art||'?');}
+    });
+    // v5.19.9: Manche Abrechnungen buchen Flug + OePNV einer Heimfahrt zusammen als „Fahrkosten ÖPNV“
+    // (z. B. 09/2025: 126,99 € = Flug 118,99 € + OePNV 8,00 €). Laut steuerlichen Daten des Abschnitts aufteilen.
+    (b.reisen||[]).forEach(r=>{
+      const kk=r.kosten||[];if(!r.flugKosten||kk.some(x=>x.art==='Fahrkosten Flugzeug'))return;
+      const oe=kk.find(x=>x.art==='Fahrkosten ÖPNV'||x.art==='Fahrkosten Bus');
+      if(oe&&Math.abs((oe.betrag||0)-r.flugKosten-(r.oevKosten||0))<0.02){q.flug.erstattet+=r.flugKosten;q.bus.erstattet-=r.flugKosten;q.umgebucht=(q.umgebucht||0)+r.flugKosten;}
     });
     (b.km||[]).forEach(k=>{
       if(k.art==='Bahn/ÖPNV'){q.bahnOevKm.km+=k.km||0;q.bahnOevKm.kosten+=k.kosten||0;q.bahnOevKm.steuerfrei+=k.steuerfrei||0;}
@@ -5043,9 +5104,10 @@ function renderJahresCard(){
       <div style="flex:1;min-width:210px">
         <div style="font-size:11px;font-weight:700;color:var(--ok);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Von der Bundeswehr erstattet</div>
         ${bw.anzahl?`
-          <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Unterkunft</span><b>${e(bw.unterkunft)} €</b></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Unterkunft / Übernachtung</span><b>${e(bw.unterkunft)} €</b></div>
           <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Trennungs-/Tagegeld</span><b>${e(bw.tagegeld)} €</b></div>
           <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Fahrkosten</span><b>${e(bw.fahrkosten)} €</b></div>
+          ${bw.sonstigeFk>0.005?`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Sonstige Kosten <span style="color:var(--muted);font-size:10px">(z. B. Nebenkosten)</span></span><b>${e(bw.sonstigeFk)} €</b></div>`:''}
           <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Ausgezahlt</span><b>${e(bw.auszahlung)} €</b></div>
           <div style="font-size:10px;font-weight:700;color:var(--ok);text-transform:uppercase;letter-spacing:.4px;margin:8px 0 2px">Erstattete Kilometer</div>
           <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Privat-Kfz <span style="color:var(--muted);font-size:10px">(Steuertabelle)</span></span><b>${n(bw.kmSteuerKfz)} km</b></div>
@@ -5475,33 +5537,28 @@ function checkBoxAnalyze(){
       // Familienheimfahrten: MIT und OHNE Reisebeihilfe getrennt vergleichen.
       // Mit Reisebeihilfe  -> App-Eintrag HF mit gesetztem FHF-Haken
       // Ohne Reisebeihilfe -> App-Eintrag HF/RF OHNE FHF-Haken
-      bj.filter(b=>b.typ==='TG').forEach(b=>{
-        const fhfB=(b.reisen||[]).filter(r=>r.art==='Familienheimfahrt');
-        if(!fhfB.length)return;
-        const mitB=fhfB.filter(r=>!r.ohneReisebeihilfe).length;
-        const ohneB=fhfB.filter(r=>r.ohneReisebeihilfe).length;
-        const imMonat=ents.filter(e=>(e.date||'').startsWith(b.periode));
-        const mitA=imMonat.filter(e=>hatCode(e,['HF'])&&e.isFHF===true).length;
-        const ohneA=imMonat.filter(e=>hatCode(e,['HF'])&&e.isFHF!==true).length;
-        if(mitA!==mitB)add('warn','Bw-Abgleich','Familienheimfahrten MIT Reisebeihilfe '+b.periode
-          +': Bescheid '+mitB+', App '+mitA+' (Code HF mit FHF-Haken)','','');
-        if(ohneA!==ohneB)add('warn','Bw-Abgleich','Familienheimfahrten OHNE Reisebeihilfe '+b.periode
-          +': Bescheid '+ohneB+', App '+ohneA+' (Code HF ohne FHF-Haken)','','');
-        // Einzelabgleich der Zeiträume
-        fhfB.forEach(r=>{
-          const tr=imMonat.filter(e=>e.date>=r.von&&e.date<=r.bis&&hatCode(e,['HF','RF']));
-          if(!tr.length){add('warn','Bw-Abgleich','Bescheid führt eine Familienheimfahrt '
-            +(r.ohneReisebeihilfe?'ohne':'mit')+' Reisebeihilfe vom '+dstr(r.von)+' bis '+dstr(r.bis)
-            +' – in der App kein HF/RF-Eintrag',r.von,'');return;}
-          const hf=tr.find(e=>hatCode(e,['HF']));
-          if(hf){
-            if(r.ohneReisebeihilfe&&hf.isFHF===true)
-              add('warn','Bw-Abgleich',dstr(hf.date)+': Bescheid weist die Fahrt OHNE Reisebeihilfe aus, in der App ist der FHF-Haken gesetzt',hf.date,hf.id);
-            if(!r.ohneReisebeihilfe&&hf.isFHF!==true)
-              add('warn','Bw-Abgleich',dstr(hf.date)+': Bescheid weist Reisebeihilfe aus, in der App fehlt der FHF-Haken',hf.date,hf.id);
-          }
+      // v5.19.9: je Heimfahrt abgleichen (statt Anzahl je Monat). Ein Abschnitt, der am 1. um 00:00
+      // beginnt, setzt eine Heimfahrt aus dem Vormonat fort und gehoert zu deren HF-Tag.
+      {
+        const tgGelesen=bwList().filter(b=>b.typ==='TG'&&b.reisenV>=2);
+        const fhfAlle=tgGelesen.flatMap(b=>(b.reisen||[]).filter(r=>r.art==='Familienheimfahrt').map(r=>Object.assign({periode:b.periode},r)));
+        const fortsetzung=r=>r.vonZeit==='00:00';   // Abschnitt setzt eine laufende Heimfahrt fort (Monatswechsel oder Teilung im Bescheid)
+        const monGelesen=new Set(bj.filter(b=>b.typ==='TG'&&b.reisenV>=2).map(b=>b.periode));
+        ents.filter(e=>hatCode(e,['HF'])&&monGelesen.has(e.date.slice(0,7))).forEach(e=>{
+          const r=fhfAlle.find(r=>!fortsetzung(r)&&r.von===e.date)||fhfAlle.find(r=>fortsetzung(r)&&/-01$/.test(r.von)&&r.von===abwTagePlus(e.date,1));
+          if(!r){add('warn','Bw-Abgleich',dstr(e.date)+': Heimfahrt (HF'+(e.isFHF===true?' mit FHF-Haken':'')+') steht in keiner TG-Abrechnung – nicht beantragt oder anders abgerechnet?',e.date,e.id);return;}
+          if(r.ohneReisebeihilfe&&e.isFHF===true)
+            add('warn','Bw-Abgleich',dstr(e.date)+': Bescheid weist die Heimfahrt OHNE Reisebeihilfe aus, in der App ist der FHF-Haken gesetzt',e.date,e.id);
+          if(!r.ohneReisebeihilfe&&e.isFHF!==true)
+            add('warn','Bw-Abgleich',dstr(e.date)+': Bescheid weist Reisebeihilfe aus, in der App fehlt der FHF-Haken',e.date,e.id);
         });
-      });
+        bj.filter(b=>b.typ==='TG'&&b.reisenV>=2).forEach(b=>(b.reisen||[]).filter(r=>r.art==='Familienheimfahrt'&&!fortsetzung(r)).forEach(r=>{
+          const e=ents.find(x=>x.date===r.von);
+          if(e&&hatCode(e,['HF']))return;
+          add('warn','Bw-Abgleich','Bescheid '+b.periode+': Familienheimfahrt '+(r.ohneReisebeihilfe?'ohne':'mit')+' Reisebeihilfe ab '+dstr(r.von)+' '+(r.vonZeit||'')+' Uhr – in der App '
+            +(e?'hat der Tag Code '+codeText(e)+', HF fehlt':'fehlt der Eintrag'),r.von,e?e.id:'');
+        }));
+      }
       // Tagesabgleich: jeder Tag im Bescheid muss einen Eintrag haben
       bj.filter(b=>b.typ==='TG').forEach(b=>{
         (b.tage||[]).forEach(d=>{
@@ -5552,14 +5609,16 @@ function checkBoxAnalyze(){
         });
         // Ortsabgleich der Reiseabschnitte
         (b.reisen||[]).filter(r=>r.art==='Dienstreise'&&r.ort).forEach(r=>{
+          // Liegt fuer den Zeitraum eine Reisekostenabrechnung vor, prueft der RK-Abgleich den Zielort
+          if(bwList().some(x=>x.typ==='RK'&&x.von&&x.von<=r.bis&&(x.bis||x.von)>=r.von))return;
           const tage=ents.filter(x=>x.date>=r.von&&x.date<=r.bis);
           if(!tage.length)return;
-          const ortB=r.ort.toLowerCase().split(',')[0].trim();
+          const tok=bwOrtTokens(r.ort);if(!tok.length)return;
           const treffer=tage.some(x=>{
-            const o=(abwOrtText(x)+' '+(x.workLocation||'')).toLowerCase();
-            return o.includes(ortB.slice(0,6));
+            const o=(abwOrtText(x)+' '+(x.workLocation||'')+' '+(x.stayLocation||'')).toLowerCase();
+            return tok.some(t=>o.includes(t));
           });
-          if(!treffer)add('warn','Bw-Abgleich','Bescheid nennt für '+dstr(r.von)+'–'+dstr(r.bis)+' den Ort „'+esc(r.ort)+'" – in der App nicht hinterlegt',r.von,'');
+          if(!treffer)add('info','Bw-Abgleich','Bescheid nennt für '+dstr(r.von)+'–'+dstr(r.bis)+' den Ort „'+esc(r.ort)+'" – in der App nicht hinterlegt',r.von,'');
         });
       });
       // Dienstreisen laut Bescheid ohne passenden Eintrag
@@ -5786,7 +5845,7 @@ function checkBoxAnalyze(){
       if(!kat)return;
       const grp=MODE_GRUPPE[kosten[ki].mode]||'';
       const passt=(kat==='Flugkarte'&&grp==='Flugzeug')||(kat==='Bahnkarte'&&grp==='Bahn')
-                ||(kat==='Buskarte'&&grp==='Bus/ÖPNV');
+                ||(kat==='Buskarte'&&grp==='Bus/ÖPNV')||(kat==='Taxi'&&grp==='Taxi');
       if(!passt&&grp)
         add('info','Belege',dstr(kosten[ki].date)+': Beleg ist als „'+b.belegart
           +'" erfasst, das Segment als „'+kosten[ki].mode+'"',kosten[ki].date,kosten[ki].id);
@@ -6158,7 +6217,7 @@ function renderFhfCard(){
 }
 function check28W(){
   const d=new Date(todayISO()+'T00:00');let streak=0;
-  for(let i=0;i<90;i++){const iso=d.toISOString().slice(0,10);const e=state.entries.find(x=>x.date===iso);
+  for(let i=0;i<90;i++){const iso=isoLocalD(d);const e=state.entries.find(x=>x.date===iso);
     if(e&&isWSDay(e))streak=0;else streak++;
     if(streak>=28)return{triggered:true,msg:`${streak} Tage am Stück nicht an Arbeitsstätte/TGW. Verpflegungsmehraufwand (14€/Tag für >8h, 28€/Tag mehrtägig) wieder anrechenbar!`};
     d.setDate(d.getDate()-1);}
@@ -6202,7 +6261,7 @@ function renderOvSummary(list){
     if(nb)chips.push(`<span class="sm-c warn">${nb}× Beleg fehlt</span>`);
   }
   try{const k=typeof fhfKonto==='function'?fhfKonto():null;
-    if(k){chips.push(k.abSofort?`<span class="sm-c ok">FHF frei</span>`:(k.naechste?`<span class="sm-c">nächste FHF ab ${fmtD(k.naechste.toISOString?k.naechste.toISOString().slice(0,10):k.naechste)}</span>`:''));}}catch(_){}
+    if(k){chips.push(k.abSofort?`<span class="sm-c ok">FHF frei</span>`:(k.naechste?`<span class="sm-c">nächste FHF ab ${fmtD(k.naechste.getFullYear?isoLocalD(k.naechste):k.naechste)}</span>`:''));}}catch(_){}
   el.innerHTML=`<div class="ov-sum"><b>${title}</b>${chips.filter(Boolean).join('')}</div>`;
 }
 let ovDetailType=null;
@@ -8099,7 +8158,7 @@ function calcSegEP(i){
 }
 
 /* v5.19.8: Hinweis „zzgl. Reservierung 5.50 €“ gehoert nicht in den Jahresbeleg (der Betrag steht in der Betragsspalte) */
-function fkDescOhneReservierung(t){return String(t||'').replace(/\(?\s*zzgl\.?\s*(der\s+)?Reservierung(\s*(von|:))?\s*[\d.,]*\s*(€|EUR|Euro)?\s*\)?/gi,'').replace(/\s{2,}/g,' ').replace(/^[\s,;\-–]+|[\s,;\-–]+$/g,'').trim();}
+function fkDescOhneReservierung(t){return String(t||'').replace(/\(\s*zzgl\.?\s*(?:der\s+)?Reservierung(?:\s*(?:von|:))?\s*[\d.,]*\s*(?:€|Euro|EUR)?\s*\)/gi,'').replace(/,?\s*zzgl\.?\s*(?:der\s+)?Reservierung(?:\s*(?:von|:))?\s*[\d.,]*\s*(?:€|Euro|EUR)?/gi,'').replace(/\s{2,}/g,' ').replace(/^[\s,;\-–]+|[\s,;\-–]+$/g,'').trim();}
 async function genFahrtkostenPdf(){
   const yr=(document.getElementById('exFrom')?.value||'').slice(0,4)||String(new Date().getFullYear());
   const s=state.settings;
@@ -8581,8 +8640,8 @@ function abwDokument(yr){
   return{quelle:'tool',rows:t.rows,cols:ABW_STD_COLS.map(c=>Object.assign({},c)),texte:abwTexteStd(),
     hoAn:t.hoTage>0,hoTage:t.hoTage,anzAbw:t.anzAbw};
 }
-async function genAbwesenheitPdf(){
-  const yr=abwJahrWahl();
+async function genAbwesenheitPdf(jahr){
+  const yr=(typeof jahr==='string'&&/^\d{4}$/.test(jahr))?jahr:abwJahrWahl();
   const s=state.settings;
   if(!s.name){toast('Bitte Name in Einstellungen eintragen','err');return;}
   const dok=abwDokument(yr);
@@ -8603,7 +8662,7 @@ async function genAbwesenheitPdf(){
     const neueSeite=()=>{pg=doc.addPage([W,H]);y=H-45;};
 
     // WinAnsi sanitizer
-    function san(v){return String(v||'').replace(/→/g,'->').replace(/[–—]/g,'-').replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/[^\x00-\xff]/g,'');}
+    function san(v){return String(v||'').replace(/→/g,'->').replace(/[–—]/g,'-').replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/[\t\r\n]+/g,' ').replace(/[\x00-\x1f\x7f-\x9f]/g,'').replace(/[^\x00-\xff\u20ac]/g,'');}
     const T=dok.texte;
 
     // Briefkopf
@@ -8683,7 +8742,7 @@ async function genAbwesenheitPdf(){
 
     // Home Office
     if(hoZeigen){
-      if(y<190)neueSeite();
+      if(y<230)neueSeite();   // Home Office und Unterschrift bleiben zusammen
       y-=12;
       pg.drawText(san(T.hoTitel||'Arbeiten von zu Hause (Home Office)'),{x:40,y,size:12,font:fb,color:NAV});
       y-=20;
@@ -8845,6 +8904,7 @@ function renderAbEdit(){
       <button class="btn btn-s btn-sm" type="button" onclick="abEdAusTool()" title="Alle Änderungen dieses Jahres verwerfen">↺ Aus Tool neu laden</button>`:''}
     </div>
     ${toolNeu?`<div style="margin-top:8px;font-size:12px;border-left:3px solid var(--warn);padding:5px 9px;background:var(--lsoft);border-radius:6px">Im Tool haben sich die Grunddaten für ${yr} seit deiner Bearbeitung geändert. „＋ Neue aus Tool“ ergänzt fehlende Zeilen, „↺ Aus Tool neu laden“ verwirft deine Änderungen.</div>`:''}
+    ${yr!==abwJahrWahl()?`<div style="margin-top:8px;font-size:12px;border-left:3px solid var(--warn);padding:5px 9px;background:var(--lsoft);border-radius:6px">Achtung: Unter Berichte &amp; Export wird gerade das Jahr <b>${esc(abwJahrWahl())}</b> erstellt, hier bearbeitest du <b>${esc(yr)}</b>. <button class="btn btn-gold btn-sm" type="button" style="margin-left:6px" onclick="genAbwesenheitPdf('${esc(yr)}')">PDF ${esc(yr)} erstellen &amp; speichern</button></div>`:''}
     <p style="font-size:12px;color:var(--muted);margin:8px 0 0">Änderungen werden sofort je Jahr gespeichert. Die PDF erstellst du wie bisher unter <b>Belege &amp; Berichte › Berichte &amp; Export › Abwesenheitsbescheinigung</b> (Jahr = „Von“-Datum dort, sonst aktuelles Jahr: <b>${esc(abwJahrWahl())}</b>).</p>
   </div>
   <div class="card" style="margin-bottom:12px">
@@ -9726,7 +9786,7 @@ function scanParse(text){
   let m;
   const r1=/(\d{1,2})[.\/](\d{1,2})[.\/](\d{2,4})/g;while((m=r1.exec(t)))add(m[3],m[2],m[1]);
   const r2=/(\d{4})-(\d{2})-(\d{2})/g;while((m=r2.exec(t)))add(m[1],m[2],m[3]);
-  const hIso=heute.toISOString().slice(0,10);
+  const hIso=isoLocalD(heute);
   const datum=dates.find(d=>d<=hIso)||dates[0]||'';
   const num=s=>parseFloat(s.replace(/\.(?=\d{3}(\D|$))/g,'').replace(',','.'));
   const amtRe=/(\d{1,4}(?:\.\d{3})*,\d{2}|\d{1,4}\.\d{2})(?!\d)/g;
