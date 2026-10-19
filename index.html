@@ -653,6 +653,7 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
     <button class="tab" data-v="export" title="Übersichten &amp; Belege"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2"/><path d="M9 8h6M9 12h6"/></svg></span><span class="lb"><span class="lb-s">Belege</span><span class="lb-l">Belege & Berichte</span></span></button>
     <button class="tab" data-v="abwesenheiten" title="Abwesenheiten"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M12 19h4.5a3.5 3.5 0 0 0 0 -7h-8a3.5 3.5 0 0 1 0 -7h3.5"/></svg></span><span class="lb"><span class="lb-s">Abwes.</span><span class="lb-l">Abwesenheiten</span></span></button>
     <button class="tab nav-sec" data-v="jahr" title="Jahresübersicht"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M16 3v4M8 3v4M4 11h16M10 16v-3M14 16v-5M18 16v-1"/></svg></span><span class="lb"><span class="lb-s">Jahr</span><span class="lb-l">Jahresübersicht</span></span></button>
+    <button class="tab nav-sec" data-v="bescheinigung" title="Bescheinigung bearbeiten"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M11 21h-4a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v3"/><path d="M18.4 14.6l-4.4 4.4l-1 3l3 -1l4.4 -4.4a1.4 1.4 0 0 0 -2 -2z"/></svg></span><span class="lb"><span class="lb-s">Bescheinig.</span><span class="lb-l">Bescheinigung bearbeiten</span></span></button>
     <button class="tab nav-sec" data-v="settings" title="Einstellungen"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="lb"><span class="lb-s">Einstell.</span><span class="lb-l">Einstellungen</span></span></button>
     <button class="tab tab-more" type="button" onclick="moreOpen()" title="Weitere Bereiche"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></span><span class="lb">Mehr</span></button>
   </div>
@@ -898,6 +899,7 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
     <p style="color:var(--muted);font-size:12px;margin-bottom:10px">Bescheinigung zur Vorlage beim Finanzamt &#252;ber Lehrg&#228;nge, Dienstreisen, &#220;bungen &amp; Home Office.</p>
     <div style="display:flex;gap:7px;margin-bottom:9px;flex-wrap:wrap">
       <button class="btn btn-gold btn-sm" onclick="genAbwesenheitPdf()">&#128196; PDF erstellen &amp; speichern</button>
+      <button class="btn btn-s btn-sm" onclick="gotoView('bescheinigung')">&#9998;&#65039; Bearbeiten</button>
       <button class="btn btn-s btn-sm" onclick="printLatest('ab')">&#128424;&#65039; Drucken</button>
     </div>
     <div id="abArea"></div>
@@ -958,6 +960,11 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
 </section>
 
 <!-- SETTINGS -->
+<section class="view" id="view-bescheinigung">
+  <div style="margin-bottom:14px"><h2 style="font-size:22px;color:var(--navy);font-weight:700;letter-spacing:-0.4px">Abwesenheitsbescheinigung bearbeiten</h2>
+  <p style="font-size:12px;color:var(--muted);margin:2px 0 0">Bescheinigung zur Vorlage beim Finanzamt – Grunddaten aus dem Tool, hier anpassen, unter Belege &amp; Berichte speichern.</p></div>
+  <div id="abEdBody"></div>
+</section>
 <section class="view" id="view-claude">
   <div style="margin-bottom:14px"><h2 style="font-size:22px;color:var(--navy);font-weight:700;letter-spacing:-0.4px">Claude-Abgleich</h2>
   <p style="font-size:12px;color:var(--muted);margin:2px 0 0">Belege und Korrekturvorschläge von Claude prüfen und übernehmen.</p></div>
@@ -1176,10 +1183,15 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.19.7';
-const APP_BUILD=97;
-const APP_DATE='18.10.2026';
+const APP_VERSION='5.19.8';
+const APP_BUILD=98;
+const APP_DATE='19.10.2026';
 const APP_CHANGES=[
+  'Neuer Reiter „Bescheinigung“: Abwesenheitsbescheinigung vor dem Speichern bearbeiten – Texte, Zweck, Zeitraum, Ort, Tage, Verpflegung, Nachweis, Zeilen und ganze Spalten löschen oder hinzufügen (auch eigene Spalten), Home-Office-Tage. Grunddaten kommen unverändert aus dem Tool, Änderungen bleiben je Steuerjahr gespeichert („↺ Aus Tool neu laden“ setzt zurück). Gespeichert wird weiterhin unter Belege & Berichte › Berichte & Export',
+  'Abwesenheitsbescheinigung: Unterschriften-/Stempelfeld fehlte, wenn Tabelle und Home-Office-Abschnitt die Seite füllten (wurde unterhalb des Blattrands gezeichnet) – jetzt immer vollständig auf der letzten Seite, bei Bedarf auf einer neuen Seite; Seitenzahlen bei mehreren Seiten',
+  'Fahrtkosten-Jahresbeleg: weitere Arbeitsstätte erscheint nur noch, wenn ihr Gültigkeitszeitraum in das Jahr fällt (ebenso im Monatsbericht); Zusatz „zzgl. Reservierung …“ wird im Beleg nicht mehr gedruckt',
+  'CheckBox Bw-Abgleich: Kein falscher Hinweis „Bescheid weist Dienstreise aus“ mehr an Tagen, an denen laut Bescheid eine Dienstreise endet und am selben Tag eine Familienheimfahrt beginnt (bzw. umgekehrt) und die App HF/RF hat (z. B. 20.03.26)',
+  'Claude-Abgleich: Vorschläge können jetzt auch Angaben eines Belegs in der Belegeablage ändern (z. B. Belegart) und prüfen vorab den bisherigen Wert',
   'Abwesenheitsbescheinigung: Dienstreisen kommen aus den Reisekostenabrechnungen (Zeitraum, Zielort, Verpflegung, Abrechnungs-Nr.); Übungen, Lehrgänge, Einsätze und Home Office weiter aus dem Tool. Dienstreise-Tage ohne Abrechnung werden aus dem Tool ergänzt und gekennzeichnet',
   'Fahrtkosten-Jahresbeleg Teil 4: Besuchsfahrten (Angehörige) zählen wie Familienheimfahrten – eigene Zeile „Besuchsfahrt“, Hin-/Rückflug zusammengefasst, Betrag in der Summe',
   'Fahrtkosten-Jahresbeleg Teil 4 Flugkosten: Beträge kommen aus den Flug-Belegen der Belegeablage; Hin- und Rückflug einer Heimfahrt stehen in einer Zeile, einzelne Flüge einzeln. Bisher fehlten alle Rückflüge',
@@ -1528,6 +1540,13 @@ function arb2Gueltig(datum){
   if(s.addrWork2Bis&&datum>s.addrWork2Bis)return false;
   return true;
 }
+/* v5.19.8: Ist die zweite Arbeitsstaette irgendwann im Zeitraum von..bis (ISO) gueltig? */
+function arb2InZeitraum(von,bis){
+  const s=state.settings;if(!s.addrWork2)return false;
+  if(s.addrWork2Von&&bis&&s.addrWork2Von>bis)return false;
+  if(s.addrWork2Bis&&von&&s.addrWork2Bis<von)return false;
+  return true;
+}
 /* 0 = keine, 1 = (erste) Arbeitsstaette, 2 = zweite Arbeitsstaette */
 function arbStaetteNr(e){
   if(!e)return 0;
@@ -1858,7 +1877,7 @@ function gotoView(v){
   if(typeof moreClose==='function')moreClose();
   if(v!=='wizard'&&typeof wizHintShow==='function'){wizReturn=null;wizHintShow(null);}
   document.querySelectorAll('.tab[data-v]').forEach(t=>t.classList.toggle('on',t.dataset.v===v));
-  document.querySelector('.tab-more')?.classList.toggle('on',['overview','zeiterfassung','jahr','settings'].includes(v));
+  document.querySelector('.tab-more')?.classList.toggle('on',['overview','zeiterfassung','jahr','bescheinigung','settings'].includes(v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
   if(v==='overview'){const _ol=document.getElementById('ovYLabel');if(_ol)_ol.textContent=aktivesJahr();const _n=new Date();const _om=document.getElementById('ovM');if(_om)_om.value=String(_n.getMonth()+1).padStart(2,'0');renderOverview();}if(v==='zeiterfassung'){initZeMonth();const _z=document.getElementById('zeMonth');const _n2=new Date();if(_z)_z.value=aktivesJahr()+'-'+String(_n2.getMonth()+1).padStart(2,'0');renderZE();}if(v==='export'){updExStats();renderFhf();initCatGrid();renderExportPdfs();renderReceipts();if(typeof renderBelegeablage==='function')renderBelegeablage();belPane();}
   if(v==='jahr'){renderJahresView();}
@@ -1867,6 +1886,7 @@ function gotoView(v){
   if(v==='monat'){renderCal();}
 
   if(v==='claude'){renderCp();}
+  if(v==='bescheinigung'){renderAbEdit();}
   if(typeof renderTv==='function')setTimeout(renderTv,0);
   // main hat regulaer 80px unteres Padding (Scroll-Reserve fuer lange Listen in den
   // anderen Reitern) — bei der Monatsuebersicht und beim Eintrag-Wizard wuerde dieses
@@ -3963,9 +3983,13 @@ function cpLoadFile(inp){
 const _cpEq=(a,b)=>String(a==null?'':a).trim()===String(b==null?'':b).trim();
 function cpStatus(v){
   const er=cpErledigt()[v.id];if(er==='ok')return'uebernommen';if(er==='nein')return'abgelehnt';
-  const e=state.entries.find(x=>x.date===v.date);if(!e)return'veraltet';
   const a=v.aenderung||{};
-  if(a.set&&Object.entries(a.set).every(([k,val])=>_cpEq(e[k],val))&&!(a.segs||[]).length)return'erfuellt';
+  if(a.beleg&&!v.date)return cpBelegStatus(a.beleg);
+  const e=state.entries.find(x=>x.date===v.date);if(!e)return'veraltet';
+  if(a.beleg){const bs=cpBelegStatus(a.beleg);if(bs==='veraltet')return bs;}
+  if(a.expect&&!Object.entries(a.expect).every(([k,val])=>_cpEq(e[k],val))&&!(a.set&&Object.entries(a.set).every(([k,val])=>_cpEq(e[k],val))))return'veraltet';
+  if(a.set&&Object.entries(a.set).every(([k,val])=>_cpEq(e[k],val))&&!(a.segs||[]).length&&(!a.beleg||cpBelegStatus(a.beleg)==='erfuellt'))return'erfuellt';
+  if(!a.set&&!(a.segs||[]).length&&a.beleg)return cpBelegStatus(a.beleg);
   const segPasst=(s,set)=>s&&Object.entries(set||{}).filter(([k])=>['mode','fromLoc','toLoc'].includes(k)).every(([k,val])=>_cpEq(s[k],val));
   if((a.segs||[]).length&&(a.segs||[]).every(sg=>sg.neu)){
     return (a.segs||[]).every(sg=>(e.segs||[]).some(s=>segPasst(s,sg.set)))?'erfuellt':'offen';
@@ -3973,22 +3997,31 @@ function cpStatus(v){
   for(const sg of(a.segs||[])){if(sg.neu)continue;const s=(e.segs||[])[sg.i];if(!s)return'veraltet';
     if(sg.set&&Object.entries(sg.set).every(([k,val])=>_cpEq(s[k],val)))continue;
     if(sg.expect&&!Object.entries(sg.expect).every(([k,val])=>_cpEq(s[k],val)))return'veraltet';}
-  if((a.segs||[]).length&&(a.segs||[]).every(sg=>{const s=(e.segs||[])[sg.i];return s&&Object.entries(sg.set||{}).every(([k,val])=>_cpEq(s[k],val));}))return'erfuellt';
+  if((a.segs||[]).length&&(a.segs||[]).every(sg=>{const s=(e.segs||[])[sg.i];return s&&Object.entries(sg.set||{}).every(([k,val])=>_cpEq(s[k],val));})&&(!a.beleg||cpBelegStatus(a.beleg)==='erfuellt'))return'erfuellt';
   return'offen';
 }
+/* Beleg der Belegeablage (ueber den Dateinamen) – Angaben aendern, z. B. Belegart */
+function cpBelegFind(bg){return ablageBelege().find(r=>r.dateiname===bg.dateiname)||null;}
+function cpBelegStatus(bg){const r=cpBelegFind(bg);if(!r)return'veraltet';
+  if(Object.entries(bg.set||{}).every(([k,val])=>_cpEq(r[k],val)))return'erfuellt';
+  if(bg.expect&&!Object.entries(bg.expect).every(([k,val])=>_cpEq(r[k],val)))return'veraltet';
+  return'offen';}
 function cpApplyOne(v){
   if(cpStatus(v)!=='offen')return false;
-  const e=state.entries.find(x=>x.date===v.date);const a=v.aenderung||{};
+  const a=v.aenderung||{};
+  if(a.beleg){const r=cpBelegFind(a.beleg);if(r&&cpBelegStatus(a.beleg)==='offen')Object.assign(r,JSON.parse(JSON.stringify(a.beleg.set||{})));}
+  if(!v.date){cpErledigt()[v.id]='ok';return true;}
+  const e=state.entries.find(x=>x.date===v.date);
   if(a.set)Object.assign(e,JSON.parse(JSON.stringify(a.set)));
   (a.segs||[]).forEach(sg=>{if(sg.neu){if(!Array.isArray(e.segs))e.segs=[];e.segs.push(Object.assign(freshSeg(),JSON.parse(JSON.stringify(sg.set||{}))));return;}const s=e.segs[sg.i];if(s)Object.assign(s,JSON.parse(JSON.stringify(sg.set||{})));});
   e.updated=Date.now();cpErledigt()[v.id]='ok';return true;
 }
 function cpApplyMany(list){
-  const snap=JSON.stringify(state.entries),snapE=JSON.stringify(cpErledigt());let n=0;
+  const snap=JSON.stringify(state.entries),snapE=JSON.stringify(cpErledigt()),snapB=JSON.stringify((state.settings.mbReceipts||{})['unassigned']||[]);let n=0;
   list.forEach(v=>{if(cpApplyOne(v))n++;});
   if(!n){toast('Nichts zu übernehmen');return;}
   persist();scheduleCloudPush&&scheduleCloudPush();refreshAfterEntryChange();renderCp();
-  undoSnack(n+' Vorschläge übernommen',()=>{state.entries=JSON.parse(snap);state.settings.claudeErledigt=JSON.parse(snapE);persist();refreshAfterEntryChange();renderCp();toast('Rückgängig gemacht','ok');});
+  undoSnack(n+' Vorschläge übernommen',()=>{state.entries=JSON.parse(snap);state.settings.claudeErledigt=JSON.parse(snapE);if(state.settings.mbReceipts)state.settings.mbReceipts['unassigned']=JSON.parse(snapB);persist();refreshAfterEntryChange();renderCp();toast('Rückgängig gemacht','ok');});
 }
 function cpById(id){return(CP.data&&CP.data.vorschlaege||[]).find(v=>v.id===id);}
 function cpOk(id){const v=cpById(id);if(v)cpApplyMany([v]);}
@@ -5480,7 +5513,12 @@ function checkBoxAnalyze(){
           // Reisetag am Rand des Zeitraums passt dazu.
           if(d.art==='FH'&&tagCodes(e).every(c=>['AW','WFH'].includes(c))&&isArbeitsstaetteDay(e))
             add('info','Bw-Abgleich',dstr(d.datum)+': Tag liegt laut Bescheid im Zeitraum einer Familienheimfahrt, die App erfasst Dienst an der Arbeitsstätte ('+esc(e.workLocation||'')+')',d.datum,e.id);
-          if(d.art==='DR'&&!hatCode(e,['DR','LG','ÜB','ES','EGV']))
+          // v5.19.8: Endet laut Bescheid an diesem Tag eine Dienstreise und beginnt eine Familienheimfahrt
+          // (oder umgekehrt) und die App hat HF/RF, ist der Tag korrekt erfasst – kein Hinweis.
+          const fhfWechsel=d.art==='DR'&&hatCode(e,['HF','RF'])&&(
+            (b.reisen||[]).some(r=>r.art==='Familienheimfahrt'&&(r.von===d.datum||r.bis===d.datum))
+            ||(b.tage||[]).some(t=>(t.art==='FH')&&(t.datum===abwTagePlus(d.datum,1)||t.datum===abwTagePlus(d.datum,-1))));
+          if(d.art==='DR'&&!fhfWechsel&&!hatCode(e,['DR','LG','ÜB','ES','EGV']))
           {const vt=ents.filter(x=>x.date<d.datum).pop();
             const vtAbw=vt&&hatCode(vt,['DR','LG','ÜB','ES','EGV'])?vt.dayCode:'';
             add('info','Bw-Abgleich',dstr(d.datum)+': Bescheid weist Dienstreise aus (Kennung DR = dienstliche Abwesenheit, auch Übung/Lehrgang), App hat Code '+codeText(e)
@@ -7184,7 +7222,7 @@ async function doPrint(slim){
   const addrHtml=(s.addrPrimary||s.addrSecondary||s.addrWork)?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2mm;margin-top:2mm;font-size:8pt;border:.5px solid #ddd;padding:2mm">
     <div><b style="color:#1a3a5c;display:block;font-size:7pt;text-transform:uppercase;margin-bottom:.5mm">Erstwohnung</b>${esc((s.addrPrimary||'—').replace(/\n/g,', '))}</div>
     <div><b style="color:#1a3a5c;display:block;font-size:7pt;text-transform:uppercase;margin-bottom:.5mm">TGW</b>${esc((s.addrSecondary||'—').replace(/\n/g,', '))}</div>
-    <div><b style="color:#1a3a5c;display:block;font-size:7pt;text-transform:uppercase;margin-bottom:.5mm">Arbeitsstätte</b>${esc((s.addrWork||'—').replace(/\n/g,', '))}${s.addrWork2?'<br><b style="color:#1a3a5c;font-size:7pt">2.:</b> '+esc(s.addrWork2.replace(/\n/g,', '))+(s.addrWork2Von||s.addrWork2Bis?' ('+(s.addrWork2Von?fmtD(s.addrWork2Von):'…')+' – '+(s.addrWork2Bis?fmtD(s.addrWork2Bis):'…')+')':''):''}</div>
+    <div><b style="color:#1a3a5c;display:block;font-size:7pt;text-transform:uppercase;margin-bottom:.5mm">Arbeitsstätte</b>${esc((s.addrWork||'—').replace(/\n/g,', '))}${arb2InZeitraum(from,to)?'<br><b style="color:#1a3a5c;font-size:7pt">2.:</b> '+esc(s.addrWork2.replace(/\n/g,', '))+(s.addrWork2Von||s.addrWork2Bis?' ('+(s.addrWork2Von?fmtD(s.addrWork2Von):'…')+' – '+(s.addrWork2Bis?fmtD(s.addrWork2Bis):'…')+')':''):''}</div>
   </div>`:'';
   let recHtml='';
   if(!slim&&recs.length){
@@ -8060,6 +8098,8 @@ function calcSegEP(i){
   persist();
 }
 
+/* v5.19.8: Hinweis „zzgl. Reservierung 5.50 €“ gehoert nicht in den Jahresbeleg (der Betrag steht in der Betragsspalte) */
+function fkDescOhneReservierung(t){return String(t||'').replace(/\(?\s*zzgl\.?\s*(der\s+)?Reservierung(\s*(von|:))?\s*[\d.,]*\s*(€|EUR|Euro)?\s*\)?/gi,'').replace(/\s{2,}/g,' ').replace(/^[\s,;\-–]+|[\s,;\-–]+$/g,'').trim();}
 async function genFahrtkostenPdf(){
   const yr=(document.getElementById('exFrom')?.value||'').slice(0,4)||String(new Date().getFullYear());
   const s=state.settings;
@@ -8270,7 +8310,7 @@ async function genFahrtkostenPdf(){
      ['Eigener Hausstand (Erstwohnung):', fullAd(s.addrPrimary)||'-'],
      ['Zweitwohnung am Beschaeftigungsort:', fullAd(s.addrSecondary)||'-'],
      ['Erste Taetigkeitsstaette:', fullAd(s.addrWork)||'-'],
-     ...(s.addrWork2?[['Weitere Arbeitsstaette:', fullAd(s.addrWork2)+((s.addrWork2Von||s.addrWork2Bis)?' ('+(s.addrWork2Von?fmtD(s.addrWork2Von):'...')+' - '+(s.addrWork2Bis?fmtD(s.addrWork2Bis):'...')+')':'')]]:[]),
+     ...(arb2InZeitraum(yr+'-01-01',yr+'-12-31')?[['Weitere Arbeitsstaette:', fullAd(s.addrWork2)+((s.addrWork2Von||s.addrWork2Bis)?' ('+(s.addrWork2Von?fmtD(s.addrWork2Von):'...')+' - '+(s.addrWork2Bis?fmtD(s.addrWork2Bis):'...')+')':'')]]:[]),
      ['Entfernung Zweitwohnung - Arbeitsstaette:', KM_TAG+' km (einfach)'],
      ['Entfernung Hausstand - Beschaeftigungsort:', KM_FHF+' km (einfach, kuerzeste Strassenverbindung)'],
      ['Entfernungspauschale '+yr+':', Y>=2026?'0,38 EUR/km ab dem 1. km':'0,30 EUR (km 1-20), 0,38 EUR ab km 21'],
@@ -8387,7 +8427,7 @@ async function genFahrtkostenPdf(){
     if(teilE.length){
       table([{t:'Datum',k:'d',w:70},{t:'Kostenart',k:'a',w:120},{t:'Beschreibung',k:'be',w:225},
              {t:'Betrag',k:'b',w:100,r:1}],
-        teilE.map(x=>({d:fmtD(x.date),a:x.art,be:(x.desc||'')+(x.gezaehlt?'':' (nicht gezaehlt)'),
+        teilE.map(x=>({d:fmtD(x.date),a:x.art,be:fkDescOhneReservierung(x.desc)+(x.gezaehlt?'':' (nicht gezaehlt)'),
           b:eur(x.betrag)+' '+(x.curr==='EUR'?'':x.curr),grau:!x.gezaehlt})),
         'Summe Teil 6',sumE);
     } else P('Keine sonstigen Kosten erfasst.',8,GR);
@@ -8462,25 +8502,94 @@ async function genFahrtkostenPdf(){
 /* ─── END FAHRTKOSTEN ─── */
 
 /* ─── ABWESENHEITSBESCHEINIGUNG ─── */
-async function genAbwesenheitPdf(){
-  const yr=(document.getElementById('exFrom')?.value||'').slice(0,4)||String(new Date().getFullYear());
-  const s=state.settings;
-  if(!s.name){toast('Bitte Name in Einstellungen eintragen','err');return;}
+/* v5.19.8: Grunddaten kommen unveraendert aus dem Tool (abwAusTool). Im Reiter „Bescheinigung“
+   kann das ganze Dokument je Steuerjahr bearbeitet werden (state.settings.abEdit[Jahr]):
+   Texte, Zeilen (Zweck, Zeitraum, Ort, Tage, Verpflegung, Nachweis), Spalten loeschen/ergaenzen,
+   Home-Office-Tage. Gespeichert wird die PDF weiterhin unter Belege & Berichte › Berichte & Export. */
+const ABW_STD_COLS=[
+  {id:'zweck',t:'Zweck',w:60},{id:'zeitraum',t:'Zeitraum',w:80},{id:'ort',t:'Ort(e) der Abwesenheit',w:142},
+  {id:'tage',t:'Tage',w:24},{id:'verpfl',t:'Verpflegung',w:148},{id:'nachweis',t:'Nachweis',w:61}];
+const ABW_VOPT=['Verpflegung wurde bereitgestellt','Verpflegung wurde nicht bereitgestellt'];
+const ABW_ZWECKE=['Dienstreise','Übung','Lehrgang','Einsatz','Einsatzgl. Verpfl.','Kommandierung'];
+function abwTexteStd(){return{
+  titel:'Bescheinigung zur Vorlage beim Finanzamt',
+  einl1:'Lehrgänge, Kommandierungen und sonstige Abwesenheiten, sowie Negativbescheinigung',
+  einl2:'über nicht bereitgestellte Verpflegung.',
+  stern:'* Dienstreise ohne vorliegende Reisekostenabrechnung - Angaben aus dem Tagesnachweis.',
+  hoTitel:'Arbeiten von zu Hause (Home Office)',
+  sigL:'Unterschrift',sigR:'Dienstsiegel / Stempel'};}
+function abwJahrWahl(){return (document.getElementById('exFrom')?.value||'').slice(0,4)||String(new Date().getFullYear());}
+function abwTagePlus(ds,n){const d=new Date(ds+'T12:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function abwTageZahl(von,bis){if(!von)return 0;const b=bis||von;let n=0,d=von;while(d<=b&&n<400){n++;d=abwTagePlus(d,1);}return n;}
+/* Grunddaten aus dem Tool: Dienstreisen aus den Reisekostenabrechnungen (RK-Bescheide), uebrige
+   Abwesenheiten (LG/UeB/ES/EGV) und Home Office aus den Tageseintraegen. */
+function abwAusTool(yr){
   const yrEntries=state.entries.filter(e=>e.date&&e.date.startsWith(yr));
-  /* v5.19.7: Dienstreisen aus den Reisekostenabrechnungen (RK-Bescheide). Tage, die eine
-     Abrechnung abdeckt, werden fuer Code DR nicht mehr aus dem Tool genommen. Uebrige Abwesenheiten
-     (LG/UeB/ES/EGV) und Home Office kommen weiter aus dem Tool. */
-  const isoPlus=(ds,n)=>{const d=new Date(ds+'T12:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
   const rkJahr=bwList().filter(b=>b.typ==='RK'&&b.von&&(String(b.von).startsWith(yr)||String(b.bis||'').startsWith(yr)))
     .sort((a,b)=>String(a.von).localeCompare(String(b.von)));
   const rkTage=new Set();
-  rkJahr.forEach(b=>{let d=b.von;const bis=b.bis||b.von;for(let i=0;i<400&&d<=bis;i++){rkTage.add(d);d=isoPlus(d,1);}});
-  const abEntries=yrEntries.filter(e=>['DR','LG','\u00dcB','ES','EGV'].includes(e.dayCode)&&!(e.dayCode==='DR'&&rkTage.has(e.date)))
+  rkJahr.forEach(b=>{let d=b.von;const bis=b.bis||b.von;for(let i=0;i<400&&d<=bis;i++){rkTage.add(d);d=abwTagePlus(d,1);}});
+  const abEntries=yrEntries.filter(e=>['DR','LG','ÜB','ES','EGV'].includes(e.dayCode)&&!(e.dayCode==='DR'&&rkTage.has(e.date)))
     .sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   const wfhEntries=yrEntries.filter(e=>e.dayCode==='WFH');
-  if(!abEntries.length&&!wfhEntries.length&&!rkJahr.length){toast('Keine Abwesenheiten/HO-Tage im Jahr '+yr,'err');return;}
+  const ortAbw=e=>abwOrtText(e).split(' / ').map(ortKurz).filter(Boolean).join(' / ');
+  const normOrt=e=>ortAbw(e).toLowerCase();
+  const groups=[];
+  for(const e of abEntries){
+    const g=groups[groups.length-1];
+    if(g&&g.code===e.dayCode&&normOrt(e)===g.ortKey&&abwTagePlus(g.to,1)===e.date){
+      g.to=e.date;g.days++;
+      // Nur tatsaechlich eingenommene Mahlzeiten — nicht eingenommene kuerzen nicht
+      VERPFL_MAHL.filter(m=>verpflStatus(e,m)==='ja').forEach(v=>g.verpfl.add(v));
+      if(!g.nachweis&&e.nachweis)g.nachweis=e.nachweis;
+    } else {
+      groups.push({code:e.dayCode,from:e.date,to:e.date,days:1,ort:ortAbw(e),ortKey:normOrt(e),
+        verpfl:new Set(VERPFL_MAHL.filter(m=>verpflStatus(e,m)==='ja')),nachweis:e.nachweis||'',ohneRk:e.dayCode==='DR'});
+    }
+  }
+  rkJahr.forEach(b=>{
+    const bis=b.bis||b.von;
+    const ziel=String(b.ziel||'').trim();
+    // PLZ/Land aus dem Tool ergaenzen, wenn dort derselbe Ort mit mehr Angaben steht
+    let ort=ziel;
+    if(ziel){const zl=ziel.toLowerCase();
+      const treffer=state.entries.filter(e=>e.date>=b.von&&e.date<=bis)
+        .flatMap(e=>abwOrtText(e).split(' / ').concat([e.stayLocation||'']).map(ortKurz))
+        .find(o=>o&&o.toLowerCase().includes(zl)&&o.length>ziel.length);
+      if(treffer)ort=treffer;}
+    const gestellt=(b.tage||[]).some(t=>t.fGestellt||t.mGestellt||t.aGestellt);
+    groups.push({code:'DR',from:b.von,to:bis,days:abwTageZahl(b.von,bis),ort:ort||'-',
+      verpfl:new Set(gestellt?['bescheid']:[]),nachweis:b.nr?'RK '+b.nr:'RK-Abr.',rk:true});
+  });
+  groups.sort((a,b)=>a.from.localeCompare(b.from)||(a.rk?-1:1));
+  return{
+    rows:groups.map(g=>({zweck:DT[g.code]?.n||g.code,von:g.from,bis:g.to,tage:g.days,ort:g.ort||'-',
+      verpfl:g.verpfl.size?'ja':'nein',nachweis:(g.nachweis||'Befehl')+(g.ohneRk?' *':''),x:{}})),
+    hoTage:wfhEntries.length,anzAbw:abEntries.length,anzRk:rkJahr.length};
+}
+function abwBasisKey(t){return JSON.stringify([t.rows.map(r=>[r.zweck,r.von,r.bis,r.tage,r.ort,r.verpfl,r.nachweis]),t.hoTage]);}
+function abwEdits(){const s=state.settings;if(!s.abEdit||typeof s.abEdit!=='object'||Array.isArray(s.abEdit))s.abEdit={};return s.abEdit;}
+/* Das Dokument eines Jahres: bearbeitete Fassung, sonst Grunddaten aus dem Tool */
+function abwDokument(yr){
+  const ed=abwEdits()[yr];
+  if(ed&&Array.isArray(ed.rows)){
+    return{quelle:'bearbeitet',rows:ed.rows.map(r=>Object.assign({x:{}},r)),
+      cols:(Array.isArray(ed.cols)&&ed.cols.length?ed.cols:ABW_STD_COLS).map(c=>Object.assign({},c)),
+      texte:Object.assign(abwTexteStd(),ed.texte||{}),hoAn:ed.hoAn!==false,hoTage:parseInt(ed.hoTage,10)||0,at:ed.at,basis:ed.basis};
+  }
+  const t=abwAusTool(yr);
+  return{quelle:'tool',rows:t.rows,cols:ABW_STD_COLS.map(c=>Object.assign({},c)),texte:abwTexteStd(),
+    hoAn:t.hoTage>0,hoTage:t.hoTage,anzAbw:t.anzAbw};
+}
+async function genAbwesenheitPdf(){
+  const yr=abwJahrWahl();
+  const s=state.settings;
+  if(!s.name){toast('Bitte Name in Einstellungen eintragen','err');return;}
+  const dok=abwDokument(yr);
+  const hoZeigen=dok.hoAn&&dok.hoTage>0;
+  if(!dok.rows.length&&!hoZeigen){toast('Keine Abwesenheiten/HO-Tage im Jahr '+yr,'err');return;}
 
-  toast('Abwesenheitsbescheinigung wird erstellt\u2026');
+  toast('Abwesenheitsbescheinigung wird erstellt…');
   try{
     await loadPdfLib();
     const{PDFDocument,StandardFonts,rgb}=window.PDFLib;
@@ -8491,9 +8600,11 @@ async function genAbwesenheitPdf(){
     const W=595.28,H=841.89;
     let pg=doc.addPage([W,H]);
     let y=H-45;
+    const neueSeite=()=>{pg=doc.addPage([W,H]);y=H-45;};
 
     // WinAnsi sanitizer
-    function san(v){return String(v||'').replace(/\u2192/g,'->').replace(/[\u2013\u2014]/g,'-').replace(/[\u2018\u2019]/g,"'").replace(/[\u201c\u201d]/g,'"').replace(/[^\x00-\xff]/g,'');}
+    function san(v){return String(v||'').replace(/→/g,'->').replace(/[–—]/g,'-').replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/[^\x00-\xff]/g,'');}
+    const T=dok.texte;
 
     // Briefkopf
     const bk1=san(s.bk1||s.unit||'');
@@ -8508,124 +8619,99 @@ async function genAbwesenheitPdf(){
     pg.drawLine({start:{x:40,y},end:{x:W-40,y},thickness:2,color:NAV});
     y-=28;
 
-    // Title
-    pg.drawText('Bescheinigung zur Vorlage beim Finanzamt',{x:40,y,size:16,font:fb,color:NAV});
-    y-=28;
+    // Titel
+    if(T.titel){pg.drawText(san(T.titel),{x:40,y,size:16,font:fb,color:NAV});y-=28;}
 
     // Person
     const fullName=san(((s.rank?s.rank+' ':'')+s.name).trim());
-    pg.drawText('F\u00fcr Herrn '+fullName+', f\u00fcr das Steuerjahr '+yr,{x:40,y,size:11,font:fn,color:BLK});
+    pg.drawText('Für Herrn '+fullName+', für das Steuerjahr '+yr,{x:40,y,size:11,font:fn,color:BLK});
     y-=24;
-    pg.drawText('Lehrg\u00e4nge, Kommandierungen und sonstige Abwesenheiten, sowie Negativbescheinigung',{x:40,y,size:9,font:fn,color:GR});
+    if(T.einl1){pg.drawText(san(T.einl1),{x:40,y,size:9,font:fn,color:GR});y-=11;}
+    if(T.einl2){pg.drawText(san(T.einl2),{x:40,y,size:9,font:fn,color:GR});y-=11;}
     y-=11;
-    pg.drawText('\u00fcber nicht bereitgestellte Verpflegung.',{x:40,y,size:9,font:fn,color:GR});
-    y-=22;
 
-    // Table: zusammenhängende Zeiträume gruppieren (gleicher Typ + gleicher Ort + lückenlos)
-    if(abEntries.length||rkJahr.length){
-      const addDay=ds=>{const d=new Date(ds+'T12:00');d.setDate(d.getDate()+1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
-      const ortAbw=e=>abwOrtText(e).split(' / ').map(ortKurz).filter(Boolean).join(' / ');
-      const normOrt=e=>san(ortAbw(e)).toLowerCase();
-      const groups=[];
-      for(const e of abEntries){
-        const g=groups[groups.length-1];
-        if(g&&g.code===e.dayCode&&normOrt(e)===g.ortKey&&addDay(g.to)===e.date){
-          g.to=e.date;g.days++;
-          // Nur tatsaechlich eingenommene Mahlzeiten — nicht eingenommene kuerzen nicht
-          // und gehoeren damit nicht in die Bescheinigung.
-          VERPFL_MAHL.filter(m=>verpflStatus(e,m)==='ja').forEach(v=>g.verpfl.add(v));
-          if(!g.nachweis&&e.nachweis)g.nachweis=e.nachweis;
-        } else {
-          groups.push({code:e.dayCode,from:e.date,to:e.date,days:1,
-            ort:ortAbw(e),ortKey:normOrt(e),
-            verpfl:new Set(VERPFL_MAHL.filter(m=>verpflStatus(e,m)==='ja')),
-            nachweis:e.nachweis||''});
-        }
-      }
-      groups.forEach(g=>{if(g.code==='DR')g.ohneRk=true;});
-      // Dienstreisen aus den Reisekostenabrechnungen
-      rkJahr.forEach(b=>{
-        const bis=b.bis||b.von;let n=0,d=b.von;while(d<=bis&&n<400){n++;d=isoPlus(d,1);}
-        const ziel=String(b.ziel||'').trim();
-        // Land/PLZ aus dem Tool ergaenzen, wenn dort derselbe Ort mit mehr Angaben steht
-        let ort=ziel;
-        if(ziel){const zl=ziel.toLowerCase();
-          const treffer=state.entries.filter(e=>e.date>=b.von&&e.date<=bis)
-            .flatMap(e=>abwOrtText(e).split(' / ').concat([e.stayLocation||'']).map(ortKurz))
-            .find(o=>o&&o.toLowerCase().includes(zl)&&o.length>ziel.length);
-          if(treffer)ort=treffer;}
-        const gestellt=(b.tage||[]).some(t=>t.fGestellt||t.mGestellt||t.aGestellt);
-        groups.push({code:'DR',from:b.von,to:bis,days:n,ort:ort||'-',ortKey:'rk'+b.nr,
-          verpfl:new Set(gestellt?['bescheid']:[]),nachweis:b.nr?'RK '+b.nr:'RK-Abr.',rk:true});
-      });
-      groups.sort((a,b)=>a.from.localeCompare(b.from)||(a.rk?-1:1));
-      const colX=[40,100,180,322,346,494];
-      const hdrs=['Zweck','Zeitraum','Ort(e) der Abwesenheit','Tage','Verpflegung','Nachweis'];
-      const VOPT=['Verpflegung wurde bereitgestellt','Verpflegung wurde nicht bereitgestellt'];
+    // Tabelle
+    if(dok.rows.length&&dok.cols.length){
+      const TW=W-80;
+      const sumW=dok.cols.reduce((a,c)=>a+(parseFloat(c.w)||80),0)||1;
+      const colX=[];let cx=40;
+      dok.cols.forEach(c=>{colX.push(cx);cx+=(parseFloat(c.w)||80)*TW/sumW;});
+      colX.push(W-40);
       const form=doc.getForm();
       function abHdr(){
-        pg.drawRectangle({x:40,y:y-3,width:W-80,height:17,color:NAV});
-        hdrs.forEach((h,i)=>{pg.drawText(h,{x:colX[i]+3,y:y,size:8,font:fb,color:rgb(1,1,1)});});
+        pg.drawRectangle({x:40,y:y-3,width:TW,height:17,color:NAV});
+        dok.cols.forEach((c,i)=>{pg.drawText(fitB(c.t||'',colX[i+1]-colX[i]-5,8),{x:colX[i]+3,y:y,size:8,font:fb,color:rgb(1,1,1)});});
         y-=20;
       }
+      const fit=(t,w,sz)=>{t=san(t);while(t.length>1&&fn.widthOfTextAtSize(t,sz)>w)t=t.slice(0,-2)+'.';return t;};
+      const fitB=(t,w,sz)=>{t=san(t);while(t.length>1&&fb.widthOfTextAtSize(t,sz)>w)t=t.slice(0,-2)+'.';return t;};
       let tabTop=y+14;
       function abVLines(){
-        colX.forEach((cx0,i)=>{if(i>0)pg.drawLine({start:{x:cx0,y:tabTop},end:{x:cx0,y:y+11},thickness:0.3,color:BLK});});
+        colX.forEach((x0,i)=>{if(i>0&&i<colX.length-1)pg.drawLine({start:{x:x0,y:tabTop},end:{x:x0,y:y+11},thickness:0.3,color:BLK});});
         pg.drawLine({start:{x:40,y:tabTop},end:{x:40,y:y+11},thickness:0.5,color:BLK});
         pg.drawLine({start:{x:W-40,y:tabTop},end:{x:W-40,y:y+11},thickness:0.5,color:BLK});
       }
       abHdr();
-      const vMap={keine:'Keine',vollständig:'Vollst.',frühstück:'Fr.',mittag:'Mi.',abend:'Ab.',nein:'Nein',selbst:'Selbst'};
       let ri=0;
-      for(const g of groups){
-        if(y<100){abVLines();pg=doc.addPage([W,H]);y=H-45;tabTop=y+14;abHdr();}
-        const dtName=DT[g.code]?.n||g.code;
-        const zeitraum=g.from===g.to?fmtD(g.from):fmtD(g.from)+' - '+fmtD(g.to);
-        const verpfl=g.verpfl.size?VOPT[0]:VOPT[1];
-        if(ri%2===0)pg.drawRectangle({x:40,y:y-4,width:W-80,height:14,color:rgb(.96,.96,.97)});
-        const fit=(t,w,sz)=>{t=san(t);while(t.length>1&&fn.widthOfTextAtSize(t,sz)>w)t=t.slice(0,-2)+'…'.replace(/[^\x00-\xff]/g,'.');return t;};
-        pg.drawText(fit(dtName,colX[1]-colX[0]-5,7.5),{x:colX[0]+3,y:y-1,size:7.5,font:fn,color:BLK});
-        pg.drawText(san(zeitraum),{x:colX[1]+3,y:y-1,size:7,font:fn,color:BLK});
-        pg.drawText(fit(g.ort||'-',colX[3]-colX[2]-5,7),{x:colX[2]+3,y:y-1,size:7,font:fn,color:BLK});
-        pg.drawText(String(g.days),{x:colX[3]+6,y:y-1,size:8,font:fn,color:BLK});
-        {const dd=form.createDropdown('verpflegung_'+(ri+1));dd.addOptions(VOPT);dd.select(verpfl);
-          dd.addToPage(pg,{x:colX[4]+1,y:y-4,width:colX[5]-colX[4]-2,height:12,font:fn,borderWidth:0,backgroundColor:rgb(1,1,1)});
-          try{dd.setFontSize(6.5);}catch(_){}}
-        pg.drawText(fit((g.nachweis||'Befehl')+(g.ohneRk?' *':''),W-40-colX[5]-5,7.5),{x:colX[5]+3,y:y-1,size:7.5,font:fn,color:BLK});
+      for(const r of dok.rows){
+        if(y<100){abVLines();neueSeite();tabTop=y+14;abHdr();}
+        if(ri%2===0)pg.drawRectangle({x:40,y:y-4,width:TW,height:14,color:rgb(.96,.96,.97)});
+        dok.cols.forEach((c,i)=>{
+          const x0=colX[i],w=colX[i+1]-colX[i];
+          if(c.id==='verpfl'){
+            const dd=form.createDropdown('verpflegung_'+(ri+1));dd.addOptions(ABW_VOPT);dd.select(r.verpfl==='ja'?ABW_VOPT[0]:ABW_VOPT[1]);
+            dd.addToPage(pg,{x:x0+1,y:y-4,width:w-2,height:12,font:fn,borderWidth:0,backgroundColor:rgb(1,1,1)});
+            try{dd.setFontSize(6.5);}catch(_){}
+            return;
+          }
+          let v='',sz=7.5;
+          if(c.id==='zweck')v=r.zweck;
+          else if(c.id==='zeitraum'){v=!r.von?'':(r.von===(r.bis||r.von)?fmtD(r.von):fmtD(r.von)+' - '+fmtD(r.bis));sz=7;}
+          else if(c.id==='ort'){v=r.ort||'-';sz=7;}
+          else if(c.id==='tage'){v=r.tage==null?'':String(r.tage);sz=8;}
+          else if(c.id==='nachweis')v=r.nachweis||'';
+          else v=(r.x&&r.x[c.id])||'';
+          pg.drawText(fit(v,w-5,sz),{x:x0+(c.id==='tage'?6:3),y:y-1,size:sz,font:fn,color:BLK});
+        });
         pg.drawLine({start:{x:40,y:y-4},end:{x:W-40,y:y-4},thickness:0.3,color:BLK});
         y-=15;ri++;
       }
-      // Spaltenlinien schwarz (seitenweise)
       abVLines();
       y-=10;
-      if(groups.some(g=>g.ohneRk)){pg.drawText('* Dienstreise ohne vorliegende Reisekostenabrechnung - Angaben aus dem Tagesnachweis.',{x:40,y,size:7,font:fn,color:GR});y-=10;}
+      if(T.stern&&dok.cols.some(c=>c.id==='nachweis')&&dok.rows.some(r=>/\*\s*$/.test(r.nachweis||''))){pg.drawText(fit(T.stern,W-80,7),{x:40,y,size:7,font:fn,color:GR});y-=10;}
     }
 
-    // Home Office section
-    if(wfhEntries.length){
+    // Home Office
+    if(hoZeigen){
+      if(y<190)neueSeite();
       y-=12;
-      pg.drawText('Arbeiten von zu Hause (Home Office)',{x:40,y,size:12,font:fb,color:NAV});
+      pg.drawText(san(T.hoTitel||'Arbeiten von zu Hause (Home Office)'),{x:40,y,size:12,font:fb,color:NAV});
       y-=20;
-      pg.drawText('Dar\u00fcber hinaus wird best\u00e4tigt, dass Herr '+fullName+' im Jahr '+yr,{x:40,y,size:10,font:fn,color:BLK});
+      pg.drawText('Darüber hinaus wird bestätigt, dass Herr '+fullName+' im Jahr '+yr,{x:40,y,size:10,font:fn,color:BLK});
       y-=14;
       pg.drawText('an insgesamt',{x:40,y,size:10,font:fn,color:BLK});
       y-=20;
-      pg.drawText(wfhEntries.length+' Tagen',{x:40,y,size:16,font:fb,color:NAV});
+      pg.drawText(dok.hoTage+' Tagen',{x:40,y,size:16,font:fb,color:NAV});
       y-=20;
       pg.drawText('von zu Hause (Home Office) gearbeitet hat.',{x:40,y,size:10,font:fn,color:BLK});
       y-=14;
     }
 
-    // Signature area
+    // Unterschriftenfeld — immer auf der letzten Seite und vollstaendig innerhalb des Blattes
+    if(y<110)neueSeite();
     y=Math.min(y-40,130);
     pg.drawLine({start:{x:40,y},end:{x:220,y},thickness:0.5,color:GR});
     pg.drawLine({start:{x:300,y},end:{x:W-40,y},thickness:0.5,color:GR});
     y-=12;
-    pg.drawText('Unterschrift',{x:40,y,size:8,font:fn,color:GR});
-    pg.drawText('Dienstsiegel / Stempel',{x:300,y,size:8,font:fn,color:GR});
+    pg.drawText(san(T.sigL||'Unterschrift'),{x:40,y,size:8,font:fn,color:GR});
+    pg.drawText(san(T.sigR||'Dienstsiegel / Stempel'),{x:300,y,size:8,font:fn,color:GR});
 
-    // Footer
-    pg.drawText('Erstellt am '+new Date().toLocaleDateString('de-DE'),{x:40,y:25,size:7,font:fn,color:GR});
+    // Fusszeile auf jeder Seite
+    const seiten=doc.getPages();
+    seiten.forEach((p,i)=>{
+      p.drawText('Erstellt am '+new Date().toLocaleDateString('de-DE'),{x:40,y:25,size:7,font:fn,color:GR});
+      if(seiten.length>1)p.drawText('Seite '+(i+1)+' von '+seiten.length,{x:W-100,y:25,size:7,font:fn,color:GR});
+    });
     try{doc.getForm().updateFieldAppearances(fn);}catch(_){}
 
     const pdfBytes=await doc.save();
@@ -8638,8 +8724,167 @@ async function genAbwesenheitPdf(){
     state.settings.abReceipts[abKey].push(storedId);
     persist();
     await renderExportPdfs();
-    toast(fname+' gespeichert ('+abEntries.length+' Abwesenheiten, '+wfhEntries.length+' HO-Tage)','ok');
+    toast(fname+' gespeichert ('+dok.rows.length+' Zeilen'+(hoZeigen?', '+dok.hoTage+' HO-Tage':'')+(dok.quelle==='bearbeitet'?', bearbeitete Fassung':'')+')','ok');
   }catch(e){toast('Fehler: '+e.message,'err');console.error(e);}
+}
+
+/* ═══ Reiter „Bescheinigung“: Abwesenheitsbescheinigung bearbeiten ═══ */
+let abEdJahr=null;
+function abEdYr(){return abEdJahr||abwJahrWahl();}
+function abEdGet(anlegen){
+  const yr=abEdYr(),all=abwEdits();
+  if(!all[yr]&&anlegen){
+    const t=abwAusTool(yr);
+    all[yr]={rows:t.rows,cols:ABW_STD_COLS.map(c=>Object.assign({},c)),texte:abwTexteStd(),
+      hoAn:t.hoTage>0,hoTage:t.hoTage,basis:abwBasisKey(t),at:Date.now()};
+  }
+  return all[yr]||null;
+}
+function abEdSpeichern(){const ed=abEdGet(false);if(ed)ed.at=Date.now();persist();if(typeof scheduleCloudPush==='function')scheduleCloudPush();}
+function abEdSetJahr(v){abEdJahr=v;renderAbEdit();}
+function abEdFeld(i,k,v){
+  const ed=abEdGet(true);const r=ed.rows[i];if(!r)return;
+  if(k==='tage'){r.tage=v===''?'':Math.max(0,parseInt(v,10)||0);}
+  else if(k==='von'||k==='bis'){r[k]=v;if(k==='von'&&(!r.bis||r.bis<v))r.bis=v;
+    if(r.von&&r.bis&&r.bis>=r.von)r.tage=abwTageZahl(r.von,r.bis);}
+  else if(k.startsWith('x:')){if(!r.x)r.x={};r.x[k.slice(2)]=v;}
+  else r[k]=v;
+  abEdSpeichern();
+  if(k==='von'||k==='bis')renderAbEdit();
+}
+function abEdText(k,v){const ed=abEdGet(true);if(!ed.texte)ed.texte=abwTexteStd();ed.texte[k]=v;abEdSpeichern();}
+function abEdHo(k,v){const ed=abEdGet(true);if(k==='an')ed.hoAn=!!v;else ed.hoTage=Math.max(0,parseInt(v,10)||0);abEdSpeichern();}
+function abEdZeileNeu(){
+  const ed=abEdGet(true);const yr=abEdYr();
+  const r={zweck:'Dienstreise',von:'',bis:'',tage:'',ort:'',verpfl:'nein',nachweis:'Befehl',x:{}};
+  ed.rows.push(r);abEdSpeichern();renderAbEdit();
+  toast('Zeile angelegt – Zeitraum im Jahr '+yr+' eintragen');
+}
+function abEdZeileWeg(i){const ed=abEdGet(true);const alt=JSON.stringify(ed.rows);ed.rows.splice(i,1);abEdSpeichern();renderAbEdit();
+  undoSnack('Zeile gelöscht',()=>{const e2=abEdGet(true);e2.rows=JSON.parse(alt);abEdSpeichern();renderAbEdit();});}
+function abEdZeileSchieben(i,d){const ed=abEdGet(true);const j=i+d;if(j<0||j>=ed.rows.length)return;
+  [ed.rows[i],ed.rows[j]]=[ed.rows[j],ed.rows[i]];abEdSpeichern();renderAbEdit();}
+function abEdSortieren(){const ed=abEdGet(true);ed.rows.sort((a,b)=>String(a.von||'9').localeCompare(String(b.von||'9')));abEdSpeichern();renderAbEdit();}
+function abEdSpalteTitel(i,v){const ed=abEdGet(true);if(ed.cols[i]){ed.cols[i].t=v;abEdSpeichern();}}
+function abEdSpalteBreite(i,v){const ed=abEdGet(true);if(ed.cols[i]){ed.cols[i].w=Math.max(10,parseInt(v,10)||60);abEdSpeichern();}}
+function abEdSpalteWeg(i){const ed=abEdGet(true);const c=ed.cols[i];if(!c)return;
+  if(ed.cols.length<=1){toast('Mindestens eine Spalte muss bleiben','err');return;}
+  const alt=JSON.stringify(ed.cols);ed.cols.splice(i,1);abEdSpeichern();renderAbEdit();
+  undoSnack('Spalte „'+(c.t||c.id)+'“ gelöscht',()=>{const e2=abEdGet(true);e2.cols=JSON.parse(alt);abEdSpeichern();renderAbEdit();});}
+function abEdSpalteSchieben(i,d){const ed=abEdGet(true);const j=i+d;if(j<0||j>=ed.cols.length)return;
+  [ed.cols[i],ed.cols[j]]=[ed.cols[j],ed.cols[i]];abEdSpeichern();renderAbEdit();}
+function abEdSpalteNeu(){
+  const sel=document.getElementById('abEdNeuSp');const v=sel?sel.value:'';
+  const ed=abEdGet(true);
+  if(v&&v!=='eigen'){const std=ABW_STD_COLS.find(c=>c.id===v);if(std&&!ed.cols.some(c=>c.id===v))ed.cols.push(Object.assign({},std));}
+  else{const nm=(document.getElementById('abEdNeuSpName')?.value||'').trim()||'Bemerkung';
+    let n=1;while(ed.cols.some(c=>c.id==='c'+n))n++;ed.cols.push({id:'c'+n,t:nm,w:80,eigen:true});}
+  abEdSpeichern();renderAbEdit();
+}
+function abEdAusTool(){
+  const yr=abEdYr();const all=abwEdits();const alt=all[yr]?JSON.stringify(all[yr]):null;
+  delete all[yr];persist();if(typeof scheduleCloudPush==='function')scheduleCloudPush();renderAbEdit();
+  if(alt)undoSnack('Bescheinigung '+yr+' aus dem Tool neu geladen',()=>{abwEdits()[yr]=JSON.parse(alt);persist();renderAbEdit();});
+}
+function abEdNurNeueAusTool(){
+  // Zeilen aus dem Tool, die in der bearbeiteten Fassung noch fehlen (gleicher Beginn + Zweck), anhaengen
+  const ed=abEdGet(true);const t=abwAusTool(abEdYr());
+  const hat=new Set(ed.rows.map(r=>(r.von||'')+'|'+(r.zweck||'')));
+  const neu=t.rows.filter(r=>!hat.has(r.von+'|'+r.zweck));
+  neu.forEach(r=>ed.rows.push(r));
+  ed.rows.sort((a,b)=>String(a.von||'9').localeCompare(String(b.von||'9')));
+  ed.basis=abwBasisKey(t);abEdSpeichern();renderAbEdit();
+  toast(neu.length?neu.length+' neue Zeile(n) aus dem Tool übernommen':'Keine neuen Zeilen im Tool','ok');
+}
+function renderAbEdit(){
+  const host=document.getElementById('abEdBody');if(!host)return;
+  const yr=abEdYr();
+  const ed=abwEdits()[yr]||null;
+  const dok=abwDokument(yr);
+  const t=abwAusTool(yr);
+  const toolNeu=ed&&ed.basis&&ed.basis!==abwBasisKey(t);
+  const jahre=[...new Set(state.entries.map(e=>(e.date||'').slice(0,4)).filter(Boolean).concat([yr,abwJahrWahl()]))].sort().reverse();
+  const inp='font:inherit;font-size:12px;padding:5px 7px;border:1px solid var(--line);border-radius:7px;background:var(--input-bg);color:var(--text);width:100%;box-sizing:border-box';
+  const T=dok.texte;
+  const fehlendeStd=ABW_STD_COLS.filter(c=>!dok.cols.some(x=>x.id===c.id));
+  const zelle=(r,i,c)=>{
+    const on=(k,v)=>`onchange="abEdFeld(${i},'${k}',this.value)"`;
+    if(c.id==='zweck')return`<input style="${inp}" list="abEdZwecke" value="${esc(r.zweck)}" ${on('zweck')}>`;
+    if(c.id==='zeitraum')return`<div style="display:flex;gap:4px;min-width:250px"><input type="date" style="${inp}" value="${esc(r.von)}" ${on('von')}><input type="date" style="${inp}" value="${esc(r.bis)}" ${on('bis')}></div>`;
+    if(c.id==='ort')return`<input style="${inp};min-width:170px" value="${esc(r.ort)}" ${on('ort')}>`;
+    if(c.id==='tage')return`<input type="number" min="0" style="${inp};width:58px" value="${esc(r.tage)}" ${on('tage')}>`;
+    if(c.id==='verpfl')return`<select style="${inp};min-width:150px" ${on('verpfl')}><option value="ja"${r.verpfl==='ja'?' selected':''}>bereitgestellt</option><option value="nein"${r.verpfl!=='ja'?' selected':''}>nicht bereitgestellt</option></select>`;
+    if(c.id==='nachweis')return`<input style="${inp};min-width:100px" value="${esc(r.nachweis)}" ${on('nachweis')}>`;
+    return`<input style="${inp};min-width:110px" value="${esc((r.x||{})[c.id]||'')}" onchange="abEdFeld(${i},'x:${c.id}',this.value)">`;
+  };
+  const kopf=dok.cols.map((c,ci)=>`<th style="padding:5px;vertical-align:bottom;min-width:60px">
+      <input style="${inp};font-weight:700;color:var(--navy)" value="${esc(c.t)}" title="Spaltenüberschrift" onchange="abEdSpalteTitel(${ci},this.value)">
+      <div style="display:flex;gap:3px;margin-top:3px;align-items:center;font-weight:400">
+        <button class="btn btn-s" type="button" style="padding:2px 7px;font-size:11px" title="nach links" onclick="abEdSpalteSchieben(${ci},-1)">◀</button>
+        <button class="btn btn-s" type="button" style="padding:2px 7px;font-size:11px" title="nach rechts" onclick="abEdSpalteSchieben(${ci},1)">▶</button>
+        <input type="number" min="10" style="${inp};width:54px;padding:2px 5px;font-size:11px" value="${esc(c.w)}" title="Breite (Anteil)" onchange="abEdSpalteBreite(${ci},this.value)">
+        <button class="btn btn-s" type="button" style="padding:2px 7px;font-size:11px;color:var(--err)" title="Spalte löschen" onclick="abEdSpalteWeg(${ci})">✕</button>
+      </div></th>`).join('');
+  const zeilen=dok.rows.map((r,i)=>`<tr style="border-top:1px solid var(--line)">
+      ${dok.cols.map(c=>`<td style="padding:4px 5px;vertical-align:top">${zelle(r,i,c)}</td>`).join('')}
+      <td style="padding:4px 5px;white-space:nowrap;vertical-align:top">
+        <button class="btn btn-s" type="button" style="padding:3px 8px;font-size:11px" title="nach oben" onclick="abEdZeileSchieben(${i},-1)">↑</button>
+        <button class="btn btn-s" type="button" style="padding:3px 8px;font-size:11px" title="nach unten" onclick="abEdZeileSchieben(${i},1)">↓</button>
+        <button class="btn btn-s" type="button" style="padding:3px 8px;font-size:11px;color:var(--err)" title="Zeile löschen" onclick="abEdZeileWeg(${i})">✕</button></td></tr>`).join('')
+    ||`<tr><td colspan="${dok.cols.length+1}" style="padding:10px;font-size:12px;color:var(--muted)">Keine Zeilen – „+ Zeile“ legt eine an.</td></tr>`;
+  host.innerHTML=`
+  <datalist id="abEdZwecke">${ABW_ZWECKE.map(z=>`<option value="${esc(z)}">`).join('')}</datalist>
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <label style="font-size:12px;font-weight:700;color:var(--navy)">Steuerjahr
+        <select style="font:inherit;font-size:13px;padding:6px 9px;border:1px solid var(--line);border-radius:8px;margin-left:4px" onchange="abEdSetJahr(this.value)">
+          ${jahre.map(j=>`<option value="${j}"${j===yr?' selected':''}>${j}</option>`).join('')}</select></label>
+      <span class="${ed?'badge ok':'badge'}">${ed?'bearbeitete Fassung · '+new Date(ed.at||Date.now()).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'Grunddaten aus dem Tool (unverändert)'}</span>
+      <span style="flex:1"></span>
+      ${ed?`<button class="btn btn-s btn-sm" type="button" onclick="abEdNurNeueAusTool()" title="Fehlende Zeilen aus dem Tool ergänzen, Änderungen bleiben">＋ Neue aus Tool</button>
+      <button class="btn btn-s btn-sm" type="button" onclick="abEdAusTool()" title="Alle Änderungen dieses Jahres verwerfen">↺ Aus Tool neu laden</button>`:''}
+    </div>
+    ${toolNeu?`<div style="margin-top:8px;font-size:12px;border-left:3px solid var(--warn);padding:5px 9px;background:var(--lsoft);border-radius:6px">Im Tool haben sich die Grunddaten für ${yr} seit deiner Bearbeitung geändert. „＋ Neue aus Tool“ ergänzt fehlende Zeilen, „↺ Aus Tool neu laden“ verwirft deine Änderungen.</div>`:''}
+    <p style="font-size:12px;color:var(--muted);margin:8px 0 0">Änderungen werden sofort je Jahr gespeichert. Die PDF erstellst du wie bisher unter <b>Belege &amp; Berichte › Berichte &amp; Export › Abwesenheitsbescheinigung</b> (Jahr = „Von“-Datum dort, sonst aktuelles Jahr: <b>${esc(abwJahrWahl())}</b>).</p>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <h3 style="font-size:14px;margin-bottom:8px">Texte</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px">
+      <label style="font-size:11px;color:var(--muted)">Titel<input style="${inp}" value="${esc(T.titel)}" onchange="abEdText('titel',this.value)"></label>
+      <label style="font-size:11px;color:var(--muted)">Einleitung Zeile 1<input style="${inp}" value="${esc(T.einl1)}" onchange="abEdText('einl1',this.value)"></label>
+      <label style="font-size:11px;color:var(--muted)">Einleitung Zeile 2<input style="${inp}" value="${esc(T.einl2)}" onchange="abEdText('einl2',this.value)"></label>
+      <label style="font-size:11px;color:var(--muted)">Fußnote (bei Nachweis mit *)<input style="${inp}" value="${esc(T.stern)}" onchange="abEdText('stern',this.value)"></label>
+      <label style="font-size:11px;color:var(--muted)">Unterschrift links<input style="${inp}" value="${esc(T.sigL)}" onchange="abEdText('sigL',this.value)"></label>
+      <label style="font-size:11px;color:var(--muted)">Unterschrift rechts<input style="${inp}" value="${esc(T.sigR)}" onchange="abEdText('sigR',this.value)"></label>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin:6px 0 0">Briefkopf, Name und Dienstgrad kommen aus den Einstellungen.</p>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+      <h3 style="font-size:14px;margin:0">Abwesenheiten (${dok.rows.length} Zeilen)</h3><span style="flex:1"></span>
+      <button class="btn btn-p btn-sm" type="button" onclick="abEdZeileNeu()">＋ Zeile</button>
+      <button class="btn btn-s btn-sm" type="button" onclick="abEdSortieren()">Nach Datum sortieren</button>
+    </div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table style="border-collapse:collapse;width:100%;font-size:12px"><thead><tr style="text-align:left">${kopf}<th></th></tr></thead><tbody>${zeilen}</tbody></table>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)">
+      <span style="font-size:12px;font-weight:700;color:var(--navy)">Spalte hinzufügen:</span>
+      <select id="abEdNeuSp" style="font:inherit;font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:7px" onchange="document.getElementById('abEdNeuSpName').style.display=this.value==='eigen'?'':'none'">
+        ${fehlendeStd.map(c=>`<option value="${c.id}">${esc(c.t)}</option>`).join('')}<option value="eigen"${fehlendeStd.length?'':' selected'}>Eigene Spalte …</option></select>
+      <input id="abEdNeuSpName" placeholder="Überschrift, z. B. Bemerkung" style="${inp};width:200px${fehlendeStd.length?';display:none':''}">
+      <button class="btn btn-s btn-sm" type="button" onclick="abEdSpalteNeu()">＋ Spalte</button>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <h3 style="font-size:14px;margin-bottom:8px">Home Office</h3>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12px">
+      <label><input type="checkbox"${dok.hoAn?' checked':''} onchange="abEdHo('an',this.checked)"> Abschnitt drucken</label>
+      <label>Tage <input type="number" min="0" style="${inp};width:80px;display:inline-block" value="${esc(dok.hoTage)}" onchange="abEdHo('tage',this.value)"></label>
+      <span style="color:var(--muted)">laut Tool: ${t.hoTage} Tage (Code WFH)</span>
+      <label style="flex:1;min-width:220px;font-size:11px;color:var(--muted)">Überschrift<input style="${inp}" value="${esc(T.hoTitel)}" onchange="abEdText('hoTitel',this.value)"></label>
+    </div>
+  </div>`;
 }
 /* ─── END ABWESENHEITSBESCHEINIGUNG ─── */
 
