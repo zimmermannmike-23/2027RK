@@ -617,6 +617,10 @@ html.dark [style*="background:#1a3a5c"]{background:var(--navy-bg)!important;}
 .kc-tbl th:first-child,.kc-tbl td:first-child{text-align:left;}
 @media screen{html.dark{--ch1:#1FA393;--ch2:#B98516;}
 html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
+.yr-sel{font:inherit;font-size:13px;font-weight:700;padding:7px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--lsoft);color:var(--navy);cursor:pointer}
+.yr-row{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0 0 8px}
+.yr-row label{font-size:12px;color:var(--muted)}
+@media(max-width:600px){#calTitle{display:none}#calYSel{padding:6px 4px;font-size:12px}.cal-nav{gap:4px}.cal-nav .ml{min-width:92px;font-size:13px}#calSelBtn{padding:4px 8px;font-size:11px}}
 </style>
 </head>
 <body>
@@ -668,9 +672,9 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
   <div id="calRemind"></div>
   <div class="cal-wrap" id="calWrap">
     <div class="cal-head-row">
-      <h3 id="calTitle">Monat</h3>
+      <div style="display:flex;gap:8px;align-items:center"><h3 id="calTitle">Monat</h3><select class="yr-sel" id="calYSel" onchange="setAktivesJahr(this.value)" title="Jahr wählen (gilt für alle Reiter)" aria-label="Jahr"></select></div>
       <div class="cal-nav">
-        <button id="calSelBtn" class="cal-selbtn" type="button" onclick="calSelToggle()" title="Mehrere Tage auswählen">&#9745;&#65038; Auswählen</button>
+<button id="calSelBtn" class="cal-selbtn" type="button" onclick="calSelToggle()" title="Mehrere Tage auswählen">&#9745;&#65038; Auswählen</button>
         <button id="calPrev">&#8249;</button>
         <span class="ml" id="calLabel"></span>
         <button id="calNext">&#8250;</button>
@@ -682,6 +686,7 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
 </section>
 <!-- WIZARD -->
 <section class="view on" id="view-wizard">
+  <div class="yr-row"><label>Jahr</label><select class="yr-sel" onchange="setAktivesJahr(this.value)" title="Jahr wählen (gilt für alle Reiter)" aria-label="Jahr"></select></div>
   <div class="prog-wrap">
     <div class="sdots" id="sdots"></div>
     <div class="pbar"><div class="pfill" id="pfill" style="width:0%"></div></div>
@@ -703,7 +708,7 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
   <div id="costDupCheck"></div>
   <div id="fhfBlocks"></div>
   <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
-    <span id="ovYLabel" style="font:inherit;font-size:13px;font-weight:700;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--lsoft);color:var(--navy)" title="Jahr wird in den Einstellungen umgeschaltet"></span>
+    <select id="ovYLabel" class="yr-sel" onchange="setAktivesJahr(this.value)" title="Jahr wählen (gilt für alle Reiter)" aria-label="Jahr"></select>
     <select id="ovM" style="font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);">
       <option value="">Alle Monate</option>
       <option value="01">Januar</option><option value="02">Februar</option><option value="03">März</option>
@@ -736,7 +741,7 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
     <p style="font-size:12px;color:var(--muted);margin-top:3px">Automatisch aus den Eintr&#228;gen erzeugte Monats&#252;bersicht &#8211; Anzeige im Format der BVA-K&#252;rzungsangaben, zum &#220;bertragen ins Online-Portal.</p></div>
   </div>
   <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
-    <span id="abwYLabel" style="font:inherit;font-size:13px;font-weight:700;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--lsoft);color:var(--navy)" title="Jahr wird in den Einstellungen umgeschaltet"></span>
+    <select id="abwYLabel" class="yr-sel" onchange="setAktivesJahr(this.value)" title="Jahr wählen (gilt für alle Reiter)" aria-label="Jahr"></select>
     <select id="abwM" onchange="renderAbw()" style="font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);">
       <option value="01">Januar</option><option value="02">Februar</option><option value="03">M&#228;rz</option>
       <option value="04">April</option><option value="05">Mai</option><option value="06">Juni</option>
@@ -755,6 +760,7 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
     <h3 style="margin-bottom:10px">&#128203; Zeiterfassungsblatt</h3>
     <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Monatsansicht entsprechend dem Bw-Arbeitszeitblatt. Daten aus Eintr&#228;gen.</p>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+      <select class="yr-sel" onchange="setAktivesJahr(this.value)" title="Jahr wählen (gilt für alle Reiter)" aria-label="Jahr"></select>
       <select id="zeMonth" onchange="renderZE()" style="padding:7px 10px;border-radius:8px;border:1px solid var(--line);font-size:14px"></select>
       <button class="btn btn-p btn-sm" type="button" onclick="zeRunCheck()">&#9989; Prüfen</button>
       <button class="btn btn-gold btn-sm" onclick="importXlsmData()">&#128228; Excel-Daten importieren</button>
@@ -780,7 +786,7 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
   <h2 style="font-size:22px;color:var(--navy);font-weight:700;letter-spacing:-0.4px;margin:0 0 4px">Belege &amp; Berichte</h2>
   <p style="color:var(--muted);font-size:13px;margin-bottom:14px">Belege scannen, hochladen und ablegen &#8211; Berichte und PDFs erstellen.</p>
   <div style="display:flex;gap:9px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
-    <span id="rcYLabel" style="font:inherit;font-size:13px;font-weight:700;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--lsoft);color:var(--navy)" title="Jahr wird in den Einstellungen umgeschaltet"></span>
+    <select id="rcYLabel" class="yr-sel" onchange="setAktivesJahr(this.value)" title="Jahr wählen (gilt für alle Reiter)" aria-label="Jahr"></select>
     <select id="rcM" style="font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);">
       <option value="01">Januar</option><option value="02">Februar</option><option value="03">März</option>
       <option value="04">April</option><option value="05">Mai</option><option value="06">Juni</option>
@@ -946,7 +952,7 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
       <h2 style="font-size:22px;color:var(--navy);font-weight:700;letter-spacing:-0.4px">Jahres&#252;bersicht</h2>
       <p style="color:var(--muted);font-size:13px;margin:2px 0 0">Jahreszahlen und steuerlicher Vergleich.</p>
     </div>
-    <span id="jahrYLabel" style="font:inherit;font-size:13px;font-weight:700;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--lsoft);color:var(--navy)" title="Jahr wird in den Einstellungen umgeschaltet"></span>
+    <select id="jahrYLabel" class="yr-sel" onchange="setAktivesJahr(this.value)" title="Jahr wählen (gilt für alle Reiter)" aria-label="Jahr"></select>
   </div>
   <div id="jahresCard"></div>
   <div id="kostenChart"></div>
@@ -997,7 +1003,7 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
         <h3 style="margin-bottom:2px">&#128197; Aktives Jahr</h3>
         <p style="font-size:11px;color:var(--muted);margin:0">Steuert, welches Jahr in &#220;bersicht, Jahres&#252;bersicht, Zeiterfassung, Belegen und der CheckBox angezeigt wird.</p>
       </div>
-      <select id="sAktivesJahr" onchange="setAktivesJahr(this.value)" style="font:inherit;font-size:16px;font-weight:700;padding:9px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--navy)"></select>
+      <select id="sAktivesJahr" class="yr-sel" onchange="setAktivesJahr(this.value)" style="font:inherit;font-size:16px;font-weight:700;padding:9px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--navy)"></select>
     </div>
   </div>
 
@@ -1183,10 +1189,13 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.19.9';
-const APP_BUILD=99;
+const APP_VERSION='5.20.0';
+const APP_BUILD=100;
 const APP_DATE='19.10.2026';
 const APP_CHANGES=[
+  'Jahr wählen in jedem Reiter: Monat, Eintrag, Übersicht, Zeiterfassung, Belege & Berichte, Abwesenheiten, Jahresübersicht, Bescheinigung und Einstellungen haben ein Jahres-Auswahlfeld. Es ist überall dieselbe Einstellung „Aktives Jahr“ – Wechsel in einem Reiter gilt für alle',
+  'CheckBox: nicht gemeldete Heimfahrten werden deutlicher benannt – Zeitraum HF bis RF, Hinweis „vermutlich nicht als Familienheimfahrt (ohne Reisebeihilfe) angegeben“ und das für die Tage dazwischen gezahlte Trennungstagegeld',
+  'Jahresbezogene PDFs (Abwesenheitsbescheinigung, Fahrtkosten-Jahresbeleg, Liste der gespeicherten PDFs, Drucken) richten sich jetzt nach dem gewählten Jahr statt nach dem „Von“-Datum des PDF-Exports; der Export-Zeitraum „Von/Bis“ wandert beim Jahreswechsel mit',
   'TG-Abrechnung: Reiseabschnitte (Dienstreise, Familienheimfahrt mit/ohne Reisebeihilfe, Besuchsfahrt, Zwischenabordnung, Urlaub, Abwesenheit Dienstort – je mit Datum und Uhrzeit) wurden wegen mehrerer Leerzeichen zwischen „Uhr“ und „bis“ nie erkannt. Jetzt erkannt; „Ort / Grund“ endet sauber vor „Ankunft Wohnung“; gespeicherte Abrechnungen werden einmalig neu eingelesen',
   'CheckBox Familienheimfahrten: Abgleich jetzt je Heimfahrt statt Anzahl je Monat – jede HF der App muss in einer TG-Abrechnung stehen (mit/ohne Reisebeihilfe passend zum FHF-Haken), jede Heimfahrt der Abrechnung braucht in der App einen HF-Tag. Heimfahrten über den Monatswechsel (Abschnitt ab 1. um 00:00) werden dem Vormonat zugeordnet',
   'CheckBox Ortsabgleich Dienstreisen (TG): kein Fehlalarm mehr bei Ländern/Abkürzungen (AUT, NOR, ISR, Strasbourg …) und „Besuch …“; liegt eine Reisekostenabrechnung vor, prüft nur noch deren Zielort',
@@ -1907,13 +1916,14 @@ function gotoView(v){
   document.querySelectorAll('.tab[data-v]').forEach(t=>t.classList.toggle('on',t.dataset.v===v));
   document.querySelector('.tab-more')?.classList.toggle('on',['overview','zeiterfassung','jahr','bescheinigung','settings'].includes(v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
-  if(v==='overview'){const _ol=document.getElementById('ovYLabel');if(_ol)_ol.textContent=aktivesJahr();const _n=new Date();const _om=document.getElementById('ovM');if(_om)_om.value=String(_n.getMonth()+1).padStart(2,'0');renderOverview();}if(v==='zeiterfassung'){initZeMonth();const _z=document.getElementById('zeMonth');const _n2=new Date();if(_z)_z.value=aktivesJahr()+'-'+String(_n2.getMonth()+1).padStart(2,'0');renderZE();}if(v==='export'){updExStats();renderFhf();initCatGrid();renderExportPdfs();renderReceipts();if(typeof renderBelegeablage==='function')renderBelegeablage();belPane();}
+  if(v==='overview'){yrSelSync();const _n=new Date();const _om=document.getElementById('ovM');if(_om)_om.value=String(_n.getMonth()+1).padStart(2,'0');renderOverview();}if(v==='zeiterfassung'){initZeMonth();const _z=document.getElementById('zeMonth');const _n2=new Date();if(_z)_z.value=aktivesJahr()+'-'+String(_n2.getMonth()+1).padStart(2,'0');renderZE();}if(v==='export'){updExStats();renderFhf();initCatGrid();renderExportPdfs();renderReceipts();if(typeof renderBelegeablage==='function')renderBelegeablage();belPane();}
   if(v==='jahr'){renderJahresView();}
   if(v==='abwesenheiten'){initAbwMonth();renderAbw();}
   if(v==='settings'){loadSettings();renderVersion();renderSchemeUI();renderSyncStatus();renderTrash();}
   if(v==='monat'){renderCal();}
 
   if(v==='claude'){renderCp();}
+  yrSelSync();
   if(v==='bescheinigung'){renderAbEdit();}
   if(typeof renderTv==='function')setTimeout(renderTv,0);
   // main hat regulaer 80px unteres Padding (Scroll-Reserve fuer lange Listen in den
@@ -2104,8 +2114,8 @@ function openMonthClose(yr,mo){
   gotoView('abwesenheiten');
   const sel=document.getElementById('abwM');if(sel){sel.value=mo;renderAbw();}
 }
-document.getElementById('calPrev').addEventListener('click',()=>{calM--;if(calM<0){calM=11;calY--;}renderCal();});
-document.getElementById('calNext').addEventListener('click',()=>{calM++;if(calM>11){calM=0;calY++;}renderCal();});
+document.getElementById('calPrev').addEventListener('click',()=>{calM--;if(calM<0){calM=11;calY--;}renderCal();if(String(calY)!==aktivesJahr())setAktivesJahr(calY);});
+document.getElementById('calNext').addEventListener('click',()=>{calM++;if(calM>11){calM=0;calY++;}renderCal();if(String(calY)!==aktivesJahr())setAktivesJahr(calY);});
 function calClick(iso){if(calSelMode){calSelPick(iso);return;}const e=state.entries.find(x=>x.date===iso);if(e)editEntry(e.id);else{wiz=freshW();wiz.date=iso;alsoCalY=null;alsoCalM=null;gotoView('wizard');startWizard(0);}}
 
 /* 28-DAY WARNING */
@@ -3112,7 +3122,7 @@ async function shareRec(rid,toEmail){
   }
 }
 async function printLatest(type){
-  const yr=(document.getElementById('exFrom')?.value||'').slice(0,4)||String(new Date().getFullYear());
+  const yr=aktivesJahr();
   let rids=[];
   if(type==='da'){
     const allKeys=Object.keys(state.settings.daReceipts||{}).filter(k=>k.startsWith('DA-')).sort();
@@ -3370,7 +3380,7 @@ function fhfOhneKostenListe(yr){
   }).sort((a,b)=>a.date.localeCompare(b.date));
 }
 function renderOverview(){
-  const ovLbl=document.getElementById('ovYLabel');if(ovLbl)ovLbl.textContent=aktivesJahr();
+  yrSelSync();
   const yr=aktivesJahr();
   const mo=document.getElementById('ovM')?.value||'';
   const q=(document.getElementById('ovQ')?.value||'').toLowerCase();
@@ -4968,11 +4978,33 @@ function imCheckBoxZeitraum(dateOderPeriode){
   return dateOderPeriode.startsWith(String(Number(aktivesJahr())-1)+'-12');
 }
 /* Setzt das aktive Jahr und aktualisiert alle davon abhaengigen Ansichten. */
+/* v5.20: Jahres-Auswahl in jedem Reiter – alle Felder .yr-sel zeigen dieselbe Einstellung */
+function jahrOptionen(){
+  const s=new Set();const cy=new Date().getFullYear();
+  for(let y=2024;y<=cy+1;y++)s.add(String(y));
+  state.entries.forEach(e=>{const y=(e.date||'').slice(0,4);if(/^\d{4}$/.test(y))s.add(y);});
+  s.add(aktivesJahr());return[...s].sort();
+}
+function yrSelSync(){
+  const o=jahrOptionen(),key=o.join(','),akt=aktivesJahr();
+  document.querySelectorAll('select.yr-sel').forEach(sel=>{
+    if(sel.dataset.o!==key){sel.innerHTML=o.map(y=>'<option value="'+y+'">'+y+'</option>').join('');sel.dataset.o=key;}
+    sel.value=akt;});
+}
 function setAktivesJahr(j){
+  const alt=aktivesJahr();
   state.settings.aktivesJahr=String(j);persist();
-  const ovLbl=document.getElementById('ovYLabel');if(ovLbl)ovLbl.textContent=aktivesJahr();
-  const jaLbl=document.getElementById('jahrYLabel');if(jaLbl)jaLbl.textContent=aktivesJahr();
-  const rcLbl=document.getElementById('rcYLabel');if(rcLbl)rcLbl.textContent=aktivesJahr();
+  yrSelSync();
+  // Export-Zeitraum „Von/Bis“ in das neue Jahr verschieben (gleicher Monat)
+  if(alt!==String(j))['exFrom','exTo'].forEach(id=>{const el=document.getElementById(id);if(el&&/^\d{4}-\d{2}-\d{2}$/.test(el.value)){
+    const m=+el.value.slice(5,7),d=+el.value.slice(8,10),last=new Date(+j,m,0).getDate();
+    el.value=j+'-'+el.value.slice(5,7)+'-'+String(Math.min(d,last)).padStart(2,'0');}});
+  // Monatskalender in das gewaehlte Jahr
+  if(typeof calY!=='undefined'&&String(calY)!==String(j)){calY=+j;if(typeof renderCal==='function')try{renderCal();}catch(e){}}
+  {const v=document.querySelector('.view.on');const vid=v?v.id:'';
+   if(vid==='view-abwesenheiten'&&typeof renderAbw==='function')try{renderAbw();}catch(e){}
+   if(vid==='view-bescheinigung'&&typeof renderAbEdit==='function')renderAbEdit();
+   if(vid==='view-export'&&typeof renderExportPdfs==='function')renderExportPdfs();}
   if(typeof renderOverview==='function')renderOverview();
   if(typeof renderJahresView==='function')renderJahresView();
   if(typeof renderBelegeablage==='function')renderBelegeablage();
@@ -4984,7 +5016,7 @@ function setAktivesJahr(j){
 /* Rendert alle Karten des Reiters „Jahresübersicht" gemeinsam. Die Belegeablage-Liste
    liest aus IndexedDB und wird deshalb nur beim Tab-Wechsel bzw. nach Änderungen erneuert. */
 function renderJahresView(){
-  const jaLbl=document.getElementById('jahrYLabel');if(jaLbl)jaLbl.textContent=aktivesJahr();
+  yrSelSync();
   renderJahresCard();renderKostenChart();renderDhfCard();renderQuerCard();
   if(typeof renderBwList==='function')renderBwList();
 }
@@ -5546,7 +5578,16 @@ function checkBoxAnalyze(){
         const monGelesen=new Set(bj.filter(b=>b.typ==='TG'&&b.reisenV>=2).map(b=>b.periode));
         ents.filter(e=>hatCode(e,['HF'])&&monGelesen.has(e.date.slice(0,7))).forEach(e=>{
           const r=fhfAlle.find(r=>!fortsetzung(r)&&r.von===e.date)||fhfAlle.find(r=>fortsetzung(r)&&/-01$/.test(r.von)&&r.von===abwTagePlus(e.date,1));
-          if(!r){add('warn','Bw-Abgleich',dstr(e.date)+': Heimfahrt (HF'+(e.isFHF===true?' mit FHF-Haken':'')+') steht in keiner TG-Abrechnung – nicht beantragt oder anders abgerechnet?',e.date,e.id);return;}
+          if(!r){
+            // v5.20: nicht gemeldete Heimfahrt – Rueckfahrt suchen und das dafuer gezahlte Trennungstagegeld beziffern
+            const rf=ents.find(x=>x.date>e.date&&x.date<=abwTagePlus(e.date,21)&&hatCode(x,['RF']));
+            const bisD=rf?rf.date:e.date;
+            const tgB=bwList().filter(b=>b.typ==='TG').flatMap(b=>b.tage||[]).filter(t=>t.datum>e.date&&t.datum<bisD&&t.art!=='FH'&&(t.tg||0)>0);
+            const sum=tgB.reduce((a,t)=>a+(t.tg||0),0);
+            add('warn','Bw-Abgleich',dstr(e.date)+(rf?'–'+dstr(rf.date):'')+': Heimfahrt'+(e.isFHF===true?' (mit FHF-Haken)':'')+' fehlt in der TG-Abrechnung '+e.date.slice(0,7)
+              +' – vermutlich nicht als Familienheimfahrt'+(e.isFHF===true?'':' ohne Reisebeihilfe')+' angegeben.'
+              +(tgB.length?' Die Abrechnung zahlt für '+tgB.length+' Tag(e) dazwischen ('+tgB.map(t=>dstr(t.datum)).join(', ')+') Trennungstagegeld ('+sum.toFixed(2).replace('.',',')+' €).':'')
+              +' Bitte nachmelden.',e.date,e.id);return;}
           if(r.ohneReisebeihilfe&&e.isFHF===true)
             add('warn','Bw-Abgleich',dstr(e.date)+': Bescheid weist die Heimfahrt OHNE Reisebeihilfe aus, in der App ist der FHF-Haken gesetzt',e.date,e.id);
           if(!r.ohneReisebeihilfe&&e.isFHF!==true)
@@ -6444,7 +6485,7 @@ function renderWSSummary(list){
 ['rcM'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',renderReceipts);});
 /* RECEIPTS VIEW */
 async function renderReceipts(){
-  const rcLbl=document.getElementById('rcYLabel');if(rcLbl)rcLbl.textContent=aktivesJahr();
+  yrSelSync();
   const yr=aktivesJahr();
   const mo=document.getElementById('rcM')?.value||pad(new Date().getMonth()+1);
   const key=`${yr}-${mo}`;
@@ -6617,7 +6658,7 @@ function updExStats(){
 ['exFrom','exTo'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',updExStats);});
 
 async function renderExportPdfs(){
-  const yr=(document.getElementById('exFrom')?.value||'').slice(0,4)||String(new Date().getFullYear());
+  const yr=aktivesJahr();
   // Abwesenheitsbescheinigung area
   const abEl=document.getElementById('abArea');
   if(abEl){
@@ -6676,7 +6717,7 @@ function abwLabel(code,isFHF){
   return (DT[code]&&DT[code].n)||code;
 }
 function initAbwMonth(){
-  const lbl=document.getElementById('abwYLabel');if(lbl)lbl.textContent=aktivesJahr();
+  yrSelSync();
   const prev=new Date();prev.setDate(1);prev.setMonth(prev.getMonth()-1);
   const mSel=document.getElementById('abwM');
   if(mSel)mSel.value=String(prev.getMonth()+1).padStart(2,'0');
@@ -6906,7 +6947,7 @@ function renderAbwCheck(){
 function renderAbw(){
   renderAbwCheck();
   const el=document.getElementById('abwList');if(!el)return;
-  const lbl=document.getElementById('abwYLabel');if(lbl)lbl.textContent=aktivesJahr();
+  yrSelSync();
   const yr=aktivesJahr();
   const mo=document.getElementById('abwM')?.value||'';
   const cnt=document.getElementById('abwCnt');
@@ -7723,7 +7764,8 @@ async function genMonthPdf(list,yr,mo){
   if(navigator.storage?.persist)try{await navigator.storage.persist();}catch(e){}
   try{folderHandle=await idbGet('handles','folder');}catch(e){}
   const s=state.settings;document.getElementById('uchip').textContent=(s.rank?s.rank+' ':'')+s.name||'Nicht konfiguriert';
-  refreshAddrList();startWizard(0);renderCal();check28('w28');
+  if(state.settings.aktivesJahr&&String(calY)!==state.settings.aktivesJahr)calY=+state.settings.aktivesJahr;
+  refreshAddrList();startWizard(0);renderCal();check28('w28');yrSelSync();
   try{renderTv();}catch(e){}
   initCatGrid();
   const now=new Date();
@@ -8015,7 +8057,7 @@ function autoFkRoutes(yr){
 }
 
 function openFkModal(){
-  const yr=(document.getElementById('exFrom')?.value||'').slice(0,4)||String(new Date().getFullYear());
+  const yr=aktivesJahr();
   // Load existing or auto-generate
   let routes=state.settings.fkRoutes&&state.settings.fkRoutes.length?
     JSON.parse(JSON.stringify(state.settings.fkRoutes)):autoFkRoutes(yr);
@@ -8160,7 +8202,7 @@ function calcSegEP(i){
 /* v5.19.8: Hinweis „zzgl. Reservierung 5.50 €“ gehoert nicht in den Jahresbeleg (der Betrag steht in der Betragsspalte) */
 function fkDescOhneReservierung(t){return String(t||'').replace(/\(\s*zzgl\.?\s*(?:der\s+)?Reservierung(?:\s*(?:von|:))?\s*[\d.,]*\s*(?:€|Euro|EUR)?\s*\)/gi,'').replace(/,?\s*zzgl\.?\s*(?:der\s+)?Reservierung(?:\s*(?:von|:))?\s*[\d.,]*\s*(?:€|Euro|EUR)?/gi,'').replace(/\s{2,}/g,' ').replace(/^[\s,;\-–]+|[\s,;\-–]+$/g,'').trim();}
 async function genFahrtkostenPdf(){
-  const yr=(document.getElementById('exFrom')?.value||'').slice(0,4)||String(new Date().getFullYear());
+  const yr=aktivesJahr();
   const s=state.settings;
   if(!s.name){toast('Bitte Name in Einstellungen eintragen','err');return;}
   const Y=parseInt(yr);
@@ -8577,7 +8619,7 @@ function abwTexteStd(){return{
   stern:'* Dienstreise ohne vorliegende Reisekostenabrechnung - Angaben aus dem Tagesnachweis.',
   hoTitel:'Arbeiten von zu Hause (Home Office)',
   sigL:'Unterschrift',sigR:'Dienstsiegel / Stempel'};}
-function abwJahrWahl(){return (document.getElementById('exFrom')?.value||'').slice(0,4)||String(new Date().getFullYear());}
+function abwJahrWahl(){return aktivesJahr();}
 function abwTagePlus(ds,n){const d=new Date(ds+'T12:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function abwTageZahl(von,bis){if(!von)return 0;const b=bis||von;let n=0,d=von;while(d<=b&&n<400){n++;d=abwTagePlus(d,1);}return n;}
 /* Grunddaten aus dem Tool: Dienstreisen aus den Reisekostenabrechnungen (RK-Bescheide), uebrige
@@ -8789,7 +8831,7 @@ async function genAbwesenheitPdf(jahr){
 
 /* ═══ Reiter „Bescheinigung“: Abwesenheitsbescheinigung bearbeiten ═══ */
 let abEdJahr=null;
-function abEdYr(){return abEdJahr||abwJahrWahl();}
+function abEdYr(){return aktivesJahr();}
 function abEdGet(anlegen){
   const yr=abEdYr(),all=abwEdits();
   if(!all[yr]&&anlegen){
@@ -8800,7 +8842,7 @@ function abEdGet(anlegen){
   return all[yr]||null;
 }
 function abEdSpeichern(){const ed=abEdGet(false);if(ed)ed.at=Date.now();persist();if(typeof scheduleCloudPush==='function')scheduleCloudPush();}
-function abEdSetJahr(v){abEdJahr=v;renderAbEdit();}
+function abEdSetJahr(v){setAktivesJahr(v);}
 function abEdFeld(i,k,v){
   const ed=abEdGet(true);const r=ed.rows[i];if(!r)return;
   if(k==='tage'){r.tage=v===''?'':Math.max(0,parseInt(v,10)||0);}
@@ -8895,9 +8937,7 @@ function renderAbEdit(){
   <datalist id="abEdZwecke">${ABW_ZWECKE.map(z=>`<option value="${esc(z)}">`).join('')}</datalist>
   <div class="card" style="margin-bottom:12px">
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <label style="font-size:12px;font-weight:700;color:var(--navy)">Steuerjahr
-        <select style="font:inherit;font-size:13px;padding:6px 9px;border:1px solid var(--line);border-radius:8px;margin-left:4px" onchange="abEdSetJahr(this.value)">
-          ${jahre.map(j=>`<option value="${j}"${j===yr?' selected':''}>${j}</option>`).join('')}</select></label>
+      <label style="font-size:12px;font-weight:700;color:var(--navy)">Steuerjahr <select id="abEdYSel" class="yr-sel" onchange="setAktivesJahr(this.value)" title="Jahr wählen (gilt für alle Reiter)" aria-label="Jahr"></select></label>
       <span class="${ed?'badge ok':'badge'}">${ed?'bearbeitete Fassung · '+new Date(ed.at||Date.now()).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'Grunddaten aus dem Tool (unverändert)'}</span>
       <span style="flex:1"></span>
       ${ed?`<button class="btn btn-s btn-sm" type="button" onclick="abEdNurNeueAusTool()" title="Fehlende Zeilen aus dem Tool ergänzen, Änderungen bleiben">＋ Neue aus Tool</button>
@@ -8905,7 +8945,7 @@ function renderAbEdit(){
     </div>
     ${toolNeu?`<div style="margin-top:8px;font-size:12px;border-left:3px solid var(--warn);padding:5px 9px;background:var(--lsoft);border-radius:6px">Im Tool haben sich die Grunddaten für ${yr} seit deiner Bearbeitung geändert. „＋ Neue aus Tool“ ergänzt fehlende Zeilen, „↺ Aus Tool neu laden“ verwirft deine Änderungen.</div>`:''}
     ${yr!==abwJahrWahl()?`<div style="margin-top:8px;font-size:12px;border-left:3px solid var(--warn);padding:5px 9px;background:var(--lsoft);border-radius:6px">Achtung: Unter Berichte &amp; Export wird gerade das Jahr <b>${esc(abwJahrWahl())}</b> erstellt, hier bearbeitest du <b>${esc(yr)}</b>. <button class="btn btn-gold btn-sm" type="button" style="margin-left:6px" onclick="genAbwesenheitPdf('${esc(yr)}')">PDF ${esc(yr)} erstellen &amp; speichern</button></div>`:''}
-    <p style="font-size:12px;color:var(--muted);margin:8px 0 0">Änderungen werden sofort je Jahr gespeichert. Die PDF erstellst du wie bisher unter <b>Belege &amp; Berichte › Berichte &amp; Export › Abwesenheitsbescheinigung</b> (Jahr = „Von“-Datum dort, sonst aktuelles Jahr: <b>${esc(abwJahrWahl())}</b>).</p>
+    <p style="font-size:12px;color:var(--muted);margin:8px 0 0">Änderungen werden sofort je Jahr gespeichert. Die PDF erstellst du wie bisher unter <b>Belege &amp; Berichte › Berichte &amp; Export › Abwesenheitsbescheinigung</b> (für das oben gewählte Jahr <b>${esc(yr)}</b>).</p>
   </div>
   <div class="card" style="margin-bottom:12px">
     <h3 style="font-size:14px;margin-bottom:8px">Texte</h3>
@@ -8945,6 +8985,7 @@ function renderAbEdit(){
       <label style="flex:1;min-width:220px;font-size:11px;color:var(--muted)">Überschrift<input style="${inp}" value="${esc(T.hoTitel)}" onchange="abEdText('hoTitel',this.value)"></label>
     </div>
   </div>`;
+  yrSelSync();
 }
 /* ─── END ABWESENHEITSBESCHEINIGUNG ─── */
 
