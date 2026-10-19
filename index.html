@@ -1189,10 +1189,12 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.20.0';
-const APP_BUILD=100;
+const APP_VERSION='5.20.1';
+const APP_BUILD=101;
 const APP_DATE='19.10.2026';
 const APP_CHANGES=[
+  'Fahrtkosten-Jahresbeleg: neuer Abschnitt 8 „Querprüfung: Belege ↔ TG-Bescheid“ direkt unter der Summe der Werbungskosten – Jahressumme je Verkehrsmittel (bezahlt laut Beleg, erstattet laut Bescheid, Differenz) und die Monatsaufstellung wie im Reiter Jahresübersicht; Hinweise jetzt Abschnitt 9',
+  'Bescheide neu einlesen (seit 5.19.9): Das Kennzeichen „erledigt“ wurde auch gesetzt, wenn beim Start noch keine Bescheide geladen waren – dann fehlten Reiseabschnitte und Übernachtung dauerhaft. Wird jetzt einmalig nachgeholt',
   'Jahr wählen in jedem Reiter: Monat, Eintrag, Übersicht, Zeiterfassung, Belege & Berichte, Abwesenheiten, Jahresübersicht, Bescheinigung und Einstellungen haben ein Jahres-Auswahlfeld. Es ist überall dieselbe Einstellung „Aktives Jahr“ – Wechsel in einem Reiter gilt für alle',
   'CheckBox: nicht gemeldete Heimfahrten werden deutlicher benannt – Zeitraum HF bis RF, Hinweis „vermutlich nicht als Familienheimfahrt (ohne Reisebeihilfe) angegeben“ und das für die Tage dazwischen gezahlte Trennungstagegeld',
   'Jahresbezogene PDFs (Abwesenheitsbescheinigung, Fahrtkosten-Jahresbeleg, Liste der gespeicherten PDFs, Drucken) richten sich jetzt nach dem gewählten Jahr statt nach dem „Von“-Datum des PDF-Exports; der Export-Zeitraum „Von/Bis“ wandert beim Jahreswechsel mit',
@@ -1447,7 +1449,7 @@ async function tgOepnvNachlesen(){
    Steueraufteilung); RK: Inlandstagegeld, Uebernachtung, Einbehalt, Steueraufteilung. Tagesaufstellung
    und Verpflegung bleiben unveraendert. */
 async function bwNachlesen5199(){
-  if(state.settings.migBw5199)return;
+  if(state.settings.migBw5201)return;
   let ok=true,n=0;
   for(const b of (state.settings.bwBescheide||[]).filter(x=>x.fileId&&(x.typ==='TG'||x.typ==='RK'))){
     try{const rec=await idbGetF(b.fileId);if(!rec||!rec.blob)continue;
@@ -1458,7 +1460,8 @@ async function bwNachlesen5199(){
       felder.forEach(k=>{if(p[k]!==undefined)b[k]=p[k];});n++;
     }catch(e){ok=false;console.warn('Bescheid nachlesen',b.typ,b.periode,e);}
   }
-  if(ok){state.settings.migBw5199=true;persist();if(n&&typeof scheduleCloudPush==='function')scheduleCloudPush();}
+  // Kennzeichen nur setzen, wenn Bescheide mit PDF tatsaechlich gelesen wurden (sonst beim naechsten Start erneut)
+  if(ok&&n){state.settings.migBw5201=true;persist();if(typeof scheduleCloudPush==='function')scheduleCloudPush();}
   return n;
 }
 async function tgVerpflAutoNachholen(){
@@ -8436,7 +8439,7 @@ async function genFahrtkostenPdf(){
         cols.forEach(cl=>{
           const v=san(r[cl.k]==null?'':r[cl.k]);
           const col=r.grau?GR:BLK;
-          pg.drawText(v.slice(0,cl.max||60),{x:cl.r?x+cl.w-4-fn.widthOfTextAtSize(v,7.2):x+4,y,size:7.2,font:r.bold?fb:fn,color:col});
+          pg.drawText(v.slice(0,cl.max||60),{x:cl.r?x+cl.w-4-(r.bold?fb:fn).widthOfTextAtSize(v,7.2):x+4,y,size:7.2,font:r.bold?fb:fn,color:col});
           x+=cl.w;});
         pg.drawLine({start:{x:ML,y:y-3.5},end:{x:ML+TW,y:y-3.5},thickness:0.25,color:rgb(0.8,0.8,0.82)});
         y-=12;});
@@ -8556,9 +8559,52 @@ async function genFahrtkostenPdf(){
     pg.drawText(gv,{x:ML+TW-7-fb.widthOfTextAtSize(gv,11),y:y-11,size:11,font:fb,color:GLD});
     y-=32;
 
+    /* v5.20.1 QUERPRUEFUNG Belege <-> TG-Bescheid (wie Reiter Jahresuebersicht) */
+    {
+      const MN=['Januar','Februar','Maerz','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+      const monate=[];
+      for(let m=1;m<=12;m++){const q=tgQuerpruefungMonat(yr+'-'+String(m).padStart(2,'0'));if(q.hatDaten)monate.push({m,q});}
+      need(90);
+      H2('8  Querpruefung: Belege - TG-Bescheid '+yr);
+      P('Vergleicht die Belege (Flug-, Bahn-, Buskarte, Taxi, Sonstige) mit den je Verkehrsmittel erstatteten Fahrkosten',7.5,GR);
+      P('laut Trennungsgeld-Bescheid. Positive Differenz = selbst getragen, negative = uebererstattet. Kilometerpauschalen',7.5,GR);
+      P('haben keinen Kaufbeleg und zeigen nur den erstatteten Betrag. Reisekostenabrechnungen sind nicht aufgeschluesselt.',7.5,GR);
+      y-=4;
+      if(!monate.length)P('Keine Belege oder TG-Bescheide fuer '+yr+' vorhanden.',8,GR);
+      else{
+        const sg=v=>(v>0.005?'+':'')+eur(v);
+        const cols=[{t:'Kategorie',k:'k',w:215,max:60},{t:'Bezahlt (Beleg)',k:'b',w:100,r:1},{t:'Erstattet (Bescheid)',k:'e',w:100,r:1},{t:'Differenz',k:'d',w:100,r:1}];
+        const zeilen=(q)=>{
+          const r=[];const z=(k,b,e2,zus)=>r.push({k:k+(zus?' ('+zus+')':''),b:eur(b)+' EUR',e:eur(e2)+' EUR',d:sg(b-e2)+' EUR'});
+          z('Flugkarte',q.flug.b,q.flug.e);z('Bahnkarte',q.bahn.b,q.bahn.e);z('Bus/OePNV',q.bus.b,q.bus.e);
+          if(q.taxi.b||q.taxi.e)z('Taxi',q.taxi.b,q.taxi.e,q.taxi.e?'':'kein eigener Posten im Bescheid');
+          if(q.sonst.b||q.sonst.e)z('Sonstige',q.sonst.b,q.sonst.e,(q.sonst.arten||[]).join(', '));
+          if(q.kfzKm.km)r.push({k:'Reisebeihilfe Wegstrecke Kfz ('+Math.round(q.kfzKm.km).toLocaleString('de-DE')+' km)',b:'-',e:eur(q.kfzKm.e)+' EUR',d:'-'});
+          if(q.oevKm.km)r.push({k:'Bahn/OePNV ('+Math.round(q.oevKm.km).toLocaleString('de-DE')+' km)',b:'-',e:eur(q.oevKm.e)+' EUR',d:'-'});
+          const B=q.flug.b+q.bahn.b+q.bus.b+q.taxi.b+q.sonst.b,E=q.flug.e+q.bahn.e+q.bus.e+q.taxi.e+q.sonst.e;
+          r.push({k:'Summe Belege (Tickets)',b:eur(B)+' EUR',e:eur(E)+' EUR',d:sg(B-E)+' EUR',bold:true});
+          return r;};
+        const umq=q=>({flug:{b:q.flug.bezahlt,e:q.flug.erstattet},bahn:{b:q.bahn.bezahlt,e:q.bahn.erstattet},bus:{b:q.bus.bezahlt,e:q.bus.erstattet},
+          taxi:{b:q.taxi.bezahlt,e:q.taxi.erstattet},sonst:{b:q.sonst.bezahlt,e:q.sonst.erstattet,arten:q.sonst.arten},
+          kfzKm:{km:q.kfzKm.km,e:q.kfzKm.erstattet},oevKm:{km:q.bahnOevKm.km,e:q.bahnOevKm.steuerfrei}});
+        const J={flug:{b:0,e:0},bahn:{b:0,e:0},bus:{b:0,e:0},taxi:{b:0,e:0},sonst:{b:0,e:0,arten:[]},kfzKm:{km:0,e:0},oevKm:{km:0,e:0}};
+        monate.forEach(({q})=>{const u=umq(q);['flug','bahn','bus','taxi','sonst'].forEach(k=>{J[k].b+=u[k].b;J[k].e+=u[k].e;});
+          J.sonst.arten=[...new Set(J.sonst.arten.concat(u.sonst.arten||[]))];
+          J.kfzKm.km+=u.kfzKm.km;J.kfzKm.e+=u.kfzKm.e;J.oevKm.km+=u.oevKm.km;J.oevKm.e+=u.oevKm.e;});
+        P('Jahressumme '+yr+' ('+monate.length+' Monat'+(monate.length!==1?'e':'')+')',8.5,NAV,fb);
+        table(cols,zeilen(J));
+        y-=2;
+        monate.forEach(({m,q})=>{
+          need(40);
+          P(MN[m-1]+' '+yr+(q.hatBescheid?'':'  (kein TG-Bescheid fuer diesen Monat)')+(q.umgebucht?'  - Flugteil '+eur(q.umgebucht)+' EUR aus Fahrkosten OePNV den Flugkosten zugeordnet':''),8,NAV,fb);
+          table(cols,zeilen(umq(q)));
+        });
+      }
+    }
+
     /* HINWEISE */
     need(120);
-    H2('8  Hinweise fuer die steuerliche Beratung');
+    H2('9  Hinweise fuer die steuerliche Beratung');
     [
       'Diese Aufstellung weist die Aufwendungen VOR Anrechnung steuerfreier Erstattungen aus.',
       'Steuerfreie Leistungen des Dienstherrn - insbesondere Trennungsgeld und Reisebeihilfe nach',
