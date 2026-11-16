@@ -1017,6 +1017,7 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
   </div>
   <div id="jahresCard"></div>
   <div id="kostenChart"></div>
+  <div id="kfzCard"></div>
   <div id="dhfCard"></div>
   <div id="querCard"></div>
 
@@ -1251,10 +1252,14 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.22.0';
-const APP_BUILD=106;
+const APP_VERSION='5.23.0';
+const APP_BUILD=107;
 const APP_DATE='16.11.2026';
 const APP_CHANGES=[
+  'Schritt 1: Haken „Familienheimfahrt (FHF)“ steht jetzt bei jeder Tagesart zur Verfügung (über den Kacheln)',
+  'Prüfung › Belege: geprüft werden jetzt alle Dateien, die in der Belegeablage angezeigt werden – auch solche ohne Eintrag in der internen Belegliste (z. B. nach Sync auf ein anderes Gerät)',
+  'Prüfung › Belege: neue Zeile „Belegabgleich“ zeigt, wie viele Belege und Kostenpositionen geprüft und zugeordnet wurden',
+  'Reiter Jahr: neue Karte „Privat-Kfz – gefahren vs. erstattet“: gefahrene km, Kosten zu 0,30 €/km, Bw-Anspruch zu 0,20 €/km (max. 130 € je Heimfahrt/Dienstreise) und Abgleich mit den Bescheiden je Monat',
   'Besuchsfahrt zusätzlich zu zwei Tagesarten: Haken „+ Besuchsfahrt (BF)“ in Schritt 1 (z. B. AW + DR + BF) – wird wie die Tagesart BF berechnet',
   'Prüfung › Belege: Belege, die im Wizard unter „Allg. Belege“ oder per Scan direkt am Tag hängen, zählen jetzt als vorhanden (bisher „kein Beleg“)',
   'Prüfung › Belege: Taxi/Uber-Belege werden bei Betragsabweichung als vorhanden erkannt; ein Beleg kann mehrere Strecken abdecken und mehrere Belege eine Strecke (Summenabgleich)',
@@ -2310,12 +2315,12 @@ function buildDaytype(){
     <span class="dn">${DT[code].n}</span>
     <span class="dd">${DT[code].d}</span>
   </button>`).join('');
-  const fhf=(DT[wiz.dayCode]?.noW||wiz.dayCode==='HF'||wiz.dayCode==='RF')?`
-    <div class="tblock gold" style="margin-top:9px">
+  const fhf=`
+    <div class="tblock gold" style="margin:10px 0 2px;display:flex;align-items:flex-start;gap:10px">
       <input type="checkbox" id="fhfCb" ${wiz.isFHF?'checked':''} onchange="wiz.isFHF=this.checked">
       <label class="tl" for="fhfCb"><b>👨‍👩‍👧 Familienheimfahrt (FHF)</b>
         <small>Steuerlich absetzbare Heimfahrt im Rahmen doppelter Haushaltsführung.</small></label>
-    </div>`:'';
+    </div>`;   // v5.23: bei jeder Tagesart
   const urBlock=(wiz.dayCode==='UR')?`
     <div class="tblock" style="margin-top:9px;background:#E8F5E9;border-color:#1B5E20">
       <input type="checkbox" id="urCb" ${wiz.urlaubCounts!==false?'checked':''} onchange="wiz.urlaubCounts=this.checked">
@@ -2354,11 +2359,12 @@ function buildDaytype(){
         </div>
       </div>
       <div id="tplChips">${buildTplChips()}</div>
+      ${fhf}
       <div class="dt-grid">${grid}</div>
       <div class="dt-auto">${(wiz.dual||wiz.dayCode2)?'Zwei Tagesarten gewählt — mit „Weiter →“ bestätigen.':codeHasExtras(wiz.dayCode)
         ? 'Diese Tagesart hat Zusatzoptionen — mit „Weiter → “ bestätigen.'
         : 'Auswahl springt automatisch weiter zu „'+(getSteps(wiz.dayCode,wiz.dayCode2)[1]?.l||'Weiter')+'“'}</div>
-      ${fhf}${urBlock}${dualBlock}${bfZusatz}
+      ${urBlock}${dualBlock}${bfZusatz}
       ${['DR','LG','\u00dcB','ES','EGV'].includes(wiz.dayCode)?`
       <div class="tblock" style="margin-top:9px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--lsoft)">
         <div style="font-weight:600;font-size:12px;color:var(--navy);margin-bottom:6px">&#128196; Nachweis (f\u00fcr Abwesenheitsbescheinigung)</div>
@@ -2824,8 +2830,8 @@ function alsoDateToggle(iso){
 function belegInAblage(betrag,datum){
   const v=parseFloat(betrag)||0;if(!(v>0))return false;
   const t=datum?new Date(datum+'T12:00'):null;
-  return ablageBelege().some(b=>{
-    if(Math.abs((parseFloat(b.gesamtkosten)||0)-v)>0.01)return false;
+  return ablagePruefBelege().some(b=>{
+    if(Math.abs(zahlDE(b.gesamtkosten)-v)>0.01)return false;
     if(!t||!b.datum)return true;
     return Math.abs(new Date(b.datum+'T12:00')-t)/86400000<=45;
   });
@@ -5075,7 +5081,7 @@ function setAktivesJahr(j){
    liest aus IndexedDB und wird deshalb nur beim Tab-Wechsel bzw. nach Änderungen erneuert. */
 function renderJahresView(){
   yrSelSync();
-  renderJahresCard();renderKostenChart();renderDhfCard();renderQuerCard();
+  renderJahresCard();renderKostenChart();renderKfzCard();renderDhfCard();renderQuerCard();
   if(typeof renderBwList==='function')renderBwList();
 }
 /* Erstattet je Monat laut Bescheid (TG + RK), gestapelt; Hochrechnung TG bis Trennungsgeld-Ende */
@@ -5222,6 +5228,124 @@ function renderJahresCard(){
         :'<div style="font-size:11px;color:var(--muted)">Noch keine Belege hochgeladen. Im Reiter <b>Belege</b> unter „Bescheide &amp; Belege hochladen" ablegen.</div>'}
       </div>
     </div>
+  </div>`;
+}
+/* ═══ v5.23: Privat-Kfz – gefahrene Kilometer gegen Erstattung ═══
+   Rechtsgrundlage (geprueft 16.11.2026):
+   - § 5 Abs. 1 BRKG: Wegstreckenentschaedigung 20 ct/km, hoechstens 130 EUR (je Dienstreise).
+   - § 5 Abs. 2 BRKG: 30 ct/km ohne Hoechstbetrag nur bei vorher festgestelltem erheblichem dienstl. Interesse.
+   - Reisebeihilfe Heimfahrt (§ 5 TGV i. V. m. § 8 BRKG; BVA-Info TGV): privates Kfz 0,20 EUR/km, hoechstens 130 EUR
+     je Heimfahrt. Ohne Reisebeihilfe-Anspruch (kein FHF-Haken) erstattet der Dienstherr nichts.
+   - Vergleichsmassstab „voller Satz“: 0,30 EUR/km (steuerliche Kilometerpauschale fuer Dienstreisen,
+     § 9 Abs. 1 Satz 3 Nr. 4a EStG; zugleich Hoechstsatz des BRKG). Fuer Heimfahrten gilt steuerlich die
+     Entfernungspauschale (Jahresbeleg) – die 0,30 EUR sind dort nur Vergleichsgroesse. */
+const KFZ_SATZ_BW=0.20,KFZ_SATZ_BW2=0.30,KFZ_DECKEL=130,KFZ_SATZ_VOLL=0.30;
+function kfzVergleich(yr){
+  const y=String(yr);
+  const ents=state.entries.filter(e=>e.date&&e.date.startsWith(y)).sort((a,b)=>a.date.localeCompare(b.date));
+  const DRC=['DR','LG','ÜB','ES','EGV'];
+  const kfzSegs=e=>(e.segs||[]).filter(s=>s.enabled!==false&&MODE_GRUPPE[s.mode]==='Privat-Kfz'&&zahlDE(s.km)>0);
+  const tagDiff=(a,b)=>Math.round((new Date(b+'T12:00')-new Date(a+'T12:00'))/86400000);
+  const dr30=!!state.settings.kfzDr30;
+  const gruppen=[];let heim=null,dr=null;
+  ents.forEach(e=>{
+    const istDR=hatCode(e,DRC),istRF=hatCode(e,['RF']),istHin=hatCode(e,['HF'])||(e.isFHF===true&&!istRF),istBF=hatCode(e,['BF']);
+    let g=null;
+    if(istDR){
+      if(!dr||tagDiff(dr.bis,e.date)>1){dr={art:'dr',von:e.date,bis:e.date,ents:[]};gruppen.push(dr);}
+      dr.bis=e.date;g=dr;
+    } else if(istHin){
+      heim={art:'heim',von:e.date,bis:e.date,ents:[],fhf:false};gruppen.push(heim);g=heim;
+    } else if(istRF){
+      if(heim&&tagDiff(heim.von,e.date)<=21&&!heim.rf){g=heim;heim.rf=true;heim.bis=e.date;}
+      else{g={art:'heim',von:e.date,bis:e.date,ents:[],fhf:false,rf:true};gruppen.push(g);}
+    } else if(istBF){g={art:'heim',bf:true,von:e.date,bis:e.date,ents:[],fhf:false};gruppen.push(g);}
+    else{g={art:'sonst',von:e.date,bis:e.date,ents:[]};gruppen.push(g);}
+    g.ents.push(e);if(e.isFHF===true&&g.art==='heim')g.fhf=true;
+  });
+  const fahrten=[];
+  gruppen.forEach(g=>{
+    const segs=[];g.ents.forEach(e=>kfzSegs(e).forEach(s=>segs.push({date:e.date,von:s.fromLoc||'',nach:s.toLoc||'',km:zahlDE(s.km)})));
+    if(!segs.length)return;
+    const km=Math.round(segs.reduce((a,s)=>a+s.km,0)*10)/10;
+    let satz=0,deckel=null,grund='';
+    if(g.art==='dr'){satz=dr30?KFZ_SATZ_BW2:KFZ_SATZ_BW;deckel=dr30?null:KFZ_DECKEL;grund=dr30?'§ 5 Abs. 2 BRKG':'§ 5 Abs. 1 BRKG';}
+    else if(g.art==='heim'&&g.fhf){satz=KFZ_SATZ_BW;deckel=KFZ_DECKEL;grund='Reisebeihilfe TGV';}
+    else if(g.art==='heim'){grund='ohne Reisebeihilfe (kein FHF-Haken)';}
+    else grund='keine Erstattung (z. B. Pendelfahrt)';
+    const roh=km*satz,anspruch=Math.round((deckel!=null?Math.min(roh,deckel):roh)*100)/100;
+    const voll=Math.round(km*KFZ_SATZ_VOLL*100)/100;
+    fahrten.push({art:g.art,bf:!!g.bf,von:g.von,bis:g.bis,segs,km,satz,deckel,gedeckelt:deckel!=null&&roh>deckel+0.005,grund,anspruch,voll,diff:Math.round((voll-anspruch)*100)/100});
+  });
+  // Monatsabgleich mit den Bescheiden
+  const monate=[];
+  for(let m=1;m<=12;m++){
+    const pre=y+'-'+String(m).padStart(2,'0');
+    const f=fahrten.filter(x=>x.von.startsWith(pre));
+    const tg=bwList().filter(b=>b.typ==='TG'&&(b.periode||'')===pre);
+    const rk=bwList().filter(b=>b.typ==='RK'&&String(b.von||b.periode||'').startsWith(pre));
+    const istKfzKm=tg.reduce((a,b)=>a+(b.posten||[]).filter(p=>p.verguetet&&p.km>0).reduce((s,p)=>s+p.km,0),0);
+    const istKfz=tg.reduce((a,b)=>a+(b.posten||[]).filter(p=>p.verguetet&&p.km>0).reduce((s,p)=>s+(p.betrag||0),0),0);
+    const istRk=rk.reduce((a,b)=>a+(b.fahrkosten||0),0);
+    const soll=f.reduce((a,x)=>a+x.anspruch,0),km=f.reduce((a,x)=>a+x.km,0),voll=f.reduce((a,x)=>a+x.voll,0);
+    if(km||istKfz||istRk)monate.push({pre,m,km,voll,soll,istKfzKm,istKfz,istRk,hatTG:tg.length>0,hatRK:rk.length>0});
+  }
+  const sum=k=>Math.round(fahrten.reduce((a,x)=>a+x[k],0)*100)/100;
+  const msum=k=>Math.round(monate.reduce((a,x)=>a+x[k],0)*100)/100;
+  return{jahr:y,dr30,fahrten,monate,km:Math.round(fahrten.reduce((a,x)=>a+x.km,0)*10)/10,voll:sum('voll'),anspruch:sum('anspruch'),diff:sum('diff'),
+    istKfz:msum('istKfz'),istKfzKm:msum('istKfzKm'),istRk:msum('istRk'),
+    kmNach:{heim:fahrten.filter(x=>x.art==='heim').reduce((a,x)=>a+x.km,0),dr:fahrten.filter(x=>x.art==='dr').reduce((a,x)=>a+x.km,0),sonst:fahrten.filter(x=>x.art==='sonst').reduce((a,x)=>a+x.km,0)}};
+}
+function setKfzDr30(on){state.settings.kfzDr30=!!on;persist();renderKfzCard();}
+function renderKfzCard(){
+  const el=document.getElementById('kfzCard');if(!el)return;
+  const K=kfzVergleich(jahrAuswahl());
+  if(!K.fahrten.length&&!K.istKfz){el.innerHTML='';return;}
+  const e=v=>(v||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const n=v=>(Math.round((v||0)*10)/10).toLocaleString('de-DE');
+  const MN=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  const kpi=(w,l,sub,f,bg)=>`<div style="flex:1;min-width:120px;background:${bg};border-radius:var(--r);padding:9px 11px">
+      <div style="font-size:19px;font-weight:800;color:${f};line-height:1.1">${w}</div>
+      <div style="font-size:11px;color:${f};font-weight:600;margin-top:2px">${l}</div>
+      ${sub?`<div style="font-size:10px;color:var(--muted);margin-top:1px">${sub}</div>`:''}</div>`;
+  const artTxt=x=>x.art==='dr'?'Dienstreise':x.art==='heim'?(x.bf?'Besuchsfahrt':'Heimfahrt'):'Sonstige';
+  const th='padding:4px 5px;font-size:10.5px;color:var(--muted);text-align:right;border-bottom:1px solid var(--line);white-space:nowrap';
+  const td='padding:4px 5px;font-size:11.5px;text-align:right;border-bottom:1px solid var(--lsoft);white-space:nowrap';
+  const zeilen=K.fahrten.map(x=>`<tr>
+      <td style="${td};text-align:left">${fmtD(x.von).slice(0,6)}${x.bis!==x.von?'–'+fmtD(x.bis).slice(0,6):''}</td>
+      <td style="${td};text-align:left;white-space:normal">${artTxt(x)}<div style="font-size:10px;color:var(--muted)">${esc(x.grund)}${x.gedeckelt?' · gedeckelt 130 €':''}</div></td>
+      <td style="${td}">${n(x.km)}</td><td style="${td}">${e(x.voll)}</td><td style="${td};color:var(--ok)">${e(x.anspruch)}</td><td style="${td};font-weight:700">${e(x.diff)}</td></tr>`).join('');
+  const mz=K.monate.map(m=>{
+    const ist=m.istKfz+m.istRk;const abw=(m.hatTG||m.hatRK)?Math.round((ist-m.soll)*100)/100:null;
+    return `<tr><td style="${td};text-align:left">${MN[m.m-1]}</td><td style="${td}">${n(m.km)}</td><td style="${td}">${e(m.soll)}</td>
+      <td style="${td}">${m.hatTG?e(m.istKfz)+(m.istKfzKm?'<div style="font-size:10px;color:var(--muted)">'+n(m.istKfzKm)+' km</div>':''):'<span style="color:var(--muted)">kein Bescheid</span>'}</td>
+      <td style="${td}">${m.hatRK?e(m.istRk):'–'}</td>
+      <td style="${td};font-weight:700;color:${abw==null?'var(--muted)':Math.abs(abw)<0.01?'var(--ok)':abw<0?'var(--err)':'var(--warn)'}">${abw==null?'–':(abw>0?'+':'')+e(abw)}</td></tr>`;}).join('');
+  el.innerHTML=`<div class="card" style="margin-bottom:12px;border-left:3px solid var(--gold)">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+      <h3 style="font-size:15px;margin:0">🚗 Privat-Kfz – gefahren vs. erstattet ${K.jahr}</h3>
+      <span style="font-size:11px;color:var(--muted)">${K.fahrten.length} Fahrt(en) mit eigenem Pkw</span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      ${kpi(n(K.km)+' km','gefahren (Privat-Kfz)','Heimfahrt '+n(K.kmNach.heim)+' · Dienstreise '+n(K.kmNach.dr)+' · sonstige '+n(K.kmNach.sonst),'var(--navy)','var(--lsoft)')}
+      ${kpi(e(K.voll)+' €','zum vollen Satz','0,30 €/km','var(--navy)','var(--lsoft)')}
+      ${kpi(e(K.anspruch)+' €','Bw-Anspruch',(K.dr30?'DR 0,30 €/km · ':'')+'0,20 €/km, max. 130 € je Fahrt','var(--ok)','var(--oks)')}
+      ${kpi(e(K.diff)+' €','nicht erstattet','voller Satz − Bw-Anspruch','var(--warn)','var(--warns)')}
+    </div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.45;margin-bottom:8px">Die Bundeswehr zahlt für das private Kfz <b>nicht den vollen Kilometersatz</b>: Wegstreckenentschädigung 0,20 €/km, höchstens 130 € (§ 5 Abs. 1 BRKG); bei Heimfahrten als Reisebeihilfe ebenso 0,20 €/km bis 130 € je Heimfahrt. 0,30 €/km ohne Höchstbetrag nur, wenn vor der Dienstreise ein erhebliches dienstliches Interesse festgestellt wurde (§ 5 Abs. 2 BRKG). Steuerlich: Dienstreisen 0,30 €/km abzüglich steuerfreier Erstattung; Heimfahrten über die Entfernungspauschale (siehe Fahrtkosten-Jahresbeleg).</div>
+    <label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;margin-bottom:8px;cursor:pointer">
+      <input type="checkbox" ${K.dr30?'checked':''} onchange="setKfzDr30(this.checked)" style="margin-top:2px;accent-color:var(--accent)">
+      <span>Für meine Dienstreisen mit Privat-Kfz ist ein <b>erhebliches dienstliches Interesse</b> festgestellt (0,30 €/km, ohne Höchstbetrag)</span></label>
+    <details open><summary style="font-size:12px;font-weight:700;color:var(--navy);cursor:pointer;margin:4px 0">Je Fahrt</summary>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr>
+        <th style="${th};text-align:left">Datum</th><th style="${th};text-align:left">Anlass</th><th style="${th}">km</th><th style="${th}">0,30 €/km</th><th style="${th}">Bw-Anspruch</th><th style="${th}">Differenz</th></tr></thead>
+        <tbody>${zeilen}</tbody>
+        <tfoot><tr><td style="${td};text-align:left;font-weight:700" colspan="2">Summe</td><td style="${td};font-weight:700">${n(K.km)}</td><td style="${td};font-weight:700">${e(K.voll)}</td><td style="${td};font-weight:700;color:var(--ok)">${e(K.anspruch)}</td><td style="${td};font-weight:800">${e(K.diff)}</td></tr></tfoot>
+      </table></div></details>
+    ${K.monate.length?`<details style="margin-top:8px"><summary style="font-size:12px;font-weight:700;color:var(--navy);cursor:pointer;margin:4px 0">Abgleich mit den Bescheiden je Monat</summary>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr>
+        <th style="${th};text-align:left">Monat</th><th style="${th}">km</th><th style="${th}">Anspruch</th><th style="${th}">TG: Wegstrecke Kfz</th><th style="${th}">RK: Fahrkosten</th><th style="${th}">Ist − Anspruch</th></tr></thead>
+        <tbody>${mz}</tbody></table></div>
+      <div style="font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.4">TG-Spalte: im Trennungsgeldbescheid vergütete „Wegstrecke KFZ“ (auch Zu-/Abgang, z. B. Fahrt zum Flughafen). RK-Spalte: gesamte Fahrkosten des Reisekostenbescheids – sie enthält keine km und kann auch Bahn/Taxi umfassen. Rot = weniger erstattet als rechnerisch zusteht.</div></details>`:''}
   </div>`;
 }
 function renderDhfCard(){
@@ -5809,7 +5933,7 @@ function checkBoxAnalyze(){
   // Zugeordnet wird deshalb rechnerisch: erst exakt (Datum + Betrag), dann ueber den
   // Betrag mit Datumstoleranz — Flugtickets tragen das Kaufdatum, nicht das Reisedatum.
   {
-    const belege=ablageBelege();   // nur Dateien, die wirklich in der Belegablage liegen
+    const belege=ablagePruefBelege();   // v5.23: alles, was die Belegeablage anzeigt
     // v5.22: Betrag robust lesen („23,45“ ergab bisher 23) — fehlt er, aus dem Dateinamen (…_23,45EUR.pdf)
     const bNum=b=>{const v=zahlDE(b.gesamtkosten);if(v>0)return v;
       const m=String(b.dateiname||'').match(/(\d{1,5}[.,]\d{2})\s*(?:EUR|€)/i);return m?zahlDE(m[1]):0;};
@@ -5994,6 +6118,22 @@ function checkBoxAnalyze(){
         +fhfOhneKostenGesamt+' Familienheimfahrt(en) ganz ohne Kostenangabe (siehe Warnungen)','','');
     }
 
+    // v5.23: Gesamtbild des Abgleichs – macht sichtbar, ob die Belege ueberhaupt in die Pruefung gelangen
+    {
+      const bZR=belege.filter(b=>imZR(b.datum)||!b.datum);
+      const nurD=bZR.filter(b=>b.nurDatei).length;
+      const ohneBetrag=bZR.filter(b=>!(bNum(b)>0)).length;
+      const kZR=kosten.map((k,ki)=>({k,ki})).filter(x=>imZR(x.k.date)&&!x.k.covered);
+      const kZu=kZR.filter(x=>kostenZu[x.ki]!==undefined).length;
+      const kWiz=kZR.filter(x=>kostenZu[x.ki]===undefined&&(x.k.legacy||x.k.tagBeleg)).length;
+      const bZu=bZR.filter(b=>belegZu[belege.indexOf(b)]!==undefined).length;
+      add('info','Belege','Belegabgleich: '+bZR.length+' Beleg(e) aus der Belegeablage geprüft'
+        +(nurD?' (davon '+nurD+' nur als Datei, ohne Eintrag in der Belegliste)':'')
+        +(ohneBetrag?', '+ohneBetrag+' ohne erkennbaren Betrag':'')
+        +' · '+bZu+' davon einer Fahrt zugeordnet · '+kZR.length+' Kostenposition(en): '+kZu+' über die Belegeablage, '
+        +kWiz+' über einen Beleg im Wizard belegt','','');
+    }
+
     // I.4 Familienheimfahrten ohne jede Kostenposition
     [...new Set(ents.map(e=>e.date.slice(0,4)))].forEach(y=>{
       fhfOhneKostenListe(y).filter(e=>imZR(e.date)).forEach(e=>{
@@ -6109,8 +6249,42 @@ function findingKey(f){
    Geprüft wird nur gegen Dateien, die tatsächlich in der Belegablage liegen. Gelöschte
    Belege werden als „gelöscht“ vermerkt (synchronisiert), damit sie weder über alte
    Metadaten noch über den Cloud-Abgleich wieder auftauchen. */
-let ablageIds=null;
-async function ablageIdsLaden(){try{const all=await idbAllF();ablageIds=new Set(all.map(f=>f.id));}catch(e){ablageIds=null;}return ablageIds;}
+let ablageIds=null,ablageMeta=null;
+async function ablageIdsLaden(){try{const all=await idbAllF();ablageIds=new Set(all.map(f=>f.id));
+  // v5.23: Metadaten der Dateien (ohne Inhalt) fuer die Pruefung – dieselbe Quelle wie die Belegeablage-Anzeige
+  ablageMeta=new Map(all.map(f=>[f.id,{name:f.name||'',filename:f.filename||'',herkunft:f.herkunft||'',typ:f.typ||'',
+    belegart:f.belegart||'',datum:f.datum||null,betrag:f.betrag!=null?f.betrag:null,monat:f.monat||null}]));
+}catch(e){ablageIds=null;ablageMeta=null;}return ablageIds;}
+/* v5.23: Belege fuer die Pruefung. Bisher nur die interne Liste mbReceipts['unassigned'] – die Belegeablage
+   ZEIGT aber die gespeicherten Dateien (IndexedDB, herkunft 'upload'). Fehlte der Listeneintrag oder trug er
+   eine andere ID (z. B. nach Sync auf ein anderes Geraet), war der Beleg sichtbar, wurde aber nie geprueft.
+   Jetzt: Listeneintraege (fehlende Angaben aus den Datei-Metadaten ergaenzt) + alle uebrigen hochgeladenen
+   Dateien, die weder ein Bescheid noch schon an einem Eintrag verknuepft sind. */
+function ablagePruefBelege(){
+  const sigOf=(n,d,b)=>[String(n||'').toLowerCase().trim(),d||'',zahlDE(b).toFixed(2)].join('|');
+  const datumAusName=n=>{const m=String(n||'').match(/(20\d{2})[_.-](\d{2})[_.-](\d{2})/);return m?m[1]+'-'+m[2]+'-'+m[3]:null;};
+  const liste=[],ids=new Set(),sig=new Set();
+  ablageBelege().forEach(b=>{
+    const m=ablageMeta&&ablageMeta.get(b.id);
+    const x=Object.assign({},b);
+    if(m){if(!x.datum)x.datum=m.datum||null;if(!(zahlDE(x.gesamtkosten)>0)&&m.betrag!=null)x.gesamtkosten=m.betrag;if(!x.belegart)x.belegart=m.belegart;if(!x.dateiname)x.dateiname=m.name;}
+    if(!x.datum)x.datum=datumAusName(x.dateiname);
+    liste.push(x);ids.add(b.id);sig.add(sigOf(x.dateiname,x.datum,x.gesamtkosten));
+  });
+  if(ablageMeta){
+    const verkn=new Set();(state.entries||[]).forEach(e=>entryRecIds(e).forEach(r=>verkn.add(r)));
+    const bwIds=new Set(bwList().map(b=>b.fileId).filter(Boolean));
+    ablageMeta.forEach((m,id)=>{
+      if(m.herkunft!=='upload'||ids.has(id)||verkn.has(id)||bwIds.has(id)||istGeloescht(id))return;
+      const t=String(m.typ||'').toUpperCase(),a=String(m.belegart||'').toUpperCase();
+      if(t==='TG'||t==='RK'||a==='TG'||a==='RK')return;   // Bescheide sind keine Belege
+      const datum=m.datum||datumAusName(m.name);
+      const s=sigOf(m.name,datum,m.betrag);if(sig.has(s))return;sig.add(s);
+      liste.push({id,dateiname:m.name||m.filename||'Beleg',belegart:m.belegart||'Beleg',datum,gesamtkosten:m.betrag,nurDatei:true});
+    });
+  }
+  return liste;
+}
 function geloeschteBelege(){if(!Array.isArray(state.settings.geloeschteBelege))state.settings.geloeschteBelege=[];return state.settings.geloeschteBelege;}
 function istGeloescht(id){return !!id&&geloeschteBelege().includes(id);}
 function inAblage(id){return !!id&&!istGeloescht(id)&&(!ablageIds||ablageIds.has(id));}
