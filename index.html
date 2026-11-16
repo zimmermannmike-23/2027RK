@@ -493,7 +493,10 @@ datalist{display:none;}
   .tab.on{background:transparent;color:var(--accent);}
   .tab.nav-sec{display:none;}
   .tab-more{display:flex!important;}
-  .tab[data-v=wizard]{order:1}.tab[data-v=monat]{order:2}.tab[data-v=zeiterfassung]{order:3}.tab[data-v=overview]{order:4}.tab[data-v=export]{order:5}.tab-more{order:6}
+  /* v5.25: untere Leisten deckend, eigene Ebene, kein Gummiband-Ueberscrollen – gegen mitwandernde Leiste (iOS) */
+  html{overscroll-behavior-y:none;}
+  .tabs,.wact{background:var(--card);-webkit-backdrop-filter:none;backdrop-filter:none;-webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0);}
+  .tab[data-v=wizard]{order:1}.tab[data-v=monat]{order:2}.tab[data-v=zeiterfassung]{order:3}.tab[data-v=overview]{order:4}.tab-more{order:5}
   main{margin-left:0!important;padding:14px 14px calc(var(--navh) + 24px)!important;}
   .wact{left:0;border-radius:18px 18px 0 0;padding-bottom:10px;}
   .syncpill .st{display:none;}
@@ -715,7 +718,7 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
     <button class="tab on" data-v="wizard" title="Eintrag"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1"/><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z"/><path d="M16 5l3 3"/></svg></span><span class="lb"><span class="lb-s">Eintrag</span><span class="lb-l">Neuer Eintrag</span></span></button>
     <button class="tab" data-v="overview" title="Übersicht"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5" rx="1"/><rect x="12" y="8" width="3" height="9" rx="1"/><rect x="17" y="5" width="3" height="12" rx="1"/></svg></span><span class="lb"><span class="lb-s">Übersicht</span><span class="lb-l">Übersicht</span></span></button>
     <button class="tab" data-v="zeiterfassung" title="Zeiterfassung"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span><span class="lb"><span class="lb-s">Zeit</span><span class="lb-l">Zeiterfassung</span></span></button>
-    <button class="tab" data-v="export" title="Übersichten &amp; Belege"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2"/><path d="M9 8h6M9 12h6"/></svg></span><span class="lb"><span class="lb-s">Belege</span><span class="lb-l">Belege & Berichte</span></span></button>
+    <button class="tab nav-sec" data-v="export" title="Übersichten &amp; Belege"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2"/><path d="M9 8h6M9 12h6"/></svg></span><span class="lb"><span class="lb-s">Belege</span><span class="lb-l">Belege & Berichte</span></span></button>
     <button class="tab nav-sec" data-v="abwesenheiten" title="Abwesenheiten"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M12 19h4.5a3.5 3.5 0 0 0 0 -7h-8a3.5 3.5 0 0 1 0 -7h3.5"/></svg></span><span class="lb"><span class="lb-s">Abwes.</span><span class="lb-l">Abwesenheiten</span></span></button>
     <button class="tab nav-sec" data-v="jahr" title="Jahresübersicht"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M16 3v4M8 3v4M4 11h16M10 16v-3M14 16v-5M18 16v-1"/></svg></span><span class="lb"><span class="lb-s">Jahr</span><span class="lb-l">Jahresübersicht</span></span></button>
     <button class="tab nav-sec" data-v="bescheinigung" title="Bescheinigung bearbeiten"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M11 21h-4a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v3"/><path d="M18.4 14.6l-4.4 4.4l-1 3l3 -1l4.4 -4.4a1.4 1.4 0 0 0 -2 -2z"/></svg></span><span class="lb"><span class="lb-s">Bescheinig.</span><span class="lb-l">Bescheinigung bearbeiten</span></span></button>
@@ -1252,11 +1255,14 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.24.1';
-const APP_BUILD=109;
+const APP_VERSION='5.25.0';
+const APP_BUILD=110;
 const APP_DATE='16.11.2026';
 const APP_CHANGES=[
-  'iPhone: untere Leiste jetzt Eintrag · Monat · Zeit · Übersicht · Belege · Mehr; Abwesenheiten wandern nach „Mehr“ (Seitenleiste am Mac/Querformat unverändert)',
+  'Jahresübersicht: „Von der Bundeswehr erstattet“ getrennt nach Dienstreisen (Reisekostenabrechnung) und Trennungsgeld (TG-Abrechnung); bei Dienstreisen steht, was die Bundeswehr direkt bezahlt hat (Flug, Hotel …) und was an dich ausgezahlt wurde',
+  'Jahresübersicht: Kachel „Bw erstattet“ zählt direkt von der Bundeswehr bezahlte Dienstreise-Kosten nicht mehr als Erstattung und zeigt Trennungsgeld und Dienstreisen getrennt; „Selbst getragen“ rechnet entsprechend',
+  'iPhone: untere Leiste jetzt Eintrag · Monat · Zeit · Übersicht · Mehr (Belege, Abwesenheiten, Jahr, Bescheinigung, Einstellungen unter „Mehr“); Seitenleiste am Mac/Querformat unverändert',
+  'iPhone: untere Leisten (Tab- und „Weiter“-Leiste) deckend und auf eigener Ebene, Überscroll-Bounce aus – gegen mitwandernde Leiste',
   'Belege nur noch unter „Belege“: im Wizard kein 📎-Hochladen mehr; gescannte Belege landen immer in der Belegeablage und werden über Datum und Betrag zugeordnet',
   'Reiter Jahr: „Selbst getragen“ rechnet jetzt alle Kosten (Belege, erfasste Fahrtkosten ohne Beleg, Deutschlandticket, Privat-Kfz 0,30 €/km, Miete Zweitwohnung) abzüglich aller Erstattungen – mit Aufstellung',
   'Reiter Jahr: „Sonstige Belege“ zählt alle Dateien der Belegeablage (wie die Prüfung)',
@@ -1988,7 +1994,7 @@ function gotoView(v){
   if(typeof moreClose==='function')moreClose();
   if(v!=='wizard'&&typeof wizHintShow==='function'){wizReturn=null;wizHintShow(null);}
   document.querySelectorAll('.tab[data-v]').forEach(t=>t.classList.toggle('on',t.dataset.v===v));
-  document.querySelector('.tab-more')?.classList.toggle('on',['abwesenheiten','jahr','bescheinigung','settings'].includes(v));
+  document.querySelector('.tab-more')?.classList.toggle('on',['export','abwesenheiten','jahr','bescheinigung','settings'].includes(v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
   if(v==='overview'){yrSelSync();const _n=new Date();const _om=document.getElementById('ovM');if(_om)_om.value=String(_n.getMonth()+1).padStart(2,'0');renderOverview();}if(v==='zeiterfassung'){initZeMonth();const _z=document.getElementById('zeMonth');const _n2=new Date();if(_z)_z.value=aktivesJahr()+'-'+String(_n2.getMonth()+1).padStart(2,'0');renderZE();}if(v==='export'){updExStats();renderFhf();initCatGrid();renderExportPdfs();renderReceipts();if(typeof renderBelegeablage==='function')renderBelegeablage();belPane();}
   if(v==='jahr'){renderJahresView();}
@@ -4556,7 +4562,7 @@ function bwSummen(praefix){
   const l=bwList().filter(b=>!praefix||(b.periode||'').startsWith(praefix));
   const s={anzTG:0,anzRK:0,
     tgUnterkunft:0,tgTagegeld:0,tgFahrkosten:0,tgGesamt:0,tgAuszahlung:0,
-    rkFahrkosten:0,rkTagegeld:0,rkUebernachtung:0,rkGesamt:0,rkAuszahlung:0,
+    rkFahrkosten:0,rkTagegeld:0,rkUebernachtung:0,rkGesamt:0,rkAuszahlung:0,rkInland:0,rkAusland:0,rkEinbehalt:0,rkAnrechnung:0,
     steuerfrei:0,tgSteuerfreiGes:0,sonstigeFk:0,gesamt:0,auszahlung:0,
     ukSteuerfrei:0,tgTgSteuerfrei:0,tgTgStpfl:0,fkSteuerfreiTG:0,ukTage:0,tageBescheid:0,tageVerpfl:0,
     kmVergKfz:0,kmSteuerKfz:0,kmSteuerOev:0,
@@ -4576,6 +4582,8 @@ function bwSummen(praefix){
       s.anzRK++;
       s.rkFahrkosten+=b.fahrkosten||0;s.rkTagegeld+=(b.tagegeld||0)+(b.einbehaltGes||0);
       s.rkUebernachtung+=(b.uebernachtung||0)+(b.uebernachtungsgeld||0);
+      s.rkInland+=b.inlandstagegeld||0;s.rkAusland+=b.auslandstagegeld||0;s.rkEinbehalt+=b.einbehaltGes||0;
+      s.rkAnrechnung+=b.anrechnung||0;   // v5.25: „bereits gezahlte Kosten“ – von der Bundeswehr direkt bezahlt (Flug, Hotel), nicht an Mike erstattet
       s.rkGesamt+=b.gesamt||0;s.rkAuszahlung+=b.auszahlung||0;
       // steuerfrei gezahlt = Festsetzung abzgl. steuerpflichtiger Anteil (Spalte „steuerfrei“ kann hoeher sein als gezahlt)
       s.steuerfrei+=b.stpflGes!=null?Math.max(0,(b.gesamt||0)-Math.max(0,b.stpflGes)):(b.fkSteuerfrei||0)+(b.tgSteuerfrei||0);
@@ -4597,6 +4605,7 @@ function bwSummen(praefix){
   s.fahrkosten=s.tgFahrkosten+s.rkFahrkosten;
   s.tagegeld=s.tgTagegeld+s.rkTagegeld;
   s.unterkunft=s.tgUnterkunft+s.rkUebernachtung;
+  s.direktBw=s.rkAnrechnung;s.erstattet=s.gesamt-s.rkAnrechnung;   // v5.25: tatsaechlich erstattet = festgesetzt abzgl. direkt bezahlter Dienstreise-Kosten
   return s;
 }
 /* v5.19: Belegarten zusammenfassen – „Flugkarte 2“, „Bahnkarte 3“ usw. zählen zur Grundart
@@ -4786,16 +4795,22 @@ function selbstGetragen(yr,BW){
     {n:'Miete Zweitwohnung',v:unterkunft,sub:miete?(Math.round(mMonate*100)/100).toLocaleString('de-DE')+' Monat(e) × '+miete.toLocaleString('de-DE',{minimumFractionDigits:2})+' €':'Miete in den Einstellungen eintragen'},
   ];
   const erst=[
-    {n:'Unterkunft / Übernachtung',v:r2(BW.unterkunft)},
-    {n:'Trennungs-/Tagegeld',v:r2(BW.tagegeld)},
-    {n:'Fahrkosten',v:r2(BW.fahrkosten)},
-    {n:'Sonstige (z. B. Nebenkosten)',v:r2(BW.sonstigeFk)},
-  ];
-  const kSum=r2(kosten.reduce((a,x)=>a+x.v,0)),eSum=r2(erst.reduce((a,x)=>a+x.v,0));
+    {n:'Trennungsgeld: Unterkunft',v:r2(BW.tgUnterkunft)},
+    {n:'Trennungsgeld: Trennungstagegeld',v:r2(BW.tgTagegeld)},
+    {n:'Trennungsgeld: Fahrkosten (Familienheimfahrten)',v:r2(BW.tgFahrkosten)},
+    {n:'Trennungsgeld: Sonstige (z. B. Nebenkosten)',v:r2(BW.sonstigeFk)},
+    {n:'Dienstreisen: Fahrkosten & sonstige Kosten (festgesetzt)',v:r2(BW.rkFahrkosten)},
+    {n:'Dienstreisen: Tagegeld / Auslandstagegeld (nach Einbehalt)',v:r2(BW.rkTagegeld)},
+    {n:'Dienstreisen: Übernachtung',v:r2(BW.rkUebernachtung)},
+  ].filter(x=>Math.abs(x.v)>=0.005);
+  const kSum=r2(kosten.reduce((a,x)=>a+x.v,0)),eBrutto=r2(erst.reduce((a,x)=>a+x.v,0));
   // Kontrolle: Summe der Erstattungsposten soll der Bescheid-Gesamtsumme entsprechen
-  const rest=r2((BW.gesamt||0)-eSum);
+  const rest=r2((BW.gesamt||0)-eBrutto);
   if(Math.abs(rest)>=0.01)erst.push({n:'Übrige Bescheidbeträge',v:rest});
-  const eGes=r2(eSum+(Math.abs(rest)>=0.01?rest:0));
+  // v5.25: Dienstreisen – Flug/Hotel zahlt die Bundeswehr direkt („bereits gezahlte Kosten“); das ist keine Erstattung an Mike
+  const direkt=r2(BW.rkAnrechnung||0);
+  if(direkt>=0.01)erst.push({n:'Dienstreisen: direkt von der Bundeswehr bezahlt (Flug, Hotel …) – keine Erstattung an dich',v:-direkt});
+  const eGes=r2(eBrutto+(Math.abs(rest)>=0.01?rest:0)-direkt);
   const ohneTagegeld=r2(kSum-(eGes-r2(BW.tagegeld)));
   return{kosten,erst,kSum,eSum:eGes,saldo:r2(kSum-eGes),ohneTagegeld,mieteFehlt:!miete};
 }
@@ -5238,6 +5253,13 @@ function renderJahresCard(){
       <b>${u.codes[k]}</b></div>`).join('');
   const bw=u.bw;
   const mb=u.mb||{anzahl:0,gesamt:0,nachArt:{}};
+  const rd2=v=>Math.round(v*100)/100;
+  const rkRest=rd2(bw.rkGesamt-(bw.rkFahrkosten+bw.rkTagegeld+bw.rkUebernachtung));
+  const tgRest=rd2(bw.tgGesamt-(bw.tgUnterkunft+bw.tgTagegeld+bw.tgFahrkosten+bw.sonstigeFk));
+  const rkDiff=rd2(bw.rkAuszahlung-(bw.rkGesamt-bw.rkAnrechnung));
+  const bRow=(l,v,o)=>`<div style="display:flex;justify-content:space-between;gap:6px;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)${o&&o.b?';font-weight:700':''}${o&&o.m?';color:var(--muted)':''}"><span>${l}</span><b style="white-space:nowrap">${v}</b></div>`;
+  const bHd=(t,sub,top)=>`<div style="font-size:11px;font-weight:700;color:var(--navy);margin:${top?'12px':'2px'} 0 4px">${t}${sub?` <span style="font-weight:500;color:var(--muted)">&middot; ${sub}</span>`:''}</div>`;
+  const sm=t=>` <span style="color:var(--muted);font-size:10px">${t}</span>`;
   el.innerHTML=`<div class="card" style="margin-bottom:12px;border-left:3px solid var(--navy)">
     <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;margin-bottom:10px">
       <h3 style="font-size:15px;margin:0">&#128202; Jahres&#252;bersicht ${u.jahr}</h3>
@@ -5246,7 +5268,7 @@ function renderJahresCard(){
     <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px">
       ${kpi(n(u.kmGesamt)+' km','Kilometer gesamt','alle Verkehrsmittel','var(--navy)','var(--lsoft)')}
       ${kpi(e(u.kostGesamt)+' €','Kosten gesamt','selbst erfasst','var(--navy)','var(--lsoft)')}
-      ${kpi(e(bw.gesamt)+' €','Bw erstattet',bw.anzahl+' Bescheid(e)','var(--ok)','var(--oks)')}
+      ${kpi(e(bw.erstattet)+' €','Bw erstattet','Trennungsgeld '+e(bw.tgGesamt)+' € &middot; Dienstreisen '+e(bw.rkGesamt-bw.rkAnrechnung)+' €','var(--ok)','var(--oks)')}
       ${kpi(u.arbTage,'Arb.-St&#228;tten-Tage',Object.keys(u.arbNachCode).sort().map(k=>k+' '+u.arbNachCode[k]).join(' &middot; ')+(u.arb2Tage?' &middot; davon Arb.-St. 2: '+u.arb2Tage:''),'var(--navy)','var(--lsoft)')}
       ${kpi(u.fhf,'Familienheimfahrten','','var(--navy)','var(--lsoft)')}
       ${kpi(u.abwTage,'Abwesenheitstage','DR/LG/&Uuml;B/ES/EGV','var(--navy)','var(--lsoft)')}
@@ -5265,11 +5287,30 @@ function renderJahresCard(){
       <div style="flex:1;min-width:210px">
         <div style="font-size:11px;font-weight:700;color:var(--ok);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Von der Bundeswehr erstattet</div>
         ${bw.anzahl?`
-          <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Unterkunft / Übernachtung</span><b>${e(bw.unterkunft)} €</b></div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Trennungs-/Tagegeld</span><b>${e(bw.tagegeld)} €</b></div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Fahrkosten</span><b>${e(bw.fahrkosten)} €</b></div>
-          ${bw.sonstigeFk>0.005?`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Sonstige Kosten <span style="color:var(--muted);font-size:10px">(z. B. Nebenkosten)</span></span><b>${e(bw.sonstigeFk)} €</b></div>`:''}
-          <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Ausgezahlt</span><b>${e(bw.auszahlung)} €</b></div>
+          ${bHd('Dienstreisen','Reisekostenabrechnung ('+bw.anzRK+')',false)}
+          ${bw.anzRK?`
+            ${bw.rkInland>0.004?bRow('Tagegeld Inland',e(bw.rkInland)+' €'):''}
+            ${bw.rkAusland>0.004?bRow('Auslandstagegeld',e(bw.rkAusland)+' €'):''}
+            ${Math.abs(bw.rkEinbehalt)>0.004?bRow('Einbehalt Verpflegung'+sm('(gestellte Mahlzeiten)'),'− '+e(Math.abs(bw.rkEinbehalt))+' €',{m:1}):''}
+            ${bRow('Fahrkosten &amp; sonstige Kosten'+sm('(festgesetzt)'),e(bw.rkFahrkosten)+' €')}
+            ${bw.rkUebernachtung>0.004?bRow('Übernachtung',e(bw.rkUebernachtung)+' €'):''}
+            ${Math.abs(rkRest)>=0.01?bRow('Übrige Beträge',e(rkRest)+' €',{m:1}):''}
+            ${bRow('Festgesetzt gesamt',e(bw.rkGesamt)+' €',{b:1})}
+            ${bw.rkAnrechnung>0.004?bRow('abzgl. direkt von der Bundeswehr bezahlt'+sm('(Flug, Hotel …)'),'− '+e(bw.rkAnrechnung)+' €',{m:1}):''}
+            ${bRow('Ausgezahlt an dich',e(bw.rkAuszahlung)+' €',{b:1})}
+            ${Math.abs(rkDiff)>=0.01?bRow('Abweichung zur Auszahlung'+sm('(Festsetzung − direkt bezahlt ↔ ausgezahlt)'),e(rkDiff)+' €',{m:1}):''}
+            <div style="font-size:10px;color:var(--muted);margin-top:3px;line-height:1.35">Flug und Hotel zahlt im Normalfall die Bundeswehr direkt. An dich ausgezahlt wird nur, was du per Beleg (Bus, Bahn, Taxi) oder mit dem eigenen Kfz einreichst, dazu Tagegeld bzw. Auslandstagegeld.</div>`
+          :'<div style="font-size:11px;color:var(--muted)">Noch keine Reisekostenabrechnung eingelesen.</div>'}
+          ${bHd('Trennungsgeld','TG-Abrechnung ('+bw.anzTG+')',true)}
+          ${bw.anzTG?`
+            ${bRow('Trennungstagegeld',e(bw.tgTagegeld)+' €')}
+            ${bRow('Unterkunft',e(bw.tgUnterkunft)+' €')}
+            ${bRow('Fahrkosten Familienheimfahrten',e(bw.tgFahrkosten)+' €')}
+            ${bw.sonstigeFk>0.005?bRow('Sonstige Kosten'+sm('(z. B. Nebenkosten)'),e(bw.sonstigeFk)+' €'):''}
+            ${Math.abs(tgRest)>=0.01?bRow('Übrige Beträge',e(tgRest)+' €',{m:1}):''}
+            ${bRow('Festgesetzt gesamt',e(bw.tgGesamt)+' €',{b:1})}
+            ${bRow('Ausgezahlt',e(bw.tgAuszahlung)+' €',{b:1})}`
+          :'<div style="font-size:11px;color:var(--muted)">Noch keine TG-Abrechnung eingelesen.</div>'}
           <div style="font-size:10px;font-weight:700;color:var(--ok);text-transform:uppercase;letter-spacing:.4px;margin:8px 0 2px">Erstattete Kilometer</div>
           <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Privat-Kfz <span style="color:var(--muted);font-size:10px">(Steuertabelle)</span></span><b>${n(bw.kmSteuerKfz)} km</b></div>
           <div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Bahn/&Ouml;PNV <span style="color:var(--muted);font-size:10px">(Steuertabelle)</span></span><b>${n(bw.kmSteuerOev)} km${bw.kostBahn?' &middot; '+e(bw.kostBahn)+' €':''}</b></div>
@@ -5283,7 +5324,7 @@ function renderJahresCard(){
               <div style="font-size:10px;font-weight:700;color:var(--navy);margin:6px 0 2px">Kosten ${e(u.sg.kSum)} €</div>
               ${u.sg.kosten.map(x=>`<div style="display:flex;justify-content:space-between;gap:6px;font-size:11.5px;padding:2px 0;border-bottom:1px solid var(--line)"><span>${esc(x.n)}${x.sub?`<div style="font-size:10px;color:var(--muted)">${esc(x.sub)}</div>`:''}</span><b style="white-space:nowrap">${e(x.v)} €</b></div>`).join('')}
               <div style="font-size:10px;font-weight:700;color:var(--ok);margin:6px 0 2px">Erstattungen ${e(u.sg.eSum)} €</div>
-              ${u.sg.erst.map(x=>`<div style="display:flex;justify-content:space-between;gap:6px;font-size:11.5px;padding:2px 0;border-bottom:1px solid var(--line)"><span>${esc(x.n)}</span><b style="white-space:nowrap;color:var(--ok)">− ${e(x.v)} €</b></div>`).join('')}
+              ${u.sg.erst.map(x=>`<div style="display:flex;justify-content:space-between;gap:6px;font-size:11.5px;padding:2px 0;border-bottom:1px solid var(--line)"><span>${esc(x.n)}</span><b style="white-space:nowrap;color:${x.v<0?'var(--muted)':'var(--ok)'}">${x.v<0?'+ ':'− '}${e(Math.abs(x.v))} €</b></div>`).join('')}
               <div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.35">Belege zählen einmal: erfasste Fahrtkosten nur, wenn kein Beleg zugeordnet ist (wie in der Prüfung). Privat-Kfz mit 0,30 €/km als Kostenansatz. Verpflegung hat keinen Kostenbeleg – deshalb zusätzlich der Wert ohne Trennungs-/Tagegeld.</div>
             </details>
           </div>`
