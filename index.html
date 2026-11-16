@@ -1099,6 +1099,7 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
       <div class="f"><label>DuZ Samstag 13-20 (4002) &euro;/h</label><input type="number" step="0.01" id="sRSa13" placeholder="1.53"></div>
       <div class="f"><label>DuZ Nacht 20-06 (4003) &euro;/h</label><input type="number" step="0.01" id="sRNacht" placeholder="3.06"></div>
       <div class="f"><label>Grenzsteuersatz %</label><input type="number" step="0.01" id="sTaxRate" placeholder="34.74"></div>
+      <div class="f"><label>Mehrarbeit A13–A16 ab 05/2026 &euro;/h (Abschlag, 35,49 × 1,028)</label><input type="number" step="0.01" id="sRMav" placeholder="36.48"></div>
     </div>
     <h3 style="margin-top:22px;margin-bottom:8px">&#127796; Urlaub &amp; Freistellung (FvD)</h3>
     <p style="font-size:11px;color:var(--muted);margin-bottom:8px">Grundlage f&#252;r die Box „Resturlaub &amp; FvD" in der &#220;bersicht. Der FvD-Anspruch errechnet sich automatisch aus den nicht ausgezahlten &#167;30c-Tagen (Tag 1, 6, 11 &hellip; je Block).</p>
@@ -1189,83 +1190,15 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.20.1';
-const APP_BUILD=101;
-const APP_DATE='19.10.2026';
+const APP_VERSION='5.21.3';
+const APP_BUILD=105;
+const APP_DATE='15.11.2026';
 const APP_CHANGES=[
-  'Fahrtkosten-Jahresbeleg: neuer Abschnitt 8 „Querprüfung: Belege ↔ TG-Bescheid“ direkt unter der Summe der Werbungskosten – Jahressumme je Verkehrsmittel (bezahlt laut Beleg, erstattet laut Bescheid, Differenz) und die Monatsaufstellung wie im Reiter Jahresübersicht; Hinweise jetzt Abschnitt 9',
-  'Bescheide neu einlesen (seit 5.19.9): Das Kennzeichen „erledigt“ wurde auch gesetzt, wenn beim Start noch keine Bescheide geladen waren – dann fehlten Reiseabschnitte und Übernachtung dauerhaft. Wird jetzt einmalig nachgeholt',
-  'Jahr wählen in jedem Reiter: Monat, Eintrag, Übersicht, Zeiterfassung, Belege & Berichte, Abwesenheiten, Jahresübersicht, Bescheinigung und Einstellungen haben ein Jahres-Auswahlfeld. Es ist überall dieselbe Einstellung „Aktives Jahr“ – Wechsel in einem Reiter gilt für alle',
-  'CheckBox: nicht gemeldete Heimfahrten werden deutlicher benannt – Zeitraum HF bis RF, Hinweis „vermutlich nicht als Familienheimfahrt (ohne Reisebeihilfe) angegeben“ und das für die Tage dazwischen gezahlte Trennungstagegeld',
-  'Jahresbezogene PDFs (Abwesenheitsbescheinigung, Fahrtkosten-Jahresbeleg, Liste der gespeicherten PDFs, Drucken) richten sich jetzt nach dem gewählten Jahr statt nach dem „Von“-Datum des PDF-Exports; der Export-Zeitraum „Von/Bis“ wandert beim Jahreswechsel mit',
-  'TG-Abrechnung: Reiseabschnitte (Dienstreise, Familienheimfahrt mit/ohne Reisebeihilfe, Besuchsfahrt, Zwischenabordnung, Urlaub, Abwesenheit Dienstort – je mit Datum und Uhrzeit) wurden wegen mehrerer Leerzeichen zwischen „Uhr“ und „bis“ nie erkannt. Jetzt erkannt; „Ort / Grund“ endet sauber vor „Ankunft Wohnung“; gespeicherte Abrechnungen werden einmalig neu eingelesen',
-  'CheckBox Familienheimfahrten: Abgleich jetzt je Heimfahrt statt Anzahl je Monat – jede HF der App muss in einer TG-Abrechnung stehen (mit/ohne Reisebeihilfe passend zum FHF-Haken), jede Heimfahrt der Abrechnung braucht in der App einen HF-Tag. Heimfahrten über den Monatswechsel (Abschnitt ab 1. um 00:00) werden dem Vormonat zugeordnet',
-  'CheckBox Ortsabgleich Dienstreisen (TG): kein Fehlalarm mehr bei Ländern/Abkürzungen (AUT, NOR, ISR, Strasbourg …) und „Besuch …“; liegt eine Reisekostenabrechnung vor, prüft nur noch deren Zielort',
-  'Datum „heute“ (neuer Eintrag, Backup-Dateiname, 28-Tage-Hinweis, Belegscan) wurde in UTC bestimmt – zwischen 0 und 2 Uhr nachts galt noch der Vortag; der 28-Tage-Zähler prüfte durchgehend den jeweils vorherigen Kalendertag',
-  'Querprüfung Belege ↔ TG-Abrechnung: bucht die Abrechnung Flug und ÖPNV einer Heimfahrt zusammen als „Fahrkosten ÖPNV“ (09/2025: 126,99 €), wird der Flugteil laut steuerlichen Daten den Flugkosten zugeordnet – keine falsche Meldung „Buskosten … Beleg fehlt“ mehr. Hinweis „Beleg ist als Taxi erfasst, das Segment als Taxi“ entfällt',
-  'Reisekostenabrechnung: Inlandstagegeld wurde nie gelesen (Zeilenanker passte nicht zum PDF-Text) – Jahresübersicht zeigte zu wenig Tagegeld; Übernachtungskosten, Übernachtungsgeld und Einbehalt werden jetzt gelesen und unter „Unterkunft / Übernachtung“ bzw. Tagegeld gezählt; gespeicherte Abrechnungen werden einmalig neu eingelesen',
-  'TG-Abrechnung: Unterkunft mit Tagen und Steueraufteilung wird jetzt gelesen (gleicher Zeilenanker-Fehler); Jahresübersicht zeigt „Sonstige Kosten (z. B. Nebenkosten)“, wenn die Abrechnung sie enthält',
-  'Neuer Reiter „Bescheinigung“: Abwesenheitsbescheinigung vor dem Speichern bearbeiten – Texte, Zweck, Zeitraum, Ort, Tage, Verpflegung, Nachweis, Zeilen und ganze Spalten löschen oder hinzufügen (auch eigene Spalten), Home-Office-Tage. Grunddaten kommen unverändert aus dem Tool, Änderungen bleiben je Steuerjahr gespeichert („↺ Aus Tool neu laden“ setzt zurück). Gespeichert wird weiterhin unter Belege & Berichte › Berichte & Export',
-  'Abwesenheitsbescheinigung: Unterschriften-/Stempelfeld fehlte, wenn Tabelle und Home-Office-Abschnitt die Seite füllten (wurde unterhalb des Blattrands gezeichnet) – jetzt immer vollständig auf der letzten Seite, bei Bedarf auf einer neuen Seite; Seitenzahlen bei mehreren Seiten',
-  'Fahrtkosten-Jahresbeleg: weitere Arbeitsstätte erscheint nur noch, wenn ihr Gültigkeitszeitraum in das Jahr fällt (ebenso im Monatsbericht); Zusatz „zzgl. Reservierung …“ wird im Beleg nicht mehr gedruckt',
-  'CheckBox Bw-Abgleich: Kein falscher Hinweis „Bescheid weist Dienstreise aus“ mehr an Tagen, an denen laut Bescheid eine Dienstreise endet und am selben Tag eine Familienheimfahrt beginnt (bzw. umgekehrt) und die App HF/RF hat (z. B. 20.03.26)',
-  'Claude-Abgleich: Vorschläge können jetzt auch Angaben eines Belegs in der Belegeablage ändern (z. B. Belegart) und prüfen vorab den bisherigen Wert',
-  'Abwesenheitsbescheinigung: Dienstreisen kommen aus den Reisekostenabrechnungen (Zeitraum, Zielort, Verpflegung, Abrechnungs-Nr.); Übungen, Lehrgänge, Einsätze und Home Office weiter aus dem Tool. Dienstreise-Tage ohne Abrechnung werden aus dem Tool ergänzt und gekennzeichnet',
-  'Fahrtkosten-Jahresbeleg Teil 4: Besuchsfahrten (Angehörige) zählen wie Familienheimfahrten – eigene Zeile „Besuchsfahrt“, Hin-/Rückflug zusammengefasst, Betrag in der Summe',
-  'Fahrtkosten-Jahresbeleg Teil 4 Flugkosten: Beträge kommen aus den Flug-Belegen der Belegeablage; Hin- und Rückflug einer Heimfahrt stehen in einer Zeile, einzelne Flüge einzeln. Bisher fehlten alle Rückflüge',
-  'Reisekosten- & Arbeitszeitnachweis: Detailtabelle hatte eine Spalte zu viel (11 statt 10) – Zeilen verrutschten. Spalten korrigiert, Eintrag bricht nicht mehr über Seiten',
-  'Abwesenheitsbescheinigung: Ort nur noch PLZ, Ort (und Land); Spalte Verpflegung als Auswahlfeld im PDF: „Verpflegung wurde bereitgestellt“ / „Verpflegung wurde nicht bereitgestellt“',
-  'Jahr › Trennungsgeld ↔ DHF: Verpflegungsmehraufwand erscheint nur noch in Jahren, in die die Dreimonatsfrist ab „Beginn doppelte Haushaltsführung“ (Einstellungen) fällt',
-  'Jahr › Familienheimfahrten: jede Heimfahrt wird einzeln berechnet (Entfernungspauschale des gewählten Jahres, einfache Strecke, Flugstrecke ausgenommen) und dann je Verkehrsmittel zusammengefasst: km, bezahlt, Pauschale, angesetzt – inkl. Taxi; aufklappbare Liste je Fahrt',
-  'Querprüfung Belege ↔ TG-Bescheid: Taxi und „Fahrkosten ÖPNV“ werden jetzt mitgeprüft; nicht zuordenbare Belege/Posten erscheinen als „Sonstige“ statt zu fehlen',
-  'Jahr › Erstattete Kilometer: Privat-Kfz laut Steuertabelle zuerst; die 650-km-Posten heißen jetzt „Reisebeihilfe Wegstrecke Kfz (Rechengröße)“ – das sind keine gefahrenen km',
-  'Übersicht/Monat/Kalender „Beleg fehlt“: Belege aus der Belegeablage zählen jetzt mit (gleicher Betrag, Belegdatum bis 3 Tage Abstand, jeder Beleg nur einmal). Bisher zählten nur direkt am Tag verknüpfte Belege – dadurch z. B. 2025 „71× Beleg fehlt“, obwohl alle Belege vorlagen',
-  'CheckBox Bw-Abgleich: Hinweis „Bescheid weist Dienstreise aus“ erklärt jetzt, dass die TG-Kennung DR jede dienstliche Abwesenheit umfasst (auch Übung/Lehrgang), und erkennt Rückreisetage nach einer Übung/Dienstreise (Vortag ÜB/LG/DR → zweiten Code ergänzen)',
-  'CheckBox Arbeitsstätte: Meldung unterscheidet jetzt „kein Dienstort eingetragen“ und „Dienstort ist keine Arbeitsstätte“ (mit Ort) und nennt alle betroffenen Tage statt nur den ersten',
-  'Einstellungen: zweite Arbeitsstätte (optional mit Gültigkeitszeitraum). Steht ihr Ort, ihre PLZ oder ihr Kasernenname im Dienstort, zählt der Tag als Arbeitsstätten-Tag; Jahresübersicht zeigt „davon Arb.-St. 2“',
-  'Jahr › Sonstige Belege: nummerierte Belegarten werden zusammengefasst (Flugkarte 2 → Flugkarte, Bahnkarte 3 → Bahnkarte), mit Anzahl je Art',
-  'Jahr › Von der Bundeswehr erstattet: erstattete Kilometer Privat-Kfz (vergütet und steuerlich) und Bahn/ÖPNV werden jetzt berechnet (zeigten bisher immer 0 km)',
-  'Claude-Abgleich: Vorschläge können jetzt auch eine fehlende Fahrstrecke ergänzen',
-  'TG-Abrechnung: Posten „Fahrkosten ÖPNV“ werden jetzt gelesen (09/2025: 8,20 € und 126,99 €) – die Meldung „Einzelaufstellung weicht von der Bescheid-Summe ab“ entfällt; gespeicherte Abrechnungen werden einmalig neu eingelesen',
-  'Deutschlandticket: Zeiträume mit „von – bis“ und Monatsbetrag (Einstellungen), jahresweise fortschreibbar – „+ Zeitraum“ legt den nächsten Abschnitt an; die Berechnung nimmt für jeden Monat den gültigen Betrag',
-  'Hilfstool „Nachträge 2025“ entfernt (Nachträge sind abgeschlossen)',
-  'Deutschlandticket: Preis je Jahr (2024: 49 €, 2025: 58 €, 2026: 63 €/Monat); „Gültig ab“ im Format TT.MM.JJJJ wird jetzt erkannt; Beginn auf 01/2024 gesetzt',
-  'Bescheid-Abgleich berücksichtigt beide Tagesarten: Hat ein Tag zwei Codes (z. B. DR + HF), genügt es, wenn einer zum Bescheid passt – gilt für Familienheimfahrten, Dienstreisen, Reisetage-Zählung und die Verpflegungsübernahme',
-  'CheckBox: „Bescheid weist Familienheimfahrt aus“ nur noch, wenn die App für den Tag Dienst an der Arbeitsstätte erfasst. Die TG-Abrechnung kennzeichnet den ganzen Heimfahrt-Zeitraum mit FH; Dienst an einem anderen Ort in dieser Zeit (z. B. Übungsplatz am 06.05.25) oder ein Reisetag am Rand ist kein Widerspruch',
-  'CheckBox Beleg-Deckung: Die TG-Abrechnung rechnet Buskarten (Salzburg Flughafen) teils in den Flugpreis oder unter „Fahrkosten DB“ ein. Buskarten-Belege decken jetzt solche Beträge mit ab – auch eine Buskarte der ersten 3 Tage des Folgemonats (z. B. 02.02.25 für den Januar-Flug)',
-  'Korrektur: Tage mit mehrteiliger Kennung in der TG-Tagesaufstellung (z. B. „U U“ am 03.01.25) wurden übersprungen – jetzt werden alle Tage gelesen; bereits gespeicherte Abrechnungen werden einmalig nachgelesen',
-  'Trennungstagegeld-Kürzung nur an Tagen ohne Kennung oder mit BF – an Tagen mit DR, FH, FO, ZA, AD oder Urlaub zahlt die Abrechnung trotz Mahlzeit den vollen Satz (z. B. 27.02.25, 04.09.26)',
-  'Korrektur Trennungstagegeld: Gekürzt wird nur nach der TG-Abrechnung. Frühstück auf Dienstreisen (Reisekostenabrechnung) bleibt als Verpflegung sichtbar, kürzt aber nicht zusätzlich das Trennungstagegeld (betraf z. B. 16.–18.09.25 und 11.12.25: App 12,37 € statt 12,80 €)',
-  'Belegablage: identische Kopien einer Bescheid-PDF, die mit keinem Bescheid mehr verknüpft sind, werden beim Hochladen und einmalig nach dem Update entfernt',
-  'Bescheide ersetzen statt doppeln: Beim Hochladen wird geprüft, ob es für denselben Zeitraum schon einen Bescheid gibt (TG: gleicher Monat · Reisekosten: gleiche Reise von–bis · oder gleiche Nummer). Der vorhandene wird durch den neuen ersetzt und seine PDF gelöscht; ein älterer Bescheid ersetzt keinen neueren',
-  'Verpflegung kommt jetzt aus BEIDEN Bescheiden: Trennungsgeldabrechnung (Dienstort-Tage) und Reisekostenabrechnung (Dienstreise-Tage, Tabelle „Tage- und Übernachtungsgelder“); der Wizard fragt sie an keinem Tag mehr ab',
-  'Trennungstagegeld-Kürzung je Jahr: Mittagessen 2025 = 1,20 € (aus 113 Abrechnungstagen 2025 belegt), 2026 = 1,03 €; Frühstück 0,43 € und Abendessen 1,03 € (2026 belegt)',
-  'Korrektur: auch die Tagesaufstellung der Reisekostenabrechnung wurde beim PDF-Upload nie erkannt; zusätzlich wird jetzt „gestellt“ und „nicht eingenommen“ getrennt gelesen',
-  'Verpflegung wird nicht mehr täglich abgefragt: Sie wird beim Hochladen der Trennungsgeldabrechnung automatisch aus deren Tagesaufstellung (U/GB/NE je Mahlzeit) in die Einträge geschrieben — der Bescheid hat Vorrang, die Übernahme lässt sich rückgängig machen',
-  'Korrektur: Die Tagesaufstellung der TG-Abrechnung wurde beim PDF-Upload bisher nie erkannt (0 Tage je Bescheid), weil der PDF-Text einzeilig ankommt — dadurch fehlten auch Verpflegungs- und Tagegeld-Abgleich in der CheckBox',
-  'Einmalig nach dem Update: Verpflegung aus allen bereits gespeicherten TG-Abrechnungen nachgetragen; Abrechnungen ohne PDF auf diesem Gerät bitte erneut hochladen',
-  'Speichern-Schritt: zeigt „Verpflegung aus TG-Abrechnung“ bzw. „folgt mit der TG-Abrechnung“; über „ändern“ im Ausnahmefall von Hand anpassbar',
-  'Neu: Claude-Abgleich (Einstellungen) — liest Claude-Pakete mit neuen Belegen und Korrekturvorschlägen (z. B. Verpflegung laut Trennungsgeldabrechnung) ein; jeder Vorschlag per Häkchen übernehmen oder ablehnen, mit Rückgängig',
-  'Neu: Tagesvorschlag — oben in der App steht für heute und für fehlende Werktage der letzten Woche ein Eintrag nach deinem gewohnten Muster (gleicher Wochentag) zum Übernehmen oder Anpassen; sonntags Erinnerung an das Backup für Claude',
-  'Beleg-Abgleich (CheckBox, Zeiterfassungsblatt, Wizard) nutzt nur noch Dateien, die tatsächlich in der Belegablage liegen; gelöschte Belege werden gemerkt und tauchen auch nach einem Cloud-Abgleich nicht wieder auf; eine Betragsabweichung (z. B. Buskarte) verdeckt keinen fehlenden Beleg einer anderen Art (z. B. Flug) mehr; nach dem Löschen wird die Prüfung sofort aktualisiert',
-  'Zeiterfassungsblatt: Befunde lassen sich im Tagesfenster per Häkchen „Stimmt so“ bestätigen (und wieder entfernen) — bestätigte Befunde färben den Tag nicht mehr rot',
-  'Zeiterfassungsblatt: Button „Prüfen“ markiert Tage mit Fehlern, Warnungen oder Hinweisen rot; Klick aufs Datum zeigt die Befunde, „Beheben“ öffnet den Eintrag im passenden Wizard-Schritt (mit Hinweisleiste), nach dem Speichern geht es zurück ins Blatt und die Prüfung läuft neu',
-  'Fahrt Zweitwohnung ↔ Arbeitsstätte: Beleg ist automatisch das Deutschlandticket, solange keine eigene Kostenart oder kein Betrag eingetragen ist (gilt auch für bestehende Einträge, einmalig umgestellt)',
-  'Bescheide ohne PDF-Verknüpfung werden über den Dateinamen automatisch wieder mit der hochgeladenen PDF verknüpft',
-  'CheckBox: Belege werden jahresübergreifend den Fahrten zugeordnet (keine Falschmeldungen „Beleg ohne Eintrag“ mehr für Belege des anderen Jahres); Flüge brauchen keine Kilometer; Fahrkarten an Heim-/Rückfahrt-Tagen ohne FHF-Häkchen werden nicht mehr als zufällige Zuordnung gemeldet; Belege für „bereits erfasste“ Rückflüge werden zugeordnet statt als Abweichung gemeldet; zukünftige (geplante) Tage erzeugen keine Arbeitszeit- und Lücken-Warnungen; Reiseziel aus Reisekostenbescheiden wird sauber gelesen; genutzte Familienheimfahrten zählen erst ab Anspruchsbeginn','Wizard: „Kosten ohne Beleg“ berücksichtigt jetzt die Belegeablage, Dienstende 00:00 gilt als Tagesende, der Hinweis „kein Familienheimfahrt-Anspruch frei“ zählt nur Fahrten ab Anspruchsbeginn',
-  'Bescheid-Summen: steuerfreier Betrag beim Trennungsgeld enthält jetzt auch die Unterkunft, nicht eingelesene „sonstige Fahrkosten“ (z. B. Mai 2025: 140 €) werden aus der Festsetzung abgeleitet, und der steuerfreie Betrag wird nie höher als der festgesetzte (Jan/Feb 2025)',
-  'Neu: Hilfstool „Nachträge 2025“ (Einstellungen) — lädt eine aus Belegen und Bescheiden erzeugte Vorschlagsdatei und übernimmt Tagesart, Heimfahrten, Flüge/Bahn/Bus mit Kosten und Verpflegung tageweise, monatsweise oder alle sicheren auf einmal (mit Rückgängig); Bescheide-Import und automatische km-Berechnung für Dienst-Kfz',
-  'Excel-Import: Zeiterfassung 2025 komplett übernommen (272 Tage mit Inhalt), inkl. geteiltem Dienst; 24./31.12. gelten im Zeiterfassungsblatt als dienstfrei',
-  'Papierkorb: Gelöschte Einträge lassen sich 10 Sekunden lang mit „Rückgängig" zurückholen und liegen danach 30 Tage im Papierkorb (Einstellungen); Belege werden erst endgültig gelöscht, wenn kein anderer Eintrag sie mehr nutzt',
-  'Zeiterfassung: nur vergangene Tage ohne Eintrag werden als fehlend markiert',
-  'Schnellerer Start: das Cloud-Modul (Firebase) lädt erst im Hintergrund nach',
-  'Monatsabschluss: „Lücken füllen" legt fehlende Tage in einem Rutsch an (Wochenende/Feiertag = WF, Werktag = AW mit deinen letzten Zeiten) — mit Vorschau und Rückgängig',
-  'Kalender: „Auswählen" — mehrere Tage antippen und gemeinsam einen Tagescode setzen (z. B. Urlaubswoche)',
-  'Übersicht auf dem iPhone: Einträge als Karten statt enger Tabelle',
-  'Berichte & Export: Zähl-Kacheln durch eine Zeile ersetzt',
-  'Zeiterfassung › Trennungsgeld: tageweiser Abgleich mit dem TG-Bescheid (Abweichungen bei Mahlzeiten und Tagen werden markiert)',
-  'Jahresübersicht: Diagramm „Erstattet je Monat" (Trennungsgeld + Reisekosten laut Bescheid) mit Hochrechnung bis Trennungsgeld-Ende',
-  'Aufgeräumt: Reste des alten Designs entfernt',
+  'Mehrarbeit: Herkunft des Satzes wird angezeigt (Tabellenwert / durch Abrechnung belegt / vorläufiger Rechenwert ab 05/2026)',
+  'Mehrarbeit: Satz je Monat der Leistung – bis 03/2025 34,46 €/h, 04/2025–04/2026 35,49 €/h, ab 05/2026 36,48 €/h (Abschlag +2,8 %, vorläufig; in Einstellungen überschreibbar)',
+  'Mehrarbeit: Texte nach SMVergV (mehr als 5 h, nur angeordnet/genehmigt); Hinweis auf anteilige Mindeststundenzahl im Teilmonat',
+  'Reisekostenabrechnung: „Anlass“ und „Land“ sauber getrennt; gespeicherte Bescheide werden einmalig neu gelesen',
+  'Enthält alle Korrekturen aus Build 102 (Jahresbeleg = Übersicht, Günstigerprüfung, Dienstwagen, 2. Zeitblock, Verpflegung nur aus Bescheiden, Belegerkennung/OCR u. a.)'
 ];
 
 const SK='zc-tgrb-v2', SETK='zc-tgrb-set-v2';
@@ -1298,10 +1231,37 @@ const VERPFL_LABEL={'frühstück':'Frühstück','mittag':'Mittagessen','abend':'
 const VERPFL_ICON={'frühstück':'🥐','mittag':'🍽','abend':'🌙'};
 /* Zustand je Mahlzeit: '' = nicht gestellt | 'ja' = gestellt und gegessen
    (kuerzt) | 'ne' = gestellt, nicht eingenommen (kuerzt nicht).            */
+/* v5.21: Die Verpflegung kommt AUSSCHLIESSLICH aus den TG- und Reisekosten-Bescheiden (bwVerpflTag).
+   Eigene Eintraege im Wizard gibt es nicht mehr; e.verpflegung ist nur eine Kopie des Bescheidwerts. */
+let _bwVTCache=null;
+function bwVerpflIndex(){
+  const L=state.settings.bwBescheide||[];
+  if(_bwVTCache&&_bwVTCache.arr===L&&_bwVTCache.len===L.length)return _bwVTCache.map;
+  const map={};L.forEach(b=>{if(b.typ!=='TG'&&b.typ!=='RK')return;(b.tage||[]).forEach(d=>{if(d.fGestellt===undefined)return;(map[d.datum]=map[d.datum]||[]).push({d,b});});});
+  _bwVTCache={arr:L,len:L.length,map};return map;
+}
 function verpflStatus(e,m){
-  const gb=(e.verpflegung||'').split(',').includes(m);
-  if(!gb)return'';
-  return (e.verpflegungNE||'').split(',').includes(m)?'ne':'ja';
+  const h=e&&e.date?bwVerpflTag(e.date):null;
+  if(!h||!h.verpflegung.split(',').includes(m))return'';
+  return h.verpflegungNE.split(',').includes(m)?'ne':'ja';
+}
+/* Wirkung einer Mahlzeit auf das Trennungstagegeld – identisch fuer Betrag UND Anzeige:
+   'ja' = kuerzt · 'ne' = gestellt, nicht eingenommen · 'frei' = eingenommen, Tag mit Kennung (voller Satz) · '' = nicht gestellt */
+function tgMahlzeitWirkung(e,m){
+  const t=tgTagAusBescheid(e&&e.date);if(!t)return'';
+  const k={'frühstück':'f','mittag':'m','abend':'a'}[m];
+  if(!t[k+'Gestellt'])return'';
+  const gegessen=!!t[{'frühstück':'fruehstueck','mittag':'mittag','abend':'abend'}[m]];
+  if(!gegessen)return'ne';
+  return(t.art&&t.art!=='BF')?'frei':'ja';
+}
+/* Kopie des Bescheidwerts in den Eintrag schreiben (fuer Anzeige, Backup, Abwesenheitsbescheinigung). */
+function verpflSync(e){
+  if(!e||!e.date)return;
+  if((e.verpflQuelle==='manuell'||(!e.verpflQuelle&&(e.verpflegung||e.verpflegungNE)))&&!e.verpflManuellAlt)
+    e.verpflManuellAlt={verpflegung:e.verpflegung||'',verpflegungNE:e.verpflegungNE||''};
+  const h=bwVerpflTag(e.date);
+  e.verpflegung=h?h.verpflegung:'';e.verpflegungNE=h?h.verpflegungNE:'';e.verpflQuelle=h?h.quelle:'';
 }
 function verpflAbzug(e){
   // v5.17: Liegt fuer den Tag eine TG-Abrechnung vor, kuerzt nur, was DORT eingenommen ist.
@@ -1310,13 +1270,12 @@ function verpflAbzug(e){
   const t=tgTagAusBescheid(e&&e.date);
   // Gekuerzt wird laut allen Abrechnungen 01/2025–09/2026 nur an Tagen ohne Kennung oder mit BF;
   // DR, FH, FO, ZA, AD, U, „U U“ zahlen trotz eingenommener Mahlzeit den vollen Satz.
-  if(t&&t.art&&t.art!=='BF')return 0;
-  if(t)return VERPFL_MAHL.reduce((s,m,i)=>s+([t.fruehstueck,t.mittag,t.abend][i]?tgAbzugSatz(e.date,m):0),0);
-  return VERPFL_MAHL.reduce((s,m)=>s+(verpflStatus(e,m)==='ja'?tgAbzugSatz(e.date,m):0),0);
+  if(!t)return 0;   // v5.21: ohne TG-Abrechnung keine Kuerzung (keine eigenen Eintraege mehr)
+  return VERPFL_MAHL.reduce((s,m)=>s+(tgMahlzeitWirkung(e,m)==='ja'?tgAbzugSatz(e.date,m):0),0);
 }
 function tgTagAusBescheid(datum){
   if(!datum)return null;let hit=null;
-  (state.settings.bwBescheide||[]).forEach(b=>{if(b.typ!=='TG')return;(b.tage||[]).forEach(d=>{if(d.datum===datum&&d.fGestellt!==undefined)hit=d;});});
+  (bwVerpflIndex()[datum]||[]).forEach(s=>{if(s.b.typ==='TG')hit=s.d;});
   return hit;
 }
 /* ═══ Verpflegung aus der TG-Abrechnung (ab v5.14) ═══════════════════════════
@@ -1336,8 +1295,7 @@ function tgVerpflWerte(d){
    ALLE Bescheide, die sie als gestellt fuehren, NE angeben. */
 function bwVerpflTag(datum){
   const src=[];
-  (state.settings.bwBescheide||[]).forEach(b=>{if(b.typ!=='TG'&&b.typ!=='RK')return;
-    (b.tage||[]).forEach(d=>{if(d.datum===datum&&d.fGestellt!==undefined)src.push({d,b});});});
+  (bwVerpflIndex()[datum]||[]).forEach(s=>src.push(s));
   if(!src.length)return null;
   const g=[],ne=[];
   [['frühstück','f'],['mittag','m'],['abend','a']].forEach(([m,k])=>{
@@ -1364,7 +1322,7 @@ function tgVerpflAusBescheid(b){
     const w=bwVerpflTag(d.datum);if(!w)return;
     const q=w.quelle;
     // TG-Reisetag ohne Mahlzeiten und ohne Reisekostenabrechnung: App-Wert bleiben lassen
-    if(!bwVerpflAnwendbar(w,e,d.art)){r.reise=(r.reise||0)+1;return;}
+    // v5.21: keine eigenen Werte mehr – der Bescheid gilt immer
     if((e.verpflegung||'')===w.verpflegung&&(e.verpflegungNE||'')===w.verpflegungNE){r.gleich++;e.verpflQuelle=q;return;}
     r.alt[e.id]={verpflegung:e.verpflegung||'',verpflegungNE:e.verpflegungNE||'',verpflQuelle:e.verpflQuelle||''};
     e.verpflegung=w.verpflegung;e.verpflegungNE=w.verpflegungNE;e.verpflQuelle=q;e.updated=Date.now();r.gesetzt++;
@@ -1464,6 +1422,20 @@ async function bwNachlesen5199(){
   if(ok&&n){state.settings.migBw5201=true;persist();if(typeof scheduleCloudPush==='function')scheduleCloudPush();}
   return n;
 }
+/* v5.21: Anlass/Land aus gespeicherten Bescheid-PDFs einmalig neu lesen (vorher bis Seitenende verschluckt) */
+async function bwNachlesen5210(){
+  if(state.settings.migBw5210)return;
+  let ok=true,n=0;
+  for(const b of (state.settings.bwBescheide||[]).filter(x=>x.fileId&&(x.typ==='TG'||x.typ==='RK'))){
+    try{const rec=await idbGetF(b.fileId);if(!rec||!rec.blob)continue;
+      const p=parseBwBescheid(await window.extractPdfText(new File([rec.blob],rec.name||b.dateiname||'bw.pdf',{type:'application/pdf'})));
+      if(!p||p.typ!==b.typ)continue;
+      ['anlass','land','ziel'].forEach(k=>{if(p[k]!==undefined)b[k]=p[k];});n++;
+    }catch(e){ok=false;console.warn('Bescheid nachlesen 5.21',b.typ,b.periode,e);}
+  }
+  if(ok&&n){state.settings.migBw5210=true;persist();}
+  return n;
+}
 async function tgVerpflAutoNachholen(){
   if(state.settings.migVerpflBw515)return;
   if(!(state.settings.bwBescheide||[]).some(b=>b.typ==='TG'||b.typ==='RK'))return;
@@ -1529,7 +1501,7 @@ function pill2(e){return(e&&e.dayCode2)?' <span class="cpill '+e.dayCode2+'" sty
 // Transport modes with PP rate
 const MODES=[
   {v:'',         l:'— Auswählen —',        pp:0,     ppN:''},
-  {v:'PKW-D',    l:'🚗 PKW (Dienstreise)', pp:DRPKW, ppN:'Dienstreisekm-Pausch. 0,30 €/km'},
+  {v:'PKW-D',    l:'🚙 Dienstwagen (Dienstreise)', pp:0, ppN:''},   // v5.21: Dienstwagen – keine Kilometerpauschale
   {v:'PKW-P',    l:'🚗 PKW (Pendeln)'},
   {v:'PKW-Priv',  l:'🚗 PKW (privat)'},
   {v:'Dienst-Kfz',l:'🛻 Dienst-Kfz',      pp:0,     ppN:''},
@@ -1639,7 +1611,11 @@ function segCostCounts(s){
   if(s.costType==='Pendlerpauschale')return false;
   return true;
 }
-function segCostAmt(s){return segCostCounts(s)?(parseFloat(s.costAmt)||0):0;}
+/* v5.21: Summen werden in EUR gebildet. Betraege in Fremdwaehrung (CHF, USD …) zaehlen nicht mit,
+   bis sie in EUR erfasst sind – sonst wuerden 200 CHF als 200 EUR addiert. CheckBox meldet sie. */
+function segIstEUR(s){return !s||!s.costCurr||s.costCurr==='EUR';}
+function segCostAmt(s){return segCostCounts(s)&&segIstEUR(s)?(parseFloat(s.costAmt)||0):0;}
+function segCostRoh(s){return segCostCounts(s)?(parseFloat(s.costAmt)||0):0;}   // Betrag in Originalwaehrung (nur Anzeige je Waehrung)
 /* Fahrten auf das Deutschlandticket verursachen keine Einzelkosten — das Ticket ist
    pauschal in den Einstellungen hinterlegt. Solche Strecken duerfen deshalb weder
    einen fehlenden Betrag noch einen fehlenden Beleg als Mangel ausloesen. */
@@ -1724,9 +1700,11 @@ async function load(){
   setTimeout(()=>tgUnvollstaendigNachlesen(),8000);
   setTimeout(()=>tgOepnvNachlesen(),10000);
   setTimeout(()=>bwNachlesen5199(),13000);
+  setTimeout(()=>bwNachlesen5210(),16000);
 }
 let pt=null;
 function persist(){
+  _bwVTCache=null;
   try{localStorage.setItem(SK,JSON.stringify(state.entries));localStorage.setItem(SETK,JSON.stringify(state.settings));}catch(e){}
   if(pt)clearTimeout(pt);pt=setTimeout(async()=>{
     try{await idbPut('state','entries',state.entries);await idbPut('state','settings',state.settings);}catch(e){console.error('IDB persist',e);}},400);
@@ -1813,6 +1791,8 @@ function migrate(){
   if(state.settings.fbUploaded)Object.keys(state.settings.fbUploaded)
     .forEach(id=>{if(istBescheidKennung(id))delete state.settings.fbUploaded[id];});
   if(zombieWeg)console.log('migrate: '+zombieWeg+' ungueltige Bescheid-Verweise aus Beleg-Listen entfernt');
+  // v5.21: Verpflegung nur aus Bescheiden – fruehere Handeingaben werden als verpflManuellAlt aufbewahrt
+  _bwVTCache=null;state.entries.forEach(verpflSync);
 }
 
 
@@ -2122,22 +2102,32 @@ document.getElementById('calNext').addEventListener('click',()=>{calM++;if(calM>
 function calClick(iso){if(calSelMode){calSelPick(iso);return;}const e=state.entries.find(x=>x.date===iso);if(e)editEntry(e.id);else{wiz=freshW();wiz.date=iso;alsoCalY=null;alsoCalM=null;gotoView('wizard');startWizard(0);}}
 
 /* 28-DAY WARNING */
+/* v5.21: Zaehlt nur ERFASSTE Tage ausserhalb von Arbeitsstaette/TGW; ein Tag ohne Eintrag unterbricht
+   die Zaehlung. Gemeldet wird die juengste Phase von mind. 28 Tagen in den letzten 90 Tagen – mit Zeitraum. */
+function abwesend28(){
+  const d=new Date(todayISO()+'T00:00');let streak=0,bis='',von='';
+  for(let i=0;i<=90;i++){const iso=isoLocalD(d);const e=state.entries.find(x=>x.date===iso);
+    if(i<90&&e&&!isWSDay(e)){streak++;if(!bis)bis=iso;von=iso;}
+    else{if(streak>=28)return{streak,von,bis};streak=0;bis='';von='';}
+    d.setDate(d.getDate()-1);}
+  return null;
+}
 function check28(targetId){
-  const d=new Date(todayISO()+'T00:00');let streak=0;
-  for(let i=0;i<90;i++){const iso=isoLocalD(d);const e=state.entries.find(x=>x.date===iso);
-    if(e&&isWSDay(e))streak=0;else streak++;
-    if(streak>=28){show28(streak,targetId);return;}d.setDate(d.getDate()-1);}
+  const r=abwesend28();
+  if(r){show28(r.streak,targetId,r);return;}
   hide28(targetId);
 }
 function isWSDay(e){
-  if(WS_CODES.has(e.dayCode))return true;
+  // v5.21: Lehrgang/Uebung an einem ANDEREN Ort ist eine Unterbrechung – nur AW/WFH zaehlen pauschal als Anwesenheit
+  if(['AW','WFH'].includes(e.dayCode))return true;
   const s=state.settings;const ws=fullA(s.addrWork).toLowerCase().slice(0,20);const tg=fullA(s.addrSecondary).toLowerCase().slice(0,20);
   const inAddr=addr=>addr&&([e.tripFrom,e.tripTo,e.workLocation,...(e.segs||[]).flatMap(sg=>[sg.fromLoc,sg.toLoc])].filter(Boolean).some(x=>x.toLowerCase().includes(addr)));
   const ws2=arb2Gueltig(e.date)?fullA(s.addrWork2).toLowerCase().slice(0,20):'';
   return isArbeitsstaetteDay(e)||inAddr(ws)||inAddr(tg)||inAddr(ws2);
 }
-function show28(streak,targetId){
-  const msg=`Du warst ${streak} Tage am Stück nicht an der Arbeitsstätte oder Trennungsgeldwohnung. Ab 28 Tagen kannst du erneut Verpflegungsmehraufwand (14 €/Tag für >8h, 28 €/Tag mehrtägig) steuerlich geltend machen!`;
+function show28(streak,targetId,r){
+  const zr=r?` (${fmtD(r.von)} – ${fmtD(r.bis)})`:'';
+  const msg=`Du warst ${streak} Tage am Stück nicht an der Arbeitsstätte oder Trennungsgeldwohnung${zr}. Eine Unterbrechung von mindestens 4 Wochen kann die Dreimonatsfrist für den Verpflegungsmehraufwand neu starten (§ 9 Abs. 4a EStG) – bitte mit der steuerlichen Beratung klären.`;
   ['w28','ov28'].forEach(id=>{const b=document.getElementById(id);if(b)b.style.display='flex';});
   const t1=document.getElementById('w28txt');if(t1)t1.textContent=msg;
   const t2=document.getElementById('ov28txt');if(t2)t2.textContent=msg;
@@ -2222,7 +2212,6 @@ function buildStep(id){
     case 'daytype': return buildDaytype();
     case 'travel':  return buildTravel();
     case 'work':    return buildWork();
-    case 'verpfl':  return buildVerpflStep();
     case 'costs':   return buildCosts();
     case 'save':    return buildSave();
     default: return '';
@@ -2463,74 +2452,6 @@ function buildWork(){
     </div>
   </div>`;
 }
-/* STEP: VERPFLEGUNG (eigener Schritt, siehe buildVerpfl() für den Karteninhalt) */
-function buildVerpflStep(){
-  const stepNum=getSteps(wiz.dayCode,wiz.dayCode2).findIndex(s=>s.id==='verpfl')+1;
-  return`<div class="wcard">
-    <div class="wcard-head"><h3>Schritt ${stepNum} · Verpflegung</h3><div class="sub">Unentgeltlich gestellte Mahlzeiten während der Abwesenheit erfassen (stehen nicht in der TG-Abrechnung).</div></div>
-    ${navBtns(true,true)}
-    <div class="wbody">
-      ${buildVerpfl()}
-    </div>
-  </div>`;
-}
-/* Unentgeltliche Verpflegung — je Mahlzeit drei Zustaende, weil der Bescheid
-   genau so rechnet: gestellt (GB) und eingenommen kuerzt, gestellt aber nicht
-   eingenommen (NE) kuerzt nicht.                                            */
-function buildVerpfl(){
-  const abzug=verpflAbzug(wiz);
-  const eur=v=>v.toFixed(2).replace('.',',');
-  const rows=VERPFL_MAHL.map(m=>{
-    const st=verpflStatus(wiz,m);
-    const b=(v,l,bg,fg)=>{
-      const on=st===v;
-      return`<button type="button" onclick="setVerpfl('${m}','${v}')"
-        style="flex:1 1 0;min-width:0;padding:7px 6px;font:inherit;font-size:12px;
-        cursor:pointer;border:1px solid ${on?bg:'var(--line)'};
-        background:${on?bg:'var(--card)'};color:${on?fg:'var(--muted)'};
-        font-weight:${on?'600':'400'};border-radius:7px;white-space:nowrap;
-        overflow:hidden;text-overflow:ellipsis">${l}</button>`;
-    };
-    return`<div style="margin-bottom:9px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-        <span style="font-size:13px;font-weight:500">${VERPFL_ICON[m]} ${VERPFL_LABEL[m]}</span>
-        <span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:${st==='ja'?'var(--warn)':'var(--muted)'}">
-          ${st==='ja'?'&minus;'+eur(tgAbzugSatz(wiz.date,m))+' &euro;':(st==='ne'?'kein Abzug':'&mdash;')}</span>
-      </div>
-      <div style="display:flex;gap:4px">
-        ${b('','nicht gestellt','var(--muted)','#fff')}
-        ${b('ja','gegessen','var(--gold)','var(--on-gold)')}
-        ${b('ne','nicht gegessen','var(--ok)','#fff')}
-      </div>
-    </div>`;}).join('');
-  return`<div class="card" id="verpflCard" style="margin-top:12px;background:var(--warns);border-color:var(--gold)">
-    <h3 style="font-size:13px;margin-bottom:3px">🍽 Unentgeltliche Verpflegung</h3>
-    <p style="font-size:11px;color:var(--muted);margin:0 0 11px;line-height:1.45">
-      Gekürzt wird nur, was gestellt <b>und</b> gegessen wurde &mdash; so rechnet auch der Bescheid.
-      Eine bereitgestellte, aber nicht eingenommene Mahlzeit lässt das Trennungstagegeld voll.</p>
-    ${rows}
-    <div style="border-top:1px solid var(--gold);margin-top:11px;padding-top:9px;display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-      <span style="font-size:12px;color:var(--muted)">Trennungstagegeld dieses Tages</span>
-      <span style="font-family:ui-monospace,Menlo,monospace;font-size:13.5px;font-weight:700;color:var(--navy)">${eur(TG_GRUND-abzug)}&nbsp;&euro;</span>
-    </div>
-    ${abzug>0?`<div style="font-size:10.5px;color:var(--muted);text-align:right;margin-top:2px;font-family:ui-monospace,Menlo,monospace">14,00 &minus; ${eur(abzug)}</div>`:''}
-  </div>`;
-}
-function setVerpfl(m,v){
-  const gb=(wiz.verpflegung||'').split(',').filter(Boolean);
-  const ne=(wiz.verpflegungNE||'').split(',').filter(Boolean);
-  const weg=(arr,x)=>{const i=arr.indexOf(x);if(i>=0)arr.splice(i,1);};
-  weg(gb,m);weg(ne,m);
-  if(v==='ja')gb.push(m);
-  else if(v==='ne'){gb.push(m);ne.push(m);}
-  wiz.verpflegung=VERPFL_MAHL.filter(x=>gb.includes(x)).join(',');
-  wiz.verpflegungNE=VERPFL_MAHL.filter(x=>ne.includes(x)).join(',');
-  wiz.verpflQuelle='manuell';
-  const sz=document.getElementById('verpflSaveZeile');if(sz)sz.outerHTML=verpflSaveZeile(wiz);
-  const el=document.getElementById('verpflCard');
-  if(el)el.outerHTML=buildVerpfl();
-}
-
 /* STEP 2 ALT: LOCATION */
 function buildLocation(){
   return`<div class="wcard">
@@ -2919,26 +2840,18 @@ function buildTplChips(){
   </div>`;
 }
 function verpflSaveZeile(w){
-  // Neuer Eintrag ohne Verpflegung: liegt fuer den Tag schon eine TG-Abrechnung vor, gleich uebernehmen
-  if(!w.verpflegung&&!w.verpflegungNE&&w.verpflQuelle!=='manuell'){
-    const h=bwVerpflTag(w.date);
-    if(bwVerpflAnwendbar(h,w,'')){w.verpflegung=h.verpflegung;w.verpflegungNE=h.verpflegungNE;w.verpflQuelle=h.quelle;}
-  }
+  verpflSync(w);   // v5.21: nur der Bescheid zaehlt
   const txt=VERPFL_MAHL.filter(m=>verpflStatus(w,m)!=='').map(m=>VERPFL_LABEL[m]+(verpflStatus(w,m)==='ne'?' (nicht eingenommen)':'')).join(', ');
   const tg=verpflAbzug(w)>0?` &middot; TG ${(TG_GRUND-verpflAbzug(w)).toFixed(2).replace('.',',')} &euro;`:'';
-  const q=w.verpflQuelle&&w.verpflQuelle!=='manuell'?esc(w.verpflQuelle):(w.verpflQuelle==='manuell'?'von Hand':'');
+  const q=w.verpflQuelle?esc(w.verpflQuelle):'';
   const inhalt=txt?esc(txt)+tg:(q?'keine gestellt':'<span style="color:var(--muted)">folgt mit der TG- bzw. Reisekostenabrechnung</span>');
   return`<div id="verpflSaveZeile"><b style="color:var(--navy)">Verpflegung:</b> ${inhalt}${q?` <span style="font-size:11px;color:var(--muted)">(${q})</span>`:''}
-    <a href="#" onclick="verpflManuell();return false" style="font-size:11px;margin-left:6px">ändern</a></div>`;
-}
-function verpflManuell(){
-  const host=document.getElementById('verpflEditHost');if(!host)return;
-  host.innerHTML=buildVerpfl()+'<div style="font-size:10.5px;color:var(--muted);margin-top:4px">Nur für Ausnahmen. Beim nächsten Hochladen einer TG- oder Reisekostenabrechnung für diesen Tag wird der Wert aus dem Bescheid übernommen.</div>';
+    <span style="font-size:11px;color:var(--muted);margin-left:6px">(nur aus TG-/Reisekostenabrechnung)</span></div>`;
 }
 function buildSave(){
   const w=wiz;const dt=DT[w.dayCode]||{n:'—'};
   const ttlCur={};
-  w.segs.forEach(s=>{if(segCostCounts(s)){const c=s.costCurr||'EUR';ttlCur[c]=(ttlCur[c]||0)+segCostAmt(s);}});
+  w.segs.forEach(s=>{if(segCostCounts(s)){const c=s.costCurr||'EUR';ttlCur[c]=(ttlCur[c]||0)+segCostRoh(s);}});
   if(w.costAmt){const c=w.costCurr||'EUR';ttlCur[c]=(ttlCur[c]||0)+parseFloat(w.costAmt);}
   const costs=Object.entries(ttlCur).map(([c,v])=>fmtM(v,c)).join(' + ')||'—';
   const segsStr=w.segs.filter(s=>s.enabled!==false&&s.mode).map(s=>`${s.mode}${s.fromLoc&&s.toLoc?' · '+esc(s.fromLoc)+' → '+esc(s.toLoc):''}${s.km?' · '+s.km+'km':''}`).join('<br>')||'—';
@@ -3149,6 +3062,7 @@ function saveEntry(){
   delete entry._alsoDates;
   if(!entry.created)entry.created=Date.now();
   delete entry._tmp;
+  verpflSync(entry);   // v5.21: Verpflegung nur aus Bescheiden
   [wiz.tripFrom,wiz.tripTo,wiz.stayLocation,wiz.workLocation].filter(Boolean).forEach(addToHistory);
   wiz.segs.forEach(s=>[s.fromLoc,s.toLoc].filter(Boolean).forEach(addToHistory));
   if(editId){const i=state.entries.findIndex(e=>e.id===editId);if(i>=0)state.entries[i]=entry;}
@@ -3161,8 +3075,7 @@ function saveEntry(){
     const clone=JSON.parse(JSON.stringify(entry));
     clone.id=uid();clone.date=d;clone.created=Date.now();clone.updated=Date.now();
     // Verpflegung nicht kopieren — sie kommt je Tag aus der TG-Abrechnung
-    clone.verpflegung='';clone.verpflegungNE='';clone.verpflQuelle='';
-    {const h=bwVerpflTag(d);if(bwVerpflAnwendbar(h,clone,'')){clone.verpflegung=h.verpflegung;clone.verpflegungNE=h.verpflegungNE;clone.verpflQuelle=h.quelle;}}
+    delete clone.verpflManuellAlt;verpflSync(clone);
     state.entries.push(clone);angelegt++;
   });
   editId=null;persist();renderCal();
@@ -3209,6 +3122,7 @@ function deleteEntry(id){
 function restoreTrash(id){
   const t=trashList();const i=t.findIndex(x=>x.entry&&x.entry.id===id);if(i<0)return;
   const e=t[i].entry;t.splice(i,1);
+  e.updated=Date.now();   // v5.21: juenger als die Loeschung → wird beim Abgleich nicht erneut entfernt
   const dup=state.entries.some(x=>x.date===e.date);
   state.entries.push(e);persist();refreshAfterEntryChange();
   toast(dup?`Wiederhergestellt — Achtung: am ${fmtD(e.date)} gibt es jetzt zwei Einträge`:`Eintrag ${fmtD(e.date)} wiederhergestellt`,dup?'err':'ok');
@@ -3581,17 +3495,21 @@ function urlaubFvdStatus(year){
   const yr=String(year||new Date().getFullYear());
   const inYear=d=>d&&d.startsWith(yr);
   // Urlaub
-  const urAnspruch=parseFloat(s.urlaubJahr)||0;
+  const urAnspruch=Math.max(0,parseFloat(s.urlaubJahr)||0);
   const urUebertrag=parseFloat(s.urlaubUebertrag)||0;
   const urGesamt=urAnspruch+urUebertrag;
-  const urGenommen=state.entries.filter(e=>e.dayCode==='UR'&&inYear(e.date)&&e.urlaubCounts!==false).length;
-  const urNichtGez=state.entries.filter(e=>e.dayCode==='UR'&&inYear(e.date)&&e.urlaubCounts===false).length;
+  // v5.21: Urlaub/FvD zaehlt nur an Arbeitstagen (Mo–Fr, kein Feiertag, nicht 24./31.12.), auch als 2. Tagesart
+  const hol=getBayernHolidays(parseInt(yr));
+  const arbTag=d=>{const w=new Date(d+'T12:00').getDay();return w!==0&&w!==6&&!hol.has(d)&&!/-12-(24|31)$/.test(d);};
+  const urTage=state.entries.filter(e=>hatCode(e,['UR'])&&inYear(e.date)&&arbTag(e.date));
+  const urGenommen=urTage.filter(e=>e.urlaubCounts!==false).length;
+  const urNichtGez=urTage.filter(e=>e.urlaubCounts===false).length;
   // FvD: Anspruch = nicht ausgezahlte §30c-Tage des Jahres
   const freeAll=p30FreeDatesAll();
   const fvdAnspruch=[...freeAll].filter(inYear).length;
   const fvdUebertrag=parseFloat(s.fvdUebertrag)||0;
   const fvdGesamt=fvdAnspruch+fvdUebertrag;
-  const fvdGenommen=state.entries.filter(e=>e.dayCode==='FVD'&&inYear(e.date)).length;
+  const fvdGenommen=state.entries.filter(e=>hatCode(e,['FVD'])&&inYear(e.date)&&arbTag(e.date)).length;
   return{yr,
     urAnspruch,urUebertrag,urGesamt,urGenommen,urNichtGez,urRest:urGesamt-urGenommen,
     fvdAnspruch,fvdUebertrag,fvdGesamt,fvdGenommen,fvdRest:fvdGesamt-fvdGenommen};
@@ -3660,7 +3578,7 @@ function parseBwBescheid(txt){
     o.nr=g(/Monatsabrechnung Trennungsgeld Nr\.?\s*(\d+)/i);
     const zm=/Zeitraum\s*:?\s*(\d{1,2})\/(\d{4})/.exec(t);
     if(zm)o.periode=zm[2]+'-'+String(zm[1]).padStart(2,'0');
-    o.anlass=g(/Anlass\s*:?\s*(.+)/);
+    o.anlass=g(/Anlass\s*:?\s*(.+?)(?=\s+Gesamtabrechnung|\s+Auslagenersatz|\n|$)/);   // v5.21: PDF.js liefert eine Zeile je Seite
     // Betraege mit Steuersplit: <Gesamt> <steuerfrei> <steuerpflichtig>
     const uk=/Auslagenersatz Unterkunft\s+(\d+)\s*\/\s*(\d+)[\s\d.,]*?([\d.,]+)\s+([\d.,]+)\s+([\d.,-]+)(?=\s+(?:Trennungstagegeld|Fahrkosten|Die\s|Anrechnung)|\s*$)/m.exec(t);
     if(uk){o.ukTage=parseInt(uk[1])||0;o.unterkunft=bwNum(uk[3]);o.ukSteuerfrei=bwNum(uk[4]);o.ukStpfl=bwNum(uk[5]);}
@@ -3768,8 +3686,9 @@ function parseBwBescheid(txt){
     const rv=/Reise vom\s*:?\s*(\d{2}\.\d{2}\.\d{2})[^]*?bis\s+(\d{2}\.\d{2}\.\d{2})/.exec(t);
     if(rv){o.von=bwDate(rv[1]);o.bis=bwDate(rv[2]);o.periode=o.von.slice(0,7);}
     o.ziel=bwZielClean(g(/Reise nach\s*:?\s*(.+)/));
-    o.anlass=g(/Anlass\s*:?\s*(.+)/);
-    o.land=g(/Land\s*:?\s*(.+)/);
+    // v5.21: ohne Zeilenumbrueche (PDF.js) liefen Anlass/Land bis zum Seitenende
+    o.anlass=g(/Anlass\s*:?\s*(.+?)(?=\s+Land\s*:|\s+Gesamtabrechnung|\n|$)/);
+    o.land=g(/Land\s*:?\s*(.+?)(?=\s+Gesamtabrechnung|\s+Fahrkosten|\n|$)/);
     const fk=/Fahrkosten und sonstige Kosten[^\n]*?\s([\d.,]+)\s+([\d.,]+)\s+([\d.,-]+)/.exec(t);
     if(fk){o.fahrkosten=bwNum(fk[1]);o.fkSteuerfrei=bwNum(fk[2]);o.fkStpfl=bwNum(fk[3]);}
     // Beginn und Ende des Dienstgeschaefts (abweichend von der Reisedauer)
@@ -4255,7 +4174,7 @@ function ntApplyOne(day){
   const p=day.patch;let ex=ntEntry(day.date);
   if(!ex){ex=Object.assign(freshW(),{date:day.date,id:uid(),created:Date.now()});state.entries.push(ex);}
   ex.dayCode=p.dayCode;ex.dayCode2=p.dayCode2||'';ex.dual=!!p.dayCode2;
-  ex.isFHF=!!p.isFHF;ex.verpflegung=p.verpflegung||'';ex.verpflegungNE=p.verpflegungNE||'';
+  ex.isFHF=!!p.isFHF;verpflSync(ex);   // v5.21: Verpflegung nur aus Bescheiden, nicht aus dem Nachtrag
   ex.useFahrt=p.useFahrt!==false;ex.useAufenthalt=!!p.useAufenthalt;ex.costEnabled=p.costEnabled!==false;
   ['workLocation','workLocation2','stayLocation','nachweis'].forEach(k=>{if(p[k])ex[k]=p[k];});
   ex.segs=ntSegs(day);
@@ -4665,7 +4584,7 @@ function monatsUebersicht(yr){
       if(e.isFHF===true&&e.dayCode!=='RF')fhf++;
       if(['DR','LG','ÜB','ES','EGV'].includes(e.dayCode))abw++;
       (e.segs||[]).filter(s=>s.enabled!==false).forEach(s=>{
-        km+=parseFloat(s.km)||0;
+        if(DISP_KM_GRUPPEN.has(MODE_GRUPPE[s.mode]||'Sonstige'))km+=parseFloat(s.km)||0;   // v5.21: wie Jahreskarte
         if(segCostCounts(s))kost+=segCostAmt(s);
       });
     });
@@ -4696,14 +4615,14 @@ function jahresUebersicht(yr){
     (e.segs||[]).filter(s=>s.enabled!==false).forEach(s=>{
       const grp=MODE_GRUPPE[s.mode]||(s.mode?'Sonstige':null);
       const km=parseFloat(s.km)||0;
-      if(grp&&km>0){u.kmGrp[grp]=(u.kmGrp[grp]||0)+km;u.kmGesamt+=km;}
+      if(grp&&km>0){u.kmGrp[grp]=(u.kmGrp[grp]||0)+km;if(DISP_KM_GRUPPEN.has(grp))u.kmGesamt+=km;}   // v5.21: Summe = angezeigte Verkehrsmittel (ohne Dienst-Kfz)
       if(segCostCounts(s)){
         const g2=grp||'Sonstige';
-        const amt=segCostAmt(s);
+        const amt=segCostAmt(s);if(!amt)return;
         u.kostGrp[g2]=(u.kostGrp[g2]||0)+amt;u.kostGesamt+=amt;
       }
     });
-    const ec=parseFloat(e.costAmt)||0;
+    const ec=(!e.costCurr||e.costCurr==='EUR')?(parseFloat(e.costAmt)||0):0;
     if(ec>0){u.kostGrp['Sonstige']=(u.kostGrp['Sonstige']||0)+ec;u.kostGesamt+=ec;}
   });
   u.bw=bwSummen(y);
@@ -4743,11 +4662,12 @@ function vmaBerechnung(yr){
   // Tage am eigenen Hausstand: zwischen Heimfahrt (HF) und Rueckfahrt (RF)
   const zuHause=new Set();
   for(let i=0;i<imFenster.length;i++){
-    if(imFenster[i].dayCode!=='HF')continue;
+    if(!hatCode(imFenster[i],['HF']))continue;
+    // v5.21: bis zur Rueckfahrt – ohne 7-Tage-Grenze; fehlt die RF, endet es am naechsten Dienstort-Tag
     for(let j=i+1;j<imFenster.length;j++){
-      if(imFenster[j].dayCode==='RF')break;
-      zuHause.add(imFenster[j].date);
-      if(j-i>7)break;
+      const x=imFenster[j];
+      if(hatCode(x,['RF','HF'])||hatCode(x,['AW','WFH'])||isArbeitsstaetteDay(x))break;
+      zuHause.add(x.date);
     }
   }
   /* Einstufung je Kalendertag (§ 9 Abs. 4a Satz 3 EStG):
@@ -4758,17 +4678,19 @@ function vmaBerechnung(yr){
   imFenster.forEach(e=>{
     let satz=VOLL,art='voll';
     if(['UR','KR','FVD'].includes(e.dayCode)){satz=0;art='kein Ansatz';}
-    else if(e.dayCode==='HF'||e.dayCode==='RF'||(BF_TG_REISETAG&&e.dayCode==='BF')){satz=TEIL;art=e.dayCode==='BF'?'Besuchsfahrt (Reisetag)':'An-/Abreisetag';}
+    else if(hatCode(e,['HF','RF'])||(BF_TG_REISETAG&&hatCode(e,['BF']))){satz=TEIL;art=hatCode(e,['BF'])?'Besuchsfahrt (Reisetag)':'An-/Abreisetag';}
     else if(zuHause.has(e.date)){satz=0;art='am Hausstand';}
     if(satz===VOLL)nVoll++;else if(satz===TEIL)nHalb++;else nNull++;
     brutto+=satz;
     let k=0;
-    const v=verpfl[e.date];
-    if(v&&satz>0){
+    // v5.21: steuerlich kuerzt jede GESTELLTE Mahlzeit – auch wenn sie nicht eingenommen wurde
+    // (§ 9 Abs. 4a Satz 8 EStG). Quelle: TG- und Reisekosten-Bescheide.
+    const vh=bwVerpflTag(e.date),gest=vh?vh.verpflegung.split(','):[];
+    if(gest.length&&satz>0){
       // Kuerzung bemisst sich stets nach der VOLLEN Tagespauschale
-      if(v.fruehstueck)k+=VOLL*0.20;
-      if(v.mittag)k+=VOLL*0.40;
-      if(v.abend)k+=VOLL*0.40;
+      if(gest.includes('frühstück'))k+=VOLL*0.20;
+      if(gest.includes('mittag'))k+=VOLL*0.40;
+      if(gest.includes('abend'))k+=VOLL*0.40;
       k=Math.min(k,satz); // Kuerzung kann den Tagesbetrag nicht uebersteigen
     }
     kuerzung+=k;
@@ -4793,24 +4715,53 @@ function vmaBerechnung(yr){
    - angesetzt: Flug = tatsaechliche Kosten; Bahn + Bus/OePNV = hoeherer Wert aus tatsaechlichen Kosten und
      ihrem Pauschalanteil (Jahresvergleich); Privat-Kfz, Taxi, Mietwagen, Sonstige = nur Pauschale
      (Taxi ist kein oeffentliches Verkehrsmittel, BFH-Urteil vom 09.06.2022); Dienst-Kfz = 0. */
+/* v5.21: EINE Liste der Familienheimfahrten fuer Uebersicht UND Jahresbeleg.
+   Jede tatsaechliche Heimfahrt zaehlt (Hinfahrt = Code HF oder FHF-Haken ohne RF, auch als
+   2. Tagesart), hoechstens eine je Kalenderwoche (§ 9 Abs. 1 Satz 3 Nr. 5 EStG; erstattete
+   bevorzugt). Zugeordnet wird die Rueckfahrt = naechster RF-Eintrag vor der naechsten Hinfahrt. */
+function isoWoche(ds){const d=new Date(ds+'T12:00');
+  const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  t.setUTCDate(t.getUTCDate()+4-(t.getUTCDay()||7));
+  const y0=new Date(Date.UTC(t.getUTCFullYear(),0,1));
+  return t.getUTCFullYear()+'-W'+String(Math.ceil(((t-y0)/86400000+1)/7)).padStart(2,'0');}
+function istHinfahrt(e){return hatCode(e,['HF'])||(e.isFHF===true&&!hatCode(e,['RF']));}
+function heimfahrtenJahr(yr){
+  const y=String(yr);
+  const alle=state.entries.filter(e=>e.date).sort((a,b)=>a.date.localeCompare(b.date));
+  const proWoche={};
+  alle.filter(e=>e.date.startsWith(y)&&istHinfahrt(e)).forEach(e=>{const w=isoWoche(e.date);
+    if(!proWoche[w]||(e.isFHF===true&&proWoche[w].isFHF!==true))proWoche[w]=e;});
+  return Object.values(proWoche).sort((a,b)=>a.date.localeCompare(b.date)).map(hin=>{
+    const i=alle.indexOf(hin);let rf=null;
+    for(let j=i+1;j<alle.length;j++){const x=alle[j];if(istHinfahrt(x))break;if(hatCode(x,['RF'])){rf=x;break;}}
+    return{hin,rf};});
+}
+/* v5.21: Arbeitsstaetten-Tage fuer die Entfernungspauschale Zweitwohnung – Arbeitsstaette.
+   Am Heimfahrt- bzw. Rueckfahrttag wird nur EIN Weg zurueckgelegt (morgens hin, abends nach
+   Hause bzw. umgekehrt) → nur die halbe Pauschale (BFH 12.02.2020, VI R 42/17). */
+function pendelTageJahr(yr){
+  const y=String(yr);
+  return state.entries.filter(e=>e.date&&e.date.startsWith(y)&&isArbeitsstaetteDay(e))
+    .sort((a,b)=>a.date.localeCompare(b.date))
+    .map(e=>({e,faktor:hatCode(e,['HF','RF'])?0.5:1}));
+}
 function fhfTatsaechlicheKosten(yr,kmFhfPauschale,epKm){
   const y=String(yr);
-  const ents=state.entries.filter(e=>e.date&&e.date.startsWith(y)&&e.isFHF===true).sort((a,b)=>a.date.localeCompare(b.date));
+  const trips=heimfahrtenJahr(y);
   const GR=['Flugzeug','Bahn','Bus/ÖPNV','Taxi','Privat-Kfz','Mietwagen','Dienst-Kfz','Sonstige'];
   const M={};GR.forEach(g=>M[g]={km:0,bezahlt:0,pauschKm:0,pausch:0,fahrten:0});
   const tgwArb=sg=>{const ca=locClass(sg.fromLoc),cb=locClass(sg.toLoc);return !!(ca&&cb&&[ca,cb].sort().join('|')==='FRL|WORK');};
   const fahrten=[];let hfMitSegmente=0,hfOhneSegmente=0,fallback=0;
-  ents.forEach(e=>{
-    const legs=(e.segs||[]).filter(sg=>sg.enabled!==false&&sg.mode&&!tgwArb(sg)).map(sg=>({g:GR.includes(MODE_GRUPPE[sg.mode])?MODE_GRUPPE[sg.mode]:'Sonstige',km:parseFloat(sg.km)||0,k:segCostAmt(sg)}));
-    legs.forEach(l=>{M[l.g].km+=l.km;M[l.g].bezahlt+=l.k;});
-    const hin=!hatCode(e,['RF']);
-    if(!hin)return;
+  const legsVon=e=>(e?(e.segs||[]):[]).filter(sg=>sg.enabled!==false&&sg.mode&&!tgwArb(sg)).map(sg=>({g:GR.includes(MODE_GRUPPE[sg.mode])?MODE_GRUPPE[sg.mode]:'Sonstige',km:parseFloat(sg.km)||0,k:segCostAmt(sg)}));
+  trips.forEach(({hin:e,rf})=>{
+    const legs=legsVon(e);
+    [...legs,...legsVon(rf)].forEach(l=>{M[l.g].km+=l.km;M[l.g].bezahlt+=l.k;});
     const mitFlug=legs.some(l=>l.g==='Flugzeug');
     const boden=legs.filter(l=>l.g!=='Flugzeug'&&l.km>0);
     const bodenKm=boden.reduce((a,l)=>a+l.km,0);
     if(!legs.length||(!mitFlug&&!bodenKm)){
       hfOhneSegmente++;const p=epKm(Math.floor(kmFhfPauschale));fallback+=p;
-      fahrten.push({datum:e.date,basis:Math.floor(kmFhfPauschale),pausch:p,anteile:{},flug:false,ohne:true,kosten:legs.reduce((a,l)=>a+l.k,0)});return;}
+      fahrten.push({datum:e.date,basis:Math.floor(kmFhfPauschale),pausch:p,ansatz:p,anteile:{},flug:false,ohne:true,isFHF:e.isFHF===true,rfDatum:rf?rf.date:'',kosten:legs.reduce((a,l)=>a+l.k,0)});return;}
     hfMitSegmente++;
     const basis=Math.floor(mitFlug?bodenKm:kmFhfPauschale);
     const pausch=epKm(basis);
@@ -4818,7 +4769,8 @@ function fhfTatsaechlicheKosten(yr,kmFhfPauschale,epKm){
     boden.forEach(l=>{const f=bodenKm?l.km/bodenKm:0;anteile[l.g]=anteile[l.g]||{km:0,eur:0};anteile[l.g].km+=basis*f;anteile[l.g].eur+=pausch*f;});
     Object.keys(anteile).forEach(g=>{M[g].pauschKm+=anteile[g].km;M[g].pausch+=g==='Dienst-Kfz'?0:anteile[g].eur;M[g].fahrten++;});
     if(mitFlug)M['Flugzeug'].fahrten++;
-    fahrten.push({datum:e.date,basis,pausch,anteile,flug:mitFlug,kosten:legs.reduce((a,l)=>a+l.k,0)});
+    const dkAnteil=anteile['Dienst-Kfz']?anteile['Dienst-Kfz'].eur:0;   // Dienstwagen: keine Pauschale (§ 9 Abs. 1 S. 3 Nr. 5 EStG)
+    fahrten.push({datum:e.date,basis,pausch,ansatz:pausch-dkAnteil,anteile,flug:mitFlug,isFHF:e.isFHF===true,rfDatum:rf?rf.date:'',kosten:legs.reduce((a,l)=>a+l.k,0)});
   });
   M['Dienst-Kfz'].pausch=0;
   const oevKosten=M['Bahn'].bezahlt+M['Bus/ÖPNV'].bezahlt, oevPausch=M['Bahn'].pausch+M['Bus/ÖPNV'].pausch;
@@ -4830,7 +4782,8 @@ function fhfTatsaechlicheKosten(yr,kmFhfPauschale,epKm){
     pkwKm:M['Privat-Kfz'].km,pkwPauschale:M['Privat-Kfz'].pausch,
     bahnKm:M['Bahn'].km,bahnKosten:M['Bahn'].bezahlt,busKm:M['Bus/ÖPNV'].km,busKosten:M['Bus/ÖPNV'].bezahlt,
     taxiKosten:M['Taxi'].bezahlt,taxiPauschale:M['Taxi'].pausch,
-    hfMitSegmente,hfOhneSegmente,fallback,kmFhfPauschale,
+    hfMitSegmente,hfOhneSegmente,fallback,kmFhfPauschale,trips,
+    oepnvMehr:Math.max(0,oevKosten-oevPausch),
     gesamt:M['Flugzeug'].bezahlt+oepnvAngesetzt+sonstPausch+fallback};
 }
 /* Deutschlandticket als tatsaechliche Kosten oeffentlicher Verkehrsmittel.
@@ -4905,12 +4858,14 @@ function dhfUnterkunftAnteilig(yr,miete,anzBescheide){
   const capped=Math.min(miete,1000);
   if(!capped)return 0;
   const s=state.settings,y=parseInt(yr);
-  if(!s.dhfStart)return capped*(anzBescheide||12);
+  if(!s.dhfStart)return capped*(anzBescheide||0);   // v5.21: ohne Beginn nur Monate mit TG-Bescheid
   const start=new Date(s.dhfStart+'T12:00');
   if(isNaN(start))return capped*(anzBescheide||12);
   const ende=s.dhfEnde?new Date(s.dhfEnde+'T12:00'):new Date(y,11,31,12);
   const jA=new Date(y,0,1,12),jE=new Date(y,11,31,12);
-  const von=start>jA?start:jA, bis=ende<jE?ende:jE;
+  // v5.21: nicht ueber den laufenden Monat hinaus (sonst Zukunftsmieten gegen bisherige Erstattungen)
+  const heute=new Date(),mE=new Date(heute.getFullYear(),heute.getMonth()+1,0,12);
+  const von=start>jA?start:jA, bis=[ende,jE,mE].reduce((a,b)=>b<a?b:a);
   if(bis<von)return 0;
   let summe=0;
   let cursor=new Date(von.getFullYear(),von.getMonth(),1,12);
@@ -4930,7 +4885,7 @@ function dhfVergleich(yr){
   const y=String(yr),s=state.settings;
   const U=jahresUebersicht(y),BW=U.bw;
   const Y=parseInt(y);
-  const epKm=km=>!km?0:(Y>=2026?km*0.38:(km<=20?km*0.30:20*0.30+(km-20)*0.38));
+  const epKm=km=>{km=Math.floor(Math.max(0,km||0));return !km?0:(Y>=2026?km*0.38:(km<=20?km*0.30:20*0.30+(km-20)*0.38));};
   const rD=(s.fkRoutes||[]).find(r=>r.type==='daily')||{};
   const rW=(s.fkRoutes||[]).find(r=>r.type==='weekly')||{};
   const KM_TAG=parseFloat(rD.km)||21, KM_FHF=parseFloat(rW.km)||700;
@@ -4940,7 +4895,8 @@ function dhfVergleich(yr){
   const dhfUnterkunft=dhfUnterkunftAnteilig(y,miete,monate);
   // Fahrten Zweitwohnung–Arbeitsstaette: Entfernungspauschale gegen die tatsaechlichen
   // OePNV-Kosten (Deutschlandticket) stellen, der hoehere Betrag zaehlt (§ 9 Abs. 2 S. 2 EStG).
-  const fahrtPausch=U.arbTage*epKm(KM_TAG);
+  const PT=pendelTageJahr(y);
+  const fahrtPausch=PT.reduce((a,x)=>a+x.faktor*epKm(KM_TAG),0);   // v5.21: HF/RF-Tag nur halbe Pauschale
   const DTK=dtKostenImJahr(y);
   const dhfFahrten=Math.max(fahrtPausch,DTK.gesamt);
   const FHF=fhfTatsaechlicheKosten(y,KM_FHF,epKm);
@@ -5413,12 +5369,24 @@ function checkBoxAnalyze(){
       if(s===null||en===null)add('err','Arbeitszeit','Ungültiges Zeitformat',e.date,e.id);
       else{
         let raw=en-s;if(raw<=0)raw+=1440;
-        if(raw>20*60)add('warn','Arbeitszeit',`Dienstdauer ${(raw/60).toFixed(1)} h – unplausibel lang`,e.date,e.id);
+        // v5.21: Dienst ueber Mitternacht wird auf zwei Tage aufgeteilt (Ende 00:00 / Folgetag ab 00:00)
+        if(en===s&&s!==0)add('err','Arbeitszeit',`Beginn = Ende (${e.workStart}) – Dienstdauer 0 h. Ganzer Tag: 00:00 bis 00:00`,e.date,e.id);
+        else if(en<s&&en!==0)add('warn','Arbeitszeit',`Ende ${e.workEnd} vor Beginn ${e.workStart} – Dienst über Mitternacht bitte auf zwei Tage aufteilen (Ende 00:00, Folgetag ab 00:00)`,e.date,e.id);
+        if(raw>20*60&&en!==s)add('warn','Arbeitszeit',`Dienstdauer ${(raw/60).toFixed(1)} h – unplausibel lang`,e.date,e.id);
         if(raw<60&&!dt.noT)add('info','Arbeitszeit',`Dienstdauer nur ${raw} min`,e.date,e.id);
       }
     }
   });
 
+  // v5.21: Heimfahrt ohne Rueckfahrt
+  {const alleS=state.entries.filter(x=>x.date).sort((a,b)=>a.date.localeCompare(b.date));
+   ents.filter(e=>hatCode(e,['HF'])).forEach(e=>{
+     const i=alleS.indexOf(e);let ok=false,folgt=false;
+     for(let j=i+1;j<alleS.length;j++){const x=alleS[j];
+       if(hatCode(x,['RF'])){ok=true;break;}
+       if(hatCode(x,['HF'])||hatCode(x,['AW','WFH'])||isArbeitsstaetteDay(x)){folgt=true;break;}}
+     if(!ok&&folgt)add('warn','FHF','Heimfahrt ohne Rückfahrt (RF) – bitte die Rückfahrt erfassen; Trennungsgeld und Verpflegung rechnen sonst ab dem nächsten Dienstort-Tag',e.date,e.id);
+   });}
   // ── C. Dienstort ──
   ents.forEach(e=>{
     const dt=DT[e.dayCode]||{};
@@ -5437,6 +5405,8 @@ function checkBoxAnalyze(){
       const n=`Strecke ${ix+1}`;
       if(s.mode&&!s.km&&s.mode!=='Flugzeug')add('warn','Fahrt',`${n}: Reisemittel „${s.mode}" ohne Kilometer`,e.date,e.id);
       if(s.km&&!s.mode)add('warn','Fahrt',`${n}: ${s.km} km ohne Reisemittel`,e.date,e.id);
+      if(s.costAmt&&segCostCounts(s)&&!segIstEUR(s))add('warn','Kosten',`${n}: ${s.costAmt} ${s.costCurr} – Fremdwährung zählt in keiner Summe; Betrag bitte in EUR erfassen`,e.date,e.id);
+      if(s.mode==='PKW-D'&&parseFloat(s.km)>0&&hatCode(e,['HF','RF']))add('info','Fahrt',`${n}: Familienheimfahrt mit Dienstwagen – keine Entfernungspauschale (§ 9 Abs. 1 Satz 3 Nr. 5 EStG)`,e.date,e.id);
       if(s.dep&&s.arr){
         const d=toMin(s.dep),a=toMin(s.arr);
         if(d!==null&&a!==null&&a<d&&(d-a)<12*60)
@@ -5757,7 +5727,7 @@ function checkBoxAnalyze(){
         const _cov=s.enabled!==false&&s.costEnabled!==false&&s.costScope==='covered'&&parseFloat(s.costAmt)>0;
         if(!segCostCounts(s)&&!_cov)return;
         if(/Deutschlandticket|Pendlerpauschale/i.test(s.costType||''))return;
-        kosten.push({covered:_cov,date:e.date,id:e.id,nr:si+1,betrag:_cov?(parseFloat(s.costAmt)||0):segCostAmt(s),
+        kosten.push({covered:_cov,date:e.date,id:e.id,nr:si+1,betrag:_cov?(parseFloat(s.costAmt)||0):segCostRoh(s),
           curr:s.costCurr||'EUR',art:s.costType||s.mode||'Fahrt',mode:s.mode||'',
           von:s.fromLoc||'',bis:s.toLoc||'',isFHF:e.isFHF===true,code:e.dayCode,code2:e.dayCode2||'',
           legacy:!!(s.recIds&&s.recIds.some(inAblage))});
@@ -6260,12 +6230,8 @@ function renderFhfCard(){
   </div>`;
 }
 function check28W(){
-  const d=new Date(todayISO()+'T00:00');let streak=0;
-  for(let i=0;i<90;i++){const iso=isoLocalD(d);const e=state.entries.find(x=>x.date===iso);
-    if(e&&isWSDay(e))streak=0;else streak++;
-    if(streak>=28)return{triggered:true,msg:`${streak} Tage am Stück nicht an Arbeitsstätte/TGW. Verpflegungsmehraufwand (14€/Tag für >8h, 28€/Tag mehrtägig) wieder anrechenbar!`};
-    d.setDate(d.getDate()-1);}
-  return{triggered:false};
+  const r=abwesend28();
+  return r?{triggered:true,msg:`${r.streak} Tage am Stück nicht an Arbeitsstätte/TGW (${fmtD(r.von)} – ${fmtD(r.bis)}). Unterbrechung ≥ 4 Wochen: Dreimonatsfrist Verpflegungsmehraufwand kann neu beginnen.`}:{triggered:false};
 }
 function renderOvStats(list){
   const el=document.getElementById('ovStats');if(!el)return;
@@ -6997,7 +6963,7 @@ function loadSettings(){
   const fhfE=document.getElementById('sFhfEnde');if(fhfE)fhfE.value=s.fhfEnde||'';
   const fhfA=document.getElementById('sFhfAnlage');if(fhfA)fhfA.value=s.fhfAnlageNr||42;
   const setV=(id,v)=>{const el=document.getElementById(id);if(el)el.value=(v!=null?v:'');};
-  setV('sRSoFe',s.rSoFe);setV('sRSa13',s.rSa13);setV('sRNacht',s.rNacht);setV('sTaxRate',s.taxRate);
+  setV('sRSoFe',s.rSoFe);setV('sRSa13',s.rSa13);setV('sRNacht',s.rNacht);setV('sTaxRate',s.taxRate);setV('sRMav',s.rMav);
   const dc=document.getElementById('sDupCheck');if(dc)dc.checked=!s.dupCheckHidden;
   setV('sUrlaubJahr',s.urlaubJahr);setV('sUrlaubUebertrag',s.urlaubUebertrag);setV('sFvdUebertrag',s.fvdUebertrag);setV('sMieteZweit',s.mieteZweit);setV('sDhfStart',s.dhfStart);setV('sDhfEnde',s.dhfEnde);setV('sTgEnde',s.tgEnde);setV('sVmaVoll',s.vmaVoll);
   ['sBK1','sBK2','sBK3','sBK4'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.value=[s.bk1,s.bk2,s.bk3,s.bk4][i]||'';});
@@ -7038,6 +7004,7 @@ function saveSettings(){
     vmaVoll:parseFloat(document.getElementById('sVmaVoll')?.value)||null,
     rSoFe:parseFloat(document.getElementById('sRSoFe')?.value)||null,
     rSa13:parseFloat(document.getElementById('sRSa13')?.value)||null,
+    rMav:parseFloat(document.getElementById('sRMav')?.value)||null,
     rNacht:parseFloat(document.getElementById('sRNacht')?.value)||null,
     taxRate:(document.getElementById('sTaxRate')?.value!==''&&document.getElementById('sTaxRate')?.value!=null)?parseFloat(document.getElementById('sTaxRate').value):null,
     bk1:(document.getElementById('sBK1')?.value||'').trim(),bk2:(document.getElementById('sBK2')?.value||'').trim(),
@@ -7292,7 +7259,7 @@ async function doPrint(slim){
   const costItems=[];
   list.forEach(e=>{
     (e.segs||[]).filter(s=>segCostCounts(s)).forEach(s=>{
-      costItems.push({date:e.date,code:e.dayCode,type:s.costType||'Sonstiges',amt:segCostAmt(s),curr:s.costCurr||'EUR',desc:(s.costDesc||'')+scopeNote(s)});
+      costItems.push({date:e.date,code:e.dayCode,type:s.costType||'Sonstiges',amt:segCostRoh(s),curr:s.costCurr||'EUR',desc:(s.costDesc||'')+scopeNote(s)});
     });
     if(e.costAmt)
       costItems.push({date:e.date,code:e.dayCode,type:e.costType||'Sonstiges',amt:parseFloat(e.costAmt)||0,curr:e.costCurr||'EUR',desc:e.costDesc||''});
@@ -7962,7 +7929,8 @@ async function genDienstXlsx(){
       const e=zeEntry(dayMap[ds]);if(!e)continue;
       const row=d+7;
       if(e.workStart)ws.cell('E'+row).value(excelTime(e.workStart));
-      if(e.workEnd)ws.cell('F'+row).value(excelTime(e.workEnd));
+      // v5.21: Ende 00:00 = Mitternacht → 1,0 (24:00), sonst rechnet die Vorlage (P = F - E) negativ
+      if(e.workEnd)ws.cell('F'+row).value(e.workEnd==='00:00'||e.workEnd==='24:00'?1:excelTime(e.workEnd));
       if(e.workStart2&&e.workEnd2){ws.cell('G'+row).value(excelTime(e.workStart2));ws.cell('H'+row).value(excelTime(e.workEnd2));}
       const zeCode=zeText(e);
       if(zeCode){ws.cell('I'+row).value(zeCode);if(zeCode.length>24)ws.cell('I'+row).style('shrinkToFit',true);} // lange Doppel-Taetigkeit: Schrift verkleinern statt abschneiden
@@ -8173,6 +8141,7 @@ function openFkModal(){
 }
 
 function calcEP(km,tage,year){
+  km=Math.floor(Math.max(0,parseFloat(km)||0));   // v5.21: nur volle Entfernungskilometer, nie negativ
   if(!km||!tage)return{proTag:0,gesamt:0,flat:false};
   const yr=parseInt(year)||new Date().getFullYear();
   let proTag;
@@ -8210,7 +8179,7 @@ async function genFahrtkostenPdf(){
   if(!s.name){toast('Bitte Name in Einstellungen eintragen','err');return;}
   const Y=parseInt(yr);
   const SATZ=Y>=2026?0.38:null; // ab 2026 einheitlich; davor gestaffelt
-  const epKm=km=>{if(!km||km<=0)return 0;
+  const epKm=km=>{km=Math.floor(Math.max(0,km||0));if(!km)return 0;
     return Y>=2026?km*0.38:(km<=20?km*0.30:20*0.30+(km-20)*0.38);};
   const DR_SATZ=0.30; // Dienstreise-Kilometerpauschale (tatsaechlich gefahrene km)
 
@@ -8231,49 +8200,29 @@ async function genFahrtkostenPdf(){
   const isFlug=x=>x.mode==='Flugzeug';
 
   /* ── TEIL A: Taegliche Fahrten Zweitwohnung -> Arbeitsstaette ── */
-  const teilA=all.filter(e=>isArbeitsstaetteDay(e)).map(e=>({
-    date:e.date,code:e.dayCode,km:KM_TAG,ep:epKm(KM_TAG)}));
-  const sumA=teilA.reduce((a,x)=>a+x.ep,0);
+  // v5.21: am HF-/RF-Tag nur ein Weg → halbe Pauschale (BFH VI R 42/17)
+  const teilA=pendelTageJahr(yr).map(({e,faktor})=>({
+    date:e.date,code:codeText(e),km:KM_TAG,ep:epKm(KM_TAG)*faktor,halb:faktor<1}));
+  const sumApausch=teilA.reduce((a,x)=>a+x.ep,0);
+  // Deutschlandticket als tatsaechliche OeV-Kosten: der hoehere Jahresbetrag zaehlt (§ 9 Abs. 2 Satz 2 EStG) – wie Uebersicht
+  const DTK=dtKostenImJahr(yr);
+  const sumA=Math.max(sumApausch,DTK.gesamt||0);
 
   /* ── TEIL B: Familienheimfahrten (nur mit FHF-Haken, RF nie) ── */
   // Steuerlich zaehlt JEDE tatsaechlich durchgefuehrte Heimfahrt, max. 1 je Kalenderwoche
   // (§ 9 Abs. 1 Satz 3 Nr. 5 EStG) - unabhaengig davon, ob das BVA sie erstattet hat.
   // Das FHF-Haekchen dient der Reisebeihilfe (1 je 14 Tage) und wird nur nachrichtlich gezeigt.
-  const isoWeek=ds=>{const d=new Date(ds+'T12:00');
-    const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
-    t.setUTCDate(t.getUTCDate()+4-(t.getUTCDay()||7));
-    const y0=new Date(Date.UTC(t.getUTCFullYear(),0,1));
-    return t.getUTCFullYear()+'-W'+String(Math.ceil(((t-y0)/86400000+1)/7)).padStart(2,'0');};
-  const heimAlle=all.filter(e=>e.dayCode==='HF'||(e.isFHF===true&&e.dayCode!=='RF'));
-  const proWoche={};
-  heimAlle.forEach(e=>{const w=isoWeek(e.date);
-    if(!proWoche[w]||e.isFHF===true)proWoche[w]=e;});  // je Woche eine; erstattete bevorzugt
-  const fhfDays=Object.values(proWoche).sort((a,b)=>a.date.localeCompare(b.date));
-  const teilB=[],teilC=[];
-  // Teilstrecke Zweitwohnung <-> Arbeitsstaette ist bereits in Teil 2 enthalten
-  // und gehoert nicht zur Entfernung Hausstand <-> Beschaeftigungsort.
-  const istPendelStrecke=x=>{
-    const a=locClass(x.fromLoc),b=locClass(x.toLoc);
-    return !!(a&&b&&[a,b].sort().join('|')==='FRL|WORK');
-  };
-  fhfDays.forEach(e=>{
-    const sg=segsOf(e);
-    const flug=sg.filter(isFlug);
-    if(flug.length){
-      // Flug: tatsaechliche Kosten (Teil C). Nur Zubringerstrecken erhalten die Pauschale;
-      // die taegliche Pendelstrecke bleibt ausgeschlossen (Doppelansatz).
-      const zub=sg.filter(x=>!isFlug(x)&&!istPendelStrecke(x));
-      const zubKm=zub.reduce((a,x)=>a+(parseFloat(x.km)||0),0);
-      teilB.push({date:e.date,km:zubKm,ep:epKm(zubKm),art:'Zubringer Flughafen',bva:e.isFHF===true?'ja':'nein'});
-    } else {
-      // Massgeblich ist die Entfernung Hausstand <-> Beschaeftigungsort,
-      // NICHT die Summe der tatsaechlich gefahrenen Teilstrecken.
-      teilB.push({date:e.date,km:KM_FHF,ep:epKm(KM_FHF),
-        art:'Hausstand - Beschaeftigungsort',
-        bva:e.isFHF===true?'ja':'nein'});
-    }
-  });
-  const sumB=teilB.reduce((a,x)=>a+x.ep,0);
+  // v5.21: dieselbe Berechnung wie die Uebersichtskarte (fhfTatsaechlicheKosten / heimfahrtenJahr):
+  // jede Heimfahrt je Kalenderwoche, Flugstrecke ausgenommen, Dienstwagen ohne Pauschale.
+  const FHFK=fhfTatsaechlicheKosten(yr,KM_FHF,epKm);
+  const teilB=FHFK.fahrten.map(f=>({date:f.datum,km:f.basis,ep:f.ansatz,
+    art:f.flug?'Zubringer Flughafen':(f.ohne?'Hausstand - Beschaeftigungsort (ohne Fahrtdetails)':'Hausstand - Beschaeftigungsort')
+      +(f.ansatz<f.pausch-0.005?' (Dienstwagen-Anteil 0)':''),bva:f.isFHF?'ja':'nein'}));
+  const teilC=[];
+  const sumBpausch=teilB.reduce((a,x)=>a+x.ep,0);
+  // Guenstigerpruefung: OeV-Tickets der Heimfahrten gegen ihren Pauschalanteil, der hoehere Betrag zaehlt
+  const oevMehr=FHFK.oepnvMehr||0;
+  const sumB=sumBpausch+oevMehr;
   /* v5.19.5 TEIL C aus den Flug-BELEGEN der Belegeablage. Jede Heimfahrt (Hinfahrt HF bis Rueckfahrt RF)
      wird einzeln betrachtet; Hin- und Rueckflug derselben Heimfahrt stehen in EINER Zeile, ein einzelner
      Flug allein. Belege einer Besuchsfahrt (Angehoerige) und Fluege ausserhalb einer Heimfahrt werden
@@ -8330,6 +8279,18 @@ async function genFahrtkostenPdf(){
         strecke:[...new Set(l.map(f=>f.strecke))].join(' | '),hin:l[0].amt,rueck:sum(l.slice(1)),amt:sum(l),
         art:l.length>1?'Besuchsfahrt Hin+Rueck':'Besuchsfahrt',n:l.length});
     });
+    // v5.21: Heimfahrten mit Flug, zu denen KEIN Flug-Beleg in der Ablage liegt → Betrag aus der Erfassung
+    FHFK.trips.forEach(({hin,rf})=>{
+      const von=hin.date,bis=rf?rf.date:hin.date;
+      const imFenster=d=>d>=abwTagePlus(von,-3)&&d<=abwTagePlus(bis,3);
+      if(fluege.some(f=>imFenster(f.datum)))return;
+      const fs=e=>(e?(e.segs||[]):[]).filter(sg=>sg.enabled!==false&&isFlug(sg)&&!/besuch/i.test(sg.costDesc||''));
+      const h=fs(hin).reduce((a,sg)=>a+segCostAmt(sg),0),r=fs(rf).reduce((a,sg)=>a+segCostAmt(sg),0);
+      if(h+r<=0)return;
+      const kette=[...fs(hin),...fs(rf)];
+      teilC.push({date:von,datum:fmtD(von)+(rf?' / '+fmtD(bis):''),strecke:stadt(kette[0].fromLoc)+' - '+stadt(kette[0].toLoc),
+        hin:h,rueck:r,amt:h+r,art:'lt. Erfassung*',n:kette.length,ohneBeleg:true});
+    });
     teilC.sort((a,b)=>a.date.localeCompare(b.date));
     extra.forEach(f=>teilC.push({date:f.datum,datum:fmtD(f.datum),strecke:f.strecke,hin:0,rueck:0,amt:f.amt,art:f.grund,grau:true,n:1}));
   }
@@ -8339,7 +8300,7 @@ async function genFahrtkostenPdf(){
   const DR_CODES=['DR','LG','\u00dcB','ES','EGV'];
   const teilD=[];
   all.filter(e=>DR_CODES.includes(e.dayCode)).forEach(e=>{
-    segsOf(e).filter(x=>x.mode==='PKW-D'&&parseFloat(x.km)>0).forEach(x=>{
+    segsOf(e).filter(x=>MODE_GRUPPE[x.mode]==='Privat-Kfz'&&parseFloat(x.km)>0).forEach(x=>{   // v5.21: PKW-D = Dienstwagen → keine Pauschale
       const km=parseFloat(x.km)||0;
       teilD.push({date:e.date,code:e.dayCode,von:x.fromLoc||'',nach:x.toLoc||'',
         km,betrag:km*DR_SATZ});
@@ -8350,18 +8311,26 @@ async function genFahrtkostenPdf(){
   /* ── TEIL E: Sonstige nachgewiesene Kosten ── */
   const SKIP=['Pendlerpauschale'];
   const teilE=[];
+  // v5.21: Fahrkosten der Heimfahrten (Hin- und Rueckfahrt) sind mit Teil 3 abgegolten bzw. stehen dort
+  // in der Guenstigerpruefung; die Pendelstrecke ist mit Teil 2 abgegolten → hier nur nachrichtlich.
+  const fhfIds=new Set();FHFK.trips.forEach(({hin,rf})=>{fhfIds.add(hin.id);if(rf)fhfIds.add(rf.id);});
+  const FHF_GR=['Bahn','Bus/ÖPNV','Taxi','Privat-Kfz','Mietwagen','Dienst-Kfz'];
   all.forEach(e=>{
     (e.segs||[]).filter(x=>x.enabled!==false&&x.costAmt).forEach(x=>{
       if(isFlug(x))return;                       // Fluege stehen in Teil C
       if(SKIP.includes(x.costType))return;
       const amt=parseFloat(x.costAmt)||0;if(amt<=0)return;
+      const fremd=!segIstEUR(x);
+      const nachr=istPendelStrecke(x)?'nachrichtlich - abgegolten mit Teil 2'
+        :(fhfIds.has(e.id)&&FHF_GR.includes(MODE_GRUPPE[x.mode]))?'nachrichtlich - Guenstigerpruefung Teil 3':'';
       teilE.push({date:e.date,art:x.costType||'Sonstiges',betrag:amt,
-        curr:x.costCurr||'EUR',desc:x.costDesc||'',
-        gezaehlt:segCostCounts(x),scope:x.costScope||''});
+        curr:x.costCurr||'EUR',desc:x.costDesc||'',nachr:fremd?'Fremdwaehrung - bitte in EUR erfassen':nachr,
+        gezaehlt:segCostCounts(x)&&!fremd&&!nachr,scope:x.costScope||''});
     });
-    if(e.costAmt&&parseFloat(e.costAmt)>0)
+    if(e.costAmt&&parseFloat(e.costAmt)>0){
+      const fremd=!!e.costCurr&&e.costCurr!=='EUR';
       teilE.push({date:e.date,art:e.costType||'Sonstiges',betrag:parseFloat(e.costAmt),
-        curr:e.costCurr||'EUR',desc:e.costDesc||'',gezaehlt:true,scope:''});
+        curr:e.costCurr||'EUR',desc:e.costDesc||'',gezaehlt:!fremd,nachr:fremd?'Fremdwaehrung - bitte in EUR erfassen':'',scope:''});}
   });
   teilE.sort((a,b)=>a.date.localeCompare(b.date));
   const sumE=teilE.filter(x=>x.gezaehlt).reduce((a,x)=>a+x.betrag,0);
@@ -8468,10 +8437,12 @@ async function genFahrtkostenPdf(){
     if(teilA.length){
       table([{t:'Datum',k:'d',w:70},{t:'Code',k:'c',w:50},{t:'Strecke',k:'st',w:275},
              {t:'km',k:'km',w:50,r:1},{t:'Betrag',k:'b',w:70,r:1}],
-        teilA.map(x=>({d:fmtD(x.date),c:x.code,st:'Zweitwohnung - erste Taetigkeitsstaette',
+        teilA.map(x=>({d:fmtD(x.date),c:x.code,st:'Zweitwohnung - erste Taetigkeitsstaette'+(x.halb?' (nur ein Weg: 1/2)':''),
           km:String(x.km),b:eur(x.ep)})),
-        'Summe Teil 2  ('+teilA.length+' Tage)',sumA,
+        'Summe Teil 2  ('+teilA.length+' Tage)',sumApausch,
         teilA.reduce((a,x)=>a+(x.km||0),0));
+      if(teilA.some(x=>x.halb))P('1/2: Am Heimfahrt- bzw. Rueckfahrttag wird nur ein Weg zurueckgelegt - halbe Pauschale (BFH 12.02.2020, VI R 42/17).',7.5,GR);
+      if(DTK.gesamt>sumApausch)P('Guenstigerpruefung: Deutschlandticket '+eur(DTK.gesamt)+' EUR ('+DTK.monate+' Monate) liegt ueber der Pauschale - angesetzt '+eur(sumA)+' EUR ('+String.fromCharCode(167)+' 9 Abs. 2 Satz 2 EStG).',7.5,NAV);
     } else P('Keine Arbeitsstaetten-Tage erfasst.',8,GR);
 
     /* TEIL B */
@@ -8489,8 +8460,14 @@ async function genFahrtkostenPdf(){
              {t:'km',k:'km',w:45,r:1},{t:'Betrag',k:'b',w:88,r:1}],
         teilB.map(x=>({d:fmtD(x.date),a:x.art,bv:'pruefe Trennungsgeldabrechnung BVA',
           km:String(Math.round(x.km*10)/10),b:eur(x.ep)})),
-        'Summe Teil 3  ('+teilB.length+' Heimfahrten)',sumB,
+        'Summe Teil 3  ('+teilB.length+' Heimfahrten)',sumBpausch,
         teilB.reduce((a,x)=>a+(x.km||0),0));
+      // v5.21 Guenstigerpruefung OeV (§ 9 Abs. 2 Satz 2 EStG)
+      if(FHFK.oepnvKosten>0){
+        P('Guenstigerpruefung Bahn/Bus/OePNV: Pauschalanteil '+eur(FHFK.oepnvPauschale)+' EUR gegen Tickets '+eur(FHFK.oepnvKosten)+' EUR',7.5,NAV,fb);
+        P(oevMehr>0?'-> Tickets hoeher: Mehrbetrag '+eur(oevMehr)+' EUR wird zusaetzlich angesetzt. Tickets einzeln in Abschnitt 6 (nachrichtlich).'
+          :'-> Pauschale hoeher: Tickets sind abgegolten; sie stehen nur nachrichtlich in Abschnitt 6.',7.5,GR);
+      }
       P('Ob und in welcher Hoehe eine Reisebeihilfe gezahlt wurde, ist je Fahrt anhand der',7.5,GR);
       P('Trennungsgeldabrechnungen des BVA zu pruefen; diese werden gesondert vorgelegt.',7.5,GR);
     } else P('Keine als FHF gekennzeichneten Heimfahrten erfasst.',8,GR);
@@ -8509,12 +8486,13 @@ async function genFahrtkostenPdf(){
           b:eur(x.amt),grau:!!x.grau})),
         'Summe Teil 4  ('+teilC.filter(x=>!x.grau).reduce((a,x)=>a+x.n,0)+' Fluege)',sumC);
       if(teilC.some(x=>x.grau))P('* grau: zaehlt nicht in die Summe - Flug ausserhalb einer Familienheim- oder Besuchsfahrt.',7.5,GR);
+      if(teilC.some(x=>x.ohneBeleg))P('* lt. Erfassung: kein Flugbeleg in der Belegeablage - Betrag aus der Fahrterfassung; Beleg bitte nachreichen.',7.5,GR);
     } else P('Keine Flugkosten erfasst.',8,GR);
 
     /* TEIL D */
     H2('5  Dienstreisen / Auswaertstaetigkeiten');
     P('Kilometerpauschale 0,30 EUR je TATSAECHLICH gefahrenem Kilometer (Hin- und Rueckweg),',7.5,GR);
-    P('nicht Entfernungspauschale. Nur Fahrten mit dem privaten Pkw (PKW-D).',7.5,GR);
+    P('nicht Entfernungspauschale. Nur Fahrten mit dem privaten Pkw; Fahrten mit dem Dienstwagen zaehlen nicht.',7.5,GR);
     y-=4;
     if(teilD.length){
       table([{t:'Datum',k:'d',w:70},{t:'Code',k:'c',w:44},{t:'Strecke',k:'st',w:281},
@@ -8526,12 +8504,13 @@ async function genFahrtkostenPdf(){
 
     /* TEIL E */
     H2('6  Sonstige nachgewiesene Reisekosten');
-    P('Bahn-/ÖPNV-Tickets, Uebernachtung, Parkgebuehren, Maut, Taxi, Mietwagen u. a.',7.5,GR);
+    P('Bahn-/OePNV-Tickets, Uebernachtung, Parkgebuehren, Maut, Taxi, Mietwagen u. a.',7.5,GR);
+    P('Grau = nachrichtlich, nicht in der Summe (Heimfahrt-/Pendel-Tickets: Abschnitt 2/3; Fremdwaehrung: in EUR erfassen).',7.5,GR);
     y-=4;
     if(teilE.length){
       table([{t:'Datum',k:'d',w:70},{t:'Kostenart',k:'a',w:120},{t:'Beschreibung',k:'be',w:225},
              {t:'Betrag',k:'b',w:100,r:1}],
-        teilE.map(x=>({d:fmtD(x.date),a:x.art,be:fkDescOhneReservierung(x.desc)+(x.gezaehlt?'':' (nicht gezaehlt)'),
+        teilE.map(x=>({d:fmtD(x.date),a:x.art,be:fkDescOhneReservierung(x.desc)+(x.gezaehlt?'':' ('+(x.nachr||'nicht gezaehlt')+')'),
           b:eur(x.betrag)+' '+(x.curr==='EUR'?'':x.curr),grau:!x.gezaehlt})),
         'Summe Teil 6',sumE);
     } else P('Keine sonstigen Kosten erfasst.',8,GR);
@@ -8540,8 +8519,8 @@ async function genFahrtkostenPdf(){
     need(150);
     H2('7  Zusammenfassung');
     const zRows=[
-      ['Teil 2  Taegliche Fahrten (Entfernungspauschale)',sumA],
-      ['Teil 3  Familienheimfahrten (Entfernungspauschale)',sumB],
+      ['Teil 2  Taegliche Fahrten'+(sumA>sumApausch?' (Deutschlandticket, hoeher als Pauschale)':' (Entfernungspauschale)'),sumA],
+      ['Teil 3  Familienheimfahrten (Pauschale'+(oevMehr>0?' + Mehrbetrag OeV-Tickets':'')+')',sumB],
       ['Teil 4  Flugkosten (tatsaechliche Kosten)',sumC],
       ['Teil 5  Dienstreisen (0,30 EUR/km)',sumD],
       ['Teil 6  Sonstige Reisekosten',sumE],
@@ -8687,11 +8666,11 @@ function abwAusTool(yr){
     if(g&&g.code===e.dayCode&&normOrt(e)===g.ortKey&&abwTagePlus(g.to,1)===e.date){
       g.to=e.date;g.days++;
       // Nur tatsaechlich eingenommene Mahlzeiten — nicht eingenommene kuerzen nicht
-      VERPFL_MAHL.filter(m=>verpflStatus(e,m)==='ja').forEach(v=>g.verpfl.add(v));
+      VERPFL_MAHL.filter(m=>verpflStatus(e,m)!=='').forEach(v=>g.verpfl.add(v));   // v5.21: bereitgestellt (wie RK-Zeilen)
       if(!g.nachweis&&e.nachweis)g.nachweis=e.nachweis;
     } else {
       groups.push({code:e.dayCode,from:e.date,to:e.date,days:1,ort:ortAbw(e),ortKey:normOrt(e),
-        verpfl:new Set(VERPFL_MAHL.filter(m=>verpflStatus(e,m)==='ja')),nachweis:e.nachweis||'',ohneRk:e.dayCode==='DR'});
+        verpfl:new Set(VERPFL_MAHL.filter(m=>verpflStatus(e,m)!=='')),nachweis:e.nachweis||'',ohneRk:e.dayCode==='DR'});
     }
   }
   rkJahr.forEach(b=>{
@@ -9088,6 +9067,33 @@ function getBayernHolidays(y){
 // <=6h: 0 | 6-9,5h: min(30, raw-6h) | >9,5h: min(45, raw-9h)
 function calcPause(rawMins){if(rawMins<=360)return 0;if(rawMins<=570)return Math.min(30,rawMins-360);return Math.min(45,rawMins-540);}
 // Keine Zeitrundung - exakte Zeiten
+/* v5.21: Dienstzeiten eines Tages – BEIDE Zeitbloecke (workStart/workEnd, workStart2/workEnd2).
+   Ende 00:00 = Mitternacht; 00:00–00:00 = 24 h (ganzer Tag im Dienst). Gleiche Zeit ≠ 00:00 → ungueltig (0).
+   Pause nach calcPause auf die Gesamtspanne; eine Luecke zwischen den Bloecken wird als Pause angerechnet. */
+function zeitBloecke(e){
+  const toM=t=>{if(!t||!/^\d{1,2}:\d{2}$/.test(t))return null;const[h,m]=t.split(':').map(Number);return h*60+m;};
+  const bl=[];
+  [[e&&e.workStart,e&&e.workEnd],[e&&e.workStart2,e&&e.workEnd2]].forEach(([a,b])=>{
+    let s=toM(a),en=toM(b);if(s===null||en===null)return;
+    if(en===s&&s!==0)return;
+    if(en<=s)en+=1440;
+    // 2. Block, der vor dem Ende des 1. Blocks beginnt, liegt nach Mitternacht (z. B. 07:10–24:00 + 00:00–00:45)
+    if(bl.length&&s<bl[0][0]){s+=1440;en+=1440;}
+    bl.push([s,en]);});
+  return bl.sort((x,y)=>x[0]-y[0]);
+}
+function tagesDienst(e){
+  const bl=zeitBloecke(e);
+  if(!bl.length)return{bl,arbeit:0,span:0,pause:0,netto:0,pausen:[]};
+  const arbeit=bl.reduce((a,b)=>a+b[1]-b[0],0);
+  const s0=bl[0][0],span=Math.max(...bl.map(b=>b[1]))-s0;
+  const luecke=Math.max(0,span-arbeit);
+  const pause=Math.max(0,calcPause(span)-luecke);
+  // Lage der Pausen (Bw-Schema): 30 min ab Beginn+6 h, Rest ab Beginn+9,5 h
+  const pausen=[];
+  if(pause>0){const p1=Math.min(30,pause);pausen.push([s0+360,s0+360+p1]);if(pause>30)pausen.push([s0+570,s0+570+(pause-30)]);}
+  return{bl,arbeit,span,pause,netto:Math.max(0,arbeit-pause),pausen};
+}
 function round15up(m){return m;}
 function round15down(m){return m;}
 
@@ -9115,16 +9121,7 @@ function renderZE(){
   for(let d=1;d<=daysInMonth;d++){
     const ds=yr+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     const e=zeEntry(dayMap[ds]);
-    let mins=0;
-    if(e?.workStart&&e?.workEnd){
-      const[vh,vm]=e.workStart.split(':').map(Number);
-      const[bh,bm]=e.workEnd.split(':').map(Number);
-      const startR=round15up(vh*60+vm);const endR=round15down(bh*60+bm);
-      let raw=endR-startR;if(raw<0)raw+=1440;
-      const pause=calcPause(raw);
-      mins=raw-pause;
-      if(mins<0)mins=0;
-    }
+    const mins=e?tagesDienst(e).netto:0;   // v5.21: beide Zeitbloecke, 00:00–00:00 = 24 h
     dayMins.push(mins);
   }
 
@@ -9238,7 +9235,9 @@ function calcDuZ(yr,mo){
   const TAX_RATE=(state.settings.taxRate!=null?state.settings.taxRate:34.74)/100;
   const NET_F=1-TAX_RATE;
   const TAX_PCT=(TAX_RATE*100).toFixed(2).replace('.',',');
-  const MAV_RATE=35.49; // Mehrarbeit A13-A16 (SMVergV \u00a72)
+  // v5.21: Satz A13–A16 je Zeitraum (§ 3 SMVergV): bis 03/2025 34,46 (Verordnungstext); ab 04/2025 35,49
+  // (+3 %, Bezuegeabrechnung 02/2026 verifiziert); ab 05/2026 in den Einstellungen anpassbar (rMav)
+  const MAV_RATE=(yr*100+mo<202504)?34.46:((yr*100+mo<202605)?35.49:(state.settings.rMav||36.48));
   const WEEKLY_H=41; // regul\u00e4re Wochenarbeitszeit
 
   // Only exclude types where no actual work occurs
@@ -9274,21 +9273,15 @@ function calcDuZ(yr,mo){
   entries.forEach(e=>{
     if(EXCL_DUZ_DC.includes(e.dayCode))return;
     if(e.zeActivity&&EXCL_DUZ_ZE.some(x=>(e.zeActivity||'').includes(x)))return;
-    if(!e.workStart||!e.workEnd)return;
-    const[vh,vm]=e.workStart.split(':').map(Number);const[bh,bm]=e.workEnd.split(':').map(Number);
-    let startMin=vh*60+vm,endMin=bh*60+bm;if(endMin<=startMin)endMin+=1440;
-    const raw=endMin-startMin;
-    const pause=calcPause(raw);
-    // Synthetische Pausenlagen (Bw-Schema, deckt beide Referenzblaetter exakt)
-    const pauses=[];
-    if(pause>0){
-      const p1=Math.min(30,pause);pauses.push([startMin+360,startMin+360+p1]);
-      if(pause>30)pauses.push([startMin+570,startMin+570+(pause-30)]);
-    }
-    // Netto-Minuten in Fenster [ws,we) = Dienstueberlappung minus Pausenueberlappung
+    // v5.21: beide Zeitbloecke; Pausen nur, soweit nicht durch die Luecke zwischen den Bloecken abgedeckt
+    const TD=tagesDienst(e);if(!TD.bl.length)return;
+    const startMin=TD.bl[0][0],endMin=Math.max(...TD.bl.map(b=>b[1]));
+    const pause=TD.pause,pauses=TD.pausen,raw=TD.arbeit;
+    // Netto-Minuten in Fenster [ws,we) = Dienstueberlappung minus Pausenueberlappung (Pause nur innerhalb eines Blocks)
     const winNet=(ws,we)=>{
-      let v=ovl(startMin,endMin,ws,we);
-      pauses.forEach(p=>{v-=ovl(p[0],p[1],ws,we);});
+      let v=0;
+      TD.bl.forEach(b=>{v+=ovl(b[0],b[1],ws,we);
+        pauses.forEach(p=>{const a=Math.max(p[0],b[0]),z=Math.min(p[1],b[1]);if(z>a)v-=ovl(a,z,ws,we);});});
       return Math.max(0,v);
     };
     const ds=e.date;const dt=new Date(parseInt(ds.slice(0,4)),parseInt(ds.slice(5,7))-1,parseInt(ds.slice(8,10)));
@@ -9311,7 +9304,7 @@ function calcDuZ(yr,mo){
       a2=winNet(780,1200);       // 13:00-20:00
       a3=winNet(0,360)+winNet(1200,1440); // Sa zaehlt als Werktag fuer Nacht
     } else {
-      a3=winNet(0,360)+winNet(1200,1440)+ovl(startMin,endMin,1440,1440+360); // Mo-Fr inkl. Morgenanteil; Ueberlauf n. Mitternacht
+      a3=winNet(0,360)+winNet(1200,1440)+winNet(1440,1440+360); // Mo-Fr inkl. Morgenanteil; Ueberlauf n. Mitternacht (Pausen beruecksichtigt)
     }
     if(a0||a1||a2||a3||a9){
       const dayTotal=(a0/60)*R_SOFE+(a1/60)*R_SOFE+(a2/60)*R_SA13+(a3/60)*R_NACHT+(a9/60)*R_SOFE;
@@ -9345,13 +9338,11 @@ function calcDuZ(yr,mo){
     const ds3=yr+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     const dt=new Date(yr,mo-1,d);const dow=dt.getDay();
     const e=dayMapM[ds3];
-    if(!e||!e.workStart||!e.workEnd)continue;        // nur Tage mit Dienst
+    if(!e)continue;
+    const TDm=tagesDienst(e);if(!TDm.bl.length)continue;   // nur Tage mit Dienst (beide Zeitbloecke)
     if((e.zeActivity||'').includes('30c'))continue;  // §30c separat
-    const[vh,vm]=e.workStart.split(':').map(Number);
-    const[bh,bm]=e.workEnd.split(':').map(Number);
-    let raw=(bh*60+bm)-(vh*60+vm);if(raw<0)raw+=1440;
-    const mins=Math.max(0,raw-calcPause(raw));
-    const isFT=holidays.has(ds3);
+    const mins=TDm.netto;
+    const isFT=holidays.has(ds3)||isDec2431(ds3);   // v5.21: 24./31.12. dienstfrei wie Zeiterfassung (Soll 0)
     const isWE=dow===0||dow===6||isFT;
     const sollDay=isWE?0:(dow===5?300:540);  // Soll des Tages (FT/WE=0)
     actualTotal+=mins/60;
@@ -9367,6 +9358,11 @@ function calcDuZ(yr,mo){
   const mavAnspruch=mehrarbeitH>=6;
   const mavBetrag=mavAnspruch?mehrarbeitH*MAV_RATE:0;
   const sollBrutto=Math.round(sollTotal);
+  // § 1 Abs. 3 SMVergV: bei Dienst nur in einem Teil des Monats gilt die Mindeststundenzahl anteilig (nur Hinweis)
+  let arbTageMonat=0,dienstWerktage=0;
+  for(let d=1;d<=dIM;d++){const ds3=yr+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0');const w=new Date(yr,mo-1,d).getDay();
+    if(w===0||w===6||holidays.has(ds3)||isDec2431(ds3))continue;arbTageMonat++;const e=dayMapM[ds3];if(e&&tagesDienst(e).bl.length)dienstWerktage++;}
+  const mindestAnteilig=arbTageMonat?5*dienstWerktage/arbTageMonat:5;
   const abzugInfo=[];
 
   // ═══ 3. §30c Abs.4 SG ═══
@@ -9427,7 +9423,7 @@ function calcDuZ(yr,mo){
     if(hasSpec)html+='<td style="padding:3px 5px;border:1px solid rgba(255,255,255,0.2);text-align:center">'+(total4000+total4009).toFixed(2)+'</td>';
     html+='<td style="padding:3px 5px;border:1px solid rgba(255,255,255,0.2);text-align:right">'+duzTotalEUR.toFixed(2)+'</td>';
     html+='</tr></tbody></table>';
-    if(!duzThreshold){html+='<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:6px 10px;font-size:11px;color:#856404;margin-bottom:10px"><b>Hinweis:</b> '+duzTotalH.toFixed(2)+' h < 5 h Schwelle - kein DuZ-Anspruch.</div>';}
+    if(!duzThreshold){html+='<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:6px 10px;font-size:11px;color:#856404;margin-bottom:10px"><b>Hinweis:</b> '+duzTotalH.toFixed(2)+' h – Anspruch erst bei mehr als 5 h im Monat (§ 3 EZulV).</div>';}
     else{html+='<div style="background:var(--oks);border:1px solid var(--ok);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--ok);margin-bottom:6px"><b>DuZ-Anspruch:</b> '+duzTotalH.toFixed(2)+' h = <b>'+duzTotalEUR.toFixed(2)+' EUR</b> (brutto)</div>';
       const duzNet=duzTaxFree+duzTaxable*NET_F;
       html+='<div style="background:#fff8e1;border:1px solid var(--gold);border-radius:6px;padding:6px 10px;font-size:11px;color:#856404;margin-bottom:10px">Steuerfrei (\u00a73b: So/FT, Nacht, 4009): '+duzTaxFree.toFixed(2)+' EUR | Steuerpflichtig (Sa, 4000; '+TAX_PCT+'%): '+duzTaxable.toFixed(2)+' \u2192 '+(duzTaxable*NET_F).toFixed(2)+' EUR | <b>Netto: '+duzNet.toFixed(2)+' EUR</b></div>';}
@@ -9439,10 +9435,11 @@ function calcDuZ(yr,mo){
   html+='<div style="background:var(--lsoft);padding:8px 12px;border-radius:8px"><span style="color:var(--muted)">Soll ('+presentDays+' Diensttage):</span><br><b>'+sollTotal.toFixed(1)+' h</b></div>';
   html+='<div style="background:var(--lsoft);padding:8px 12px;border-radius:8px"><span style="color:var(--muted)">Ist (geleistet):</span><br><b>'+actualTotal.toFixed(1)+' h</b></div>';
   html+='<div style="background:var(--lsoft);padding:8px 12px;border-radius:8px"><span style="color:var(--muted)">Mehrarbeit (gerundet):</span><br><b>'+mehrarbeitH+' h</b> <span style="font-size:10px;color:var(--muted)">('+mehrarbeitRaw.toFixed(1)+'h roh)</span></div>';
-  html+='<div style="background:var(--lsoft);padding:8px 12px;border-radius:8px"><span style="color:var(--muted)">Satz A13-A16:</span><br><b>'+MAV_RATE.toFixed(2)+' EUR/h</b></div>';
+  html+='<div style="background:var(--lsoft);padding:8px 12px;border-radius:8px"><span style="color:var(--muted)">Satz A13-A16:</span><br><b>'+MAV_RATE.toFixed(2)+' EUR/h</b><br><span style="font-size:10px;color:var(--muted)">'+(yr*100+mo<202504?'gesetzlicher Tabellenwert (\u00a7 3 SMVergV)':(yr*100+mo<202605?'Abschlag +3 % (durch Abrechnung belegt)':(state.settings.rMav?'eigener Satz (Einstellungen)':'vorl\u00e4ufiger Rechenwert (Abschlag +2,8 %), nicht amtlich best\u00e4tigt')))+'</span></div>';
   html+='</div>';
-  if(!mavAnspruch){html+='<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:6px 10px;font-size:11px;color:#856404;margin-bottom:10px"><b>Hinweis:</b> '+mehrarbeitH+' h Mehrarbeit < 6 h Schwelle - kein Anspruch.</div>';}
-  else{html+='<div style="background:var(--oks);border:1px solid var(--ok);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--ok);margin-bottom:6px"><b>MAV-Anspruch (brutto):</b> '+mehrarbeitH+' h x '+MAV_RATE.toFixed(2)+' EUR = <b>'+mavBetrag.toFixed(2)+' EUR</b></div>';
+  if(dienstWerktage<arbTageMonat&&dienstWerktage>0)html+='<div style="font-size:10.5px;color:var(--muted);margin-bottom:6px">Dienst an '+dienstWerktage+' von '+arbTageMonat+' Arbeitstagen: Bei Dienst nur in einem Teil des Monats gilt die Mindeststundenzahl anteilig (§ 1 Abs. 3 SMVergV), hier rechnerisch '+mindestAnteilig.toFixed(1).replace('.',',')+' h statt 5 h. Die App wendet weiter 5 h an – Urlaubstage zählen evtl. als Dienstzeit; bitte mit der Abrechnungsstelle klären.</div>';
+  if(!mavAnspruch){html+='<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:6px 10px;font-size:11px;color:#856404;margin-bottom:10px"><b>Hinweis:</b> '+mehrarbeitH+' h Mehrarbeit (gerundet) – Vergütung erst, wenn die Mehrarbeit mehr als 5 h im Monat beträgt (§ 1 Abs. 2 Nr. 3 SMVergV).</div>';}
+  else{html+='<div style="background:var(--oks);border:1px solid var(--ok);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--ok);margin-bottom:6px"><b>Möglicher MAV-Anspruch (brutto):</b> '+mehrarbeitH+' h x '+MAV_RATE.toFixed(2)+' EUR = <b>'+mavBetrag.toFixed(2)+' EUR</b><br><span style="font-size:10px">Nur bei schriftlich angeordneter/genehmigter Mehrarbeit, die aus zwingenden dienstlichen Gründen nicht durch Dienstbefreiung ausgeglichen werden kann (§ 1 Abs. 2 SMVergV).</span></div>';
     const mavNetto=mavBetrag*NET_F;
     html+='<div style="background:#fff8e1;border:1px solid var(--gold);border-radius:6px;padding:6px 10px;font-size:11px;color:#856404;margin-bottom:10px"><b>Nach '+TAX_PCT+'% Lohnsteuer (netto):</b> '+mavBetrag.toFixed(2)+' EUR - '+TAX_PCT+'% = <b>'+mavNetto.toFixed(2)+' EUR</b></div>';}
 
@@ -9472,7 +9469,7 @@ function calcDuZ(yr,mo){
   // Rates footnote
   html+='<div style="font-size:9px;color:var(--muted);margin-top:8px">';
   html+='DuZ: So/FT '+R_SOFE.toFixed(2)+' | Sa 13-20 '+R_SA13.toFixed(2)+' | Nacht 20-06 '+R_NACHT.toFixed(2)+' EUR/h (minutengenau, Bw-2417) | ';
-  html+='MAV: '+MAV_RATE+' EUR/h A13-A16 (\u00a72 SMVergV) | \u00a730c: '+P30_PER_DAY+' EUR/Tag (je 6. Tag frei)</div>';
+  html+='MAV: '+MAV_RATE.toFixed(2).replace('.',',')+' EUR/h A13-A16 (\u00a73 SMVergV) | \u00a730c: '+P30_PER_DAY+' EUR/Tag (Tag 1, 6, 11, 16 \u2026 je Block frei)</div>';
 
   el.innerHTML=html;
 }
@@ -9492,9 +9489,11 @@ function tgTageDesMonats(yr,mo){
   const out=[];let weg=false;
   alle.forEach((e,i)=>{
     const c=e.dayCode;let anspruch=true,grund='Dienstort',reisetag=false;
-    if(c==='HF'){anspruch=true;reisetag=true;grund='Abreisetag Heimfahrt';weg=true;}
-    else if(c==='RF'){anspruch=true;reisetag=true;grund='Rückkehrtag';weg=false;}
-    else if(c==='BF'&&BF_TG_REISETAG){anspruch=true;reisetag=true;grund='Besuchsfahrt (Reisetag)';}
+    // v5.21: HF/RF/BF auch als 2. Tagesart; fehlt die RF, beendet der naechste Dienstort-Tag die Abwesenheit
+    if(hatCode(e,['HF'])){anspruch=true;reisetag=true;grund='Abreisetag Heimfahrt';weg=true;}
+    else if(hatCode(e,['RF'])){anspruch=true;reisetag=true;grund='Rückkehrtag';weg=false;}
+    else if(hatCode(e,['BF'])&&BF_TG_REISETAG){anspruch=true;reisetag=true;grund='Besuchsfahrt (Reisetag)';}
+    else if(weg&&(hatCode(e,['AW','WFH'])||isArbeitsstaetteDay(e))){weg=false;grund='Dienstort (Rückfahrt nicht erfasst?)';}
     else if(TG_REISE_CODES.includes(c)){
       const vor=alle[i-1],nach=alle[i+1];
       const innen=folgt(vor,e)&&TG_REISE_CODES.includes(vor.dayCode)
@@ -9530,7 +9529,7 @@ function tgBescheidAbgleich(yr,mo,zeilen,summe){
     if(!z.anspruch&&bd)gruende.push('Bescheid zahlt, eigene Rechnung: kein Anspruchstag');
     if(z.anspruch&&bd){
       MEALS.forEach(([k,bk,l])=>{
-        const eig=verpflStatus(z.e,k)==='ja'&&!z.reisetag;const bes=!!bd[bk];
+        const eig=tgMahlzeitWirkung(z.e,k)==='ja'&&!z.reisetag;const bes=!!bd[bk]&&!z.reisetag&&!(bd.art&&bd.art!=='BF');
         if(eig!==bes)gruende.push(bes?`${l}: Bescheid kürzt, du hast „${verpflStatus(z.e,k)==='ne'?'nicht gegessen':'nicht gestellt'}" erfasst`:`${l}: du hast „gegessen" erfasst, Bescheid kürzt nicht`);
       });
     }
@@ -9571,7 +9570,7 @@ function calcTG(yr,mo){
   const summeAbzug=zeilen.reduce((s,z)=>s+z.abzug,0);
   const summe=zeilen.reduce((s,z)=>s+z.betrag,0);
   const mitVerpfl=zeilen.filter(z=>z.abzug>0);
-  const erfasst=zeilen.filter(z=>z.anspruch&&(z.e.verpflegung||z.e.verpflegungNE)).length;
+  const erfasst=zeilen.filter(z=>z.anspruch&&tgTagAusBescheid(z.e.date)).length;   // v5.21: Tage mit TG-Abrechnung
 
   let html='<h4 style="color:var(--navy);font-size:13px;margin:0 0 8px">1. Unentgeltliche Verpflegung</h4>';
 
@@ -9592,9 +9591,9 @@ function calcTG(yr,mo){
   zeilen.forEach((z,i)=>{
     const zell=m=>{
       if(!z.anspruch)return'<td style="padding:2px 5px;border:1px solid #eee;text-align:center;color:var(--muted)">&middot;</td>';
-      const st=verpflStatus(z.e,m);
+      const st=tgMahlzeitWirkung(z.e,m);   // v5.21: gleiche Quelle wie der Betrag
       const wirkt=st==='ja'&&!z.reisetag;
-      const txt=wirkt?'&minus;'+eur(tgAbzugSatz(z.e.date,m)):st===''?'&mdash;':(z.reisetag?'ohne Abzug':'n. eing.');
+      const txt=wirkt?'&minus;'+eur(tgAbzugSatz(z.e.date,m)):st===''?'&mdash;':((z.reisetag||st==='frei')?'ohne Abzug':'n. eing.');
       const col=wirkt?'var(--warn)':st===''?'var(--muted)':'var(--ok)';
       return'<td style="padding:2px 5px;border:1px solid #eee;text-align:center;font-size:9.5px;color:'+col+';font-weight:'+(wirkt?'600':'400')+'">'+txt+'</td>';
     };
@@ -9621,7 +9620,7 @@ function calcTG(yr,mo){
   html+=tgBescheidAbgleich(yr,mo,zeilen,summe);
   // Hinweis auf nicht erfasste Tage
   const offen=anspruchsTage-erfasst;
-  if(offen>0)html+='<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:6px 10px;font-size:11px;color:#856404;margin-top:6px"><b>Hinweis:</b> An '+offen+' Anspruchstag(en) ist keine Verpflegung erfasst &ndash; diese Tage rechnen mit dem vollen Satz. Sie wird beim Hochladen der TG-Abrechnung des Monats automatisch eingetragen (Belege &rsaquo; Ablage).</div>';
+  if(offen>0)html+='<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:6px 10px;font-size:11px;color:#856404;margin-top:6px"><b>Hinweis:</b> Für '+offen+' Anspruchstag(e) liegt noch keine TG-Abrechnung vor &ndash; diese Tage rechnen vorläufig mit dem vollen Satz. Die Verpflegung kommt ausschließlich aus der TG-Abrechnung (Belege &rsaquo; Ablage).</div>';
 
   html+='<div style="font-size:9px;color:var(--muted);margin-top:8px">Sätze aus den Monatsabrechnungen 1&ndash;7/2026 abgeleitet: Grundbetrag 14,00 &middot; Frühstück &minus;0,43 &middot; Mittag &minus;1,03 &middot; Abend &minus;1,03 EUR. Gekürzt wird nur, was gestellt <b>und</b> eingenommen wurde. Steuerpflichtig (kein §3b EStG).</div>';
 
@@ -9863,7 +9862,98 @@ function stopAutoSync(){if(fbUnsub){fbUnsub();fbUnsub=null;}const el=document.ge
    Browser-Cache). Der Beleg wird als Original in der Belegeablage gespeichert und, falls es
    für das Datum einen Eintrag gibt, zusätzlich diesem Tag angehängt. */
 let scanSrc=null,scanScale=1,scanSel=null,scanDrag=null;
+/* v5.21: Belegerkennung aus Text (PDF-Text oder OCR). Liefert Datum, Gesamtbetrag, Waehrung,
+   Belegart und Anbieter. Erkennt auch ausgeschriebene Monate („15. November 2026“, „Nov 15, 2026“),
+   Betraege mit € davor oder danach und Fahrdienste (Uber, Bolt, FreeNow) als Taxi. */
+const BELEG_ARTEN=[
+  {art:'Taxi',re:/\buber\b|\bbolt\b|free\s?now|mytaxi|\btaxi\b|fahrdienst|taxameter|funktaxi|ride\s+with|you rode with|thanks for riding|trip fare/i,anb:[['uber','Uber'],['bolt','Bolt'],['free','FreeNow'],['taxi','Taxi']]},
+  {art:'Flugkarte',re:/eurowings|lufthansa|ryanair|easyjet|condor|austrian airlines|swiss intl|boarding\s?pass|flugschein|flugticket|flugnummer|e-ticket.*flug|flight\s?(number|no)|buchungscode.*flug/i},
+  {art:'Hotel',re:/\bhotel\b|übernachtung|uebernachtung|booking\.com|airbnb|beherbergung|zimmer\s?nr|gasthof|pension\b/i},
+  {art:'Mietwagen',re:/\bsixt\b|europcar|\bhertz\b|\bavis\b|enterprise rent|mietwagen|autovermietung|share\s?now|miles mobility/i},
+  {art:'Bahnkarte',re:/deutsche bahn|db fernverkehr|db regio|bahn\.de|\bice\s?\d|intercity|fahrkarte|online-ticket|bahncard|\böbb\b|westbahn|meridian|regiobahn|\bbrb\b|sitzplatzreservierung/i},
+  {art:'Buskarte',re:/flixbus|salzburg verkehr|\bmvv\b|\bvbb\b|\bbus\b|busticket|\böpnv\b|stadtbus|tagesticket|einzelfahrschein/i},
+  {art:'Parken',re:/parkhaus|parkgebühr|parkgebuehr|parkticket|parkschein|apcoa|contipark|\bparken\b|tiefgarage/i},
+  {art:'Tankbeleg',re:/tankstelle|\baral\b|\bshell\b|\besso\b|\bjet\b tank|kraftstoff|super e10|\bdiesel\b/i},
+  {art:'Maut',re:/\bmaut\b|vignette|asfinag|toll collect/i},
+];
+const BELEG_MONATE={jan:1,januar:1,january:1,feb:2,februar:2,february:2,mär:3,maer:3,märz:3,maerz:3,mrz:3,mar:3,march:3,apr:4,april:4,mai:5,may:5,jun:6,juni:6,june:6,jul:7,juli:7,july:7,aug:8,august:8,sep:9,sept:9,september:9,okt:10,oktober:10,oct:10,october:10,nov:11,november:11,dez:12,dezember:12,dec:12,december:12};
+function belegErkennen(text){
+  const t=String(text||'').replace(/\u00a0/g,' ');
+  const heute=new Date(),hIso=isoLocalD(heute);
+  const dates=[];
+  const add=(y,m,d)=>{y=+y;m=+m;d=+d;if(y<100)y+=2000;
+    if(!(m>=1&&m<=12&&d>=1&&d<=31)||y<2015||y>heute.getFullYear()+1)return;
+    const dt=new Date(y,m-1,d);if(dt.getMonth()!==m-1)return;   // 31.02. u. a. verwerfen
+    dates.push(`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`);};
+  let m;
+  const r1=/(^|[^\d])(\d{1,2})[.\/](\d{1,2})[.\/](\d{4}|\d{2})(?!\d)/g;while((m=r1.exec(t))){add(m[4],m[3],m[2]);r1.lastIndex=m.index+m[0].length;}
+  const r2=/(\d{4})-(\d{2})-(\d{2})/g;while((m=r2.exec(t)))add(m[1],m[2],m[3]);
+  const mn='([A-Za-zÄÖÜäöü]{3,9})\\.?';
+  const r3=new RegExp('(^|[^\\d])(\\d{1,2})\\.?\\s+'+mn+'\\s+(\\d{4})','g');while((m=r3.exec(t))){const mo=BELEG_MONATE[m[3].toLowerCase()];if(mo)add(m[4],mo,m[2]);}
+  const r4=new RegExp(mn+'\\s+(\\d{1,2}),?\\s+(\\d{4})','g');while((m=r4.exec(t))){const mo=BELEG_MONATE[m[1].toLowerCase()];if(mo)add(m[3],mo,m[2]);}
+  const datum=dates.find(d=>d<=hIso)||dates[0]||'';
+  // Betraege: 1.234,56 · 1,234.56 · 12,34 · 12.34 – mit Waehrung davor oder danach
+  const num=s=>{s=s.replace(/\s/g,'');
+    if(/,\d{2}$/.test(s))return parseFloat(s.replace(/\./g,'').replace(',','.'));
+    return parseFloat(s.replace(/,/g,''));};
+  const BETR='(\\d{1,3}(?:[.,\\s]\\d{3})*[.,]\\d{2}|\\d{1,5}[.,]\\d{2})(?!\\d)';
+  const CUR='(€|EUR|CHF|USD|\\$|GBP|£|NOK)';
+  const kandidaten=[];
+  const reCur1=new RegExp(CUR+'\\s?'+BETR,'gi'),reCur2=new RegExp(BETR+'\\s?'+CUR,'gi');
+  while((m=reCur1.exec(t)))kandidaten.push({v:num(m[2]),cur:m[1],pos:m.index,mitW:true});
+  while((m=reCur2.exec(t)))kandidaten.push({v:num(m[1]),cur:m[2],pos:m.index,mitW:true});
+  const reAll=new RegExp(BETR,'g');while((m=reAll.exec(t)))kandidaten.push({v:num(m[1]),cur:'',pos:m.index,mitW:false});
+  const ok=kandidaten.filter(k=>k.v>0&&k.v<20000);
+  const KW=/(gesamtbetrag|rechnungsbetrag|zahlbetrag|endbetrag|gesamtpreis|entrichteter betrag|zu zahlen|bezahlt|insgesamt|gesamt|summe|total|betrag|amount paid|you paid|fahrpreis)/gi;
+  const NEG=/(mwst|ust\b|umsatzsteuer|vat|netto|steuer|zwischensumme|subtotal|rabatt|gutschein)/i;
+  let best=null;
+  while((m=KW.exec(t))){
+    const vor=t.slice(Math.max(0,m.index-12),m.index);if(NEG.test(vor+m[0]))continue;
+    const fenster=ok.filter(k=>k.pos>=m.index&&k.pos<=m.index+m[0].length+40);
+    const nah=fenster.sort((a,b)=>a.pos-b.pos)[0];
+    if(nah&&(!best||nah.v>best.v))best=nah;
+  }
+  if(!best){const w=ok.filter(k=>k.mitW);if(w.length)best=w.reduce((a,b)=>b.v>a.v?b:a);}
+  if(!best&&ok.length)best=ok.reduce((a,b)=>b.v>a.v?b:a);
+  const curMap={'€':'EUR','EUR':'EUR','CHF':'CHF','USD':'USD','$':'USD','GBP':'GBP','£':'GBP','NOK':'NOK'};
+  let waehrung='EUR';
+  if(best){const nahW=ok.filter(k=>k.mitW&&Math.abs(k.pos-best.pos)<12&&k.cur);if(nahW.length)waehrung=curMap[nahW[0].cur.toUpperCase()]||curMap[nahW[0].cur]||'EUR';}
+  let belegart='',anbieter='';
+  for(const a of BELEG_ARTEN){const hit=t.match(a.re);if(hit){belegart=a.art;
+    if(a.anb){const h=hit[0].toLowerCase();const x=a.anb.find(([k])=>h.includes(k));anbieter=x?x[1]:'';}
+    break;}}
+  return{datum,betrag:best?Math.round(best.v*100)/100:null,waehrung,belegart,anbieter};
+}
+/* Bild fuer die Texterkennung vorbereiten: kleine Fotos hochskalieren, Graustufen, Kontrast strecken. */
+function ocrVorbereiten(src){
+  const w0=src.width||src.naturalWidth,h0=src.height||src.naturalHeight;
+  const f=Math.max(1,Math.min(2.5,1800/Math.max(1,w0)));
+  const cv=document.createElement('canvas');cv.width=Math.round(w0*f);cv.height=Math.round(h0*f);
+  const x=cv.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(src,0,0,cv.width,cv.height);
+  try{
+    const id=x.getImageData(0,0,cv.width,cv.height),p=id.data,hist=new Uint32Array(256);
+    for(let i=0;i<p.length;i+=4){const g=Math.round(p[i]*0.299+p[i+1]*0.587+p[i+2]*0.114);p[i]=g;hist[g]++;}
+    const n=p.length/4;let lo=0,hi=255,acc=0;
+    for(let g=0;g<256;g++){acc+=hist[g];if(acc>n*0.01){lo=g;break;}}
+    acc=0;for(let g=255;g>=0;g--){acc+=hist[g];if(acc>n*0.01){hi=g;break;}}
+    const sp=Math.max(1,hi-lo);
+    for(let i=0;i<p.length;i+=4){const v=Math.max(0,Math.min(255,(p[i]-lo)*255/sp));p[i]=p[i+1]=p[i+2]=v;}
+    x.putImageData(id,0,0);
+  }catch(e){}
+  return cv;
+}
+/* Texterkennung fuer ein Bild (Canvas/Image/Datei) – deutsch + englisch (Uber, Airlines). */
+async function ocrText(src){
+  const T=await loadTesseract();
+  let quelle=src;
+  if(src instanceof Blob){quelle=await new Promise((res,rej)=>{const u=URL.createObjectURL(src);const im=new Image();im.onload=()=>{URL.revokeObjectURL(u);res(im);};im.onerror=()=>rej(new Error('Bild nicht lesbar'));im.src=u;});}
+  const r=await T.recognize(ocrVorbereiten(quelle),'deu+eng');
+  return r&&r.data?r.data.text:'';
+}
 function scanParse(text){
+  const b=belegErkennen(text);return b;   // v5.21: gemeinsame Erkennung
+}
+function scanParseAlt(text){
   const t=String(text||'');
   const heute=new Date();
   const dates=[];
@@ -9969,9 +10059,7 @@ async function scanOcr(){
   if(form)form.innerHTML='<div style="font-size:12px;color:var(--muted)">Texterkennung läuft … (beim ersten Mal werden Sprachdaten geladen)</div>';
   let parsed={datum:'',betrag:null};
   try{
-    const T=await loadTesseract();
-    const r=await T.recognize(scanSrc,'deu');
-    parsed=scanParse(r&&r.data?r.data.text:'');
+    parsed=scanParse(await ocrText(scanSrc));   // v5.21: Vorverarbeitung + deu/eng
   }catch(e){toast(e.message||'Texterkennung fehlgeschlagen — Werte bitte von Hand eintragen','err');}
   scanRenderForm(parsed);
 }
@@ -9981,7 +10069,12 @@ function scanRenderForm(p){
       <div class="f"><label>Belegdatum</label><input type="date" id="scanDate" value="${p.datum||''}" onchange="scanMatchInfo()"></div>
       <div class="f"><label>Betrag &euro;</label><input type="number" step="0.01" id="scanAmt" value="${p.betrag!=null?p.betrag.toFixed(2):''}"></div>
     </div>
-    <div class="f" style="margin-top:6px"><label>Bezeichnung (optional)</label><input type="text" id="scanName" placeholder="z. B. Parkticket Flughafen"></div>
+    <div class="g g2" style="gap:8px;margin-top:6px">
+      <div class="f"><label>Belegart</label><input type="text" id="scanArt" list="scanArtList" value="${esc(p.belegart||'')}" placeholder="z. B. Taxi, Bahnkarte"></div>
+      <div class="f"><label>Währung</label><select id="scanCur">${['EUR','CHF','USD','GBP','NOK'].map(x=>`<option ${(p.waehrung||'EUR')===x?'selected':''}>${x}</option>`).join('')}</select></div>
+    </div>
+    <datalist id="scanArtList">${BELEG_ARTEN.map(a=>`<option value="${a.art}">`).join('')}</datalist>
+    <div class="f" style="margin-top:6px"><label>Bezeichnung (optional)</label><input type="text" id="scanName" value="${esc(p.anbieter||'')}" placeholder="z. B. Parkticket Flughafen"></div>
     <div id="scanMatch" style="font-size:12px;margin-top:8px"></div>
     <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn btn-gold" type="button" onclick="scanSave()">✓ Beleg speichern</button></div>`;
   scanMatchInfo();
@@ -9999,17 +10092,20 @@ async function scanSave(){
   const datum=document.getElementById('scanDate')?.value||'';
   const betrag=parseFloat(document.getElementById('scanAmt')?.value);
   const bez=(document.getElementById('scanName')?.value||'').trim().replace(/[\\/:*?"<>|]/g,'');
+  const art=(document.getElementById('scanArt')?.value||'').trim()||'Scan';
+  const cur=document.getElementById('scanCur')?.value||'EUR';
+  if(cur!=='EUR')toast('Hinweis: Betrag in '+cur+' – zählt erst nach Umrechnung in EUR','err');
   const blob=await new Promise(r=>scanSrc.toBlob(r,'image/jpeg',0.85));
   if(!blob){toast('Bild konnte nicht gespeichert werden','err');return;}
-  const fname=`Scan_${datum||'ohneDatum'}${bez?'_'+bez:''}${isNaN(betrag)?'':'_'+betrag.toFixed(2).replace('.',',')+'EUR'}.jpg`;
+  const fname=`${(datum||'ohneDatum').replace(/-/g,'_')}_Beleg_${art.replace(/[^A-Za-zÄÖÜäöüß0-9]+/g,'_')}${bez?'_'+bez.replace(/\s+/g,'_'):''}${isNaN(betrag)?'':'_'+betrag.toFixed(2).replace('.',',')+cur}.jpg`;
   const file=new File([blob],fname,{type:'image/jpeg'});
-  const id=await storeOriginalFile(file,{prefix:'scan',monat:datum?datum.slice(0,7):null,typ:'Beleg',belegart:'Scan',datum:datum||null,betrag:isNaN(betrag)?null:betrag});
+  const id=await storeOriginalFile(file,{prefix:'scan',monat:datum?datum.slice(0,7):null,typ:'Beleg',belegart:art,datum:datum||null,betrag:isNaN(betrag)?null:betrag,waehrung:cur});
   const e=scanEntryFor(datum);
   if(e){if(!Array.isArray(e.recIds))e.recIds=[];e.recIds.push(id);}
   else{
     if(!state.settings.mbReceipts)state.settings.mbReceipts={};
     if(!state.settings.mbReceipts['unassigned'])state.settings.mbReceipts['unassigned']=[];
-    state.settings.mbReceipts['unassigned'].push({id,dateiname:fname,belegart:'Scan',datum:datum||null,gesamtkosten:isNaN(betrag)?null:betrag});
+    state.settings.mbReceipts['unassigned'].push({id,dateiname:fname,belegart:art,datum:datum||null,gesamtkosten:isNaN(betrag)||cur!=='EUR'?null:betrag,waehrung:cur,betragFremd:cur!=='EUR'&&!isNaN(betrag)?betrag:null});
   }
   persist();if(typeof scheduleCloudPush==='function')scheduleCloudPush();
   if(typeof window.renderBelegeablage==='function')window.renderBelegeablage();
@@ -10155,10 +10251,24 @@ async function mergeRemote(remote,remoteTs){
       // aelteren Build laeuft und aktivesJahr trotzdem noch mitschickt.
       const keepFb={fbConfig:state.settings.fbConfig,fbAutoSync:state.settings.fbAutoSync,fbLastSync:state.settings.fbLastSync,aktivesJahr:state.settings.aktivesJahr};
       const _gelLokal=(state.settings.geloeschteBelege||[]).slice();
+      // v5.21: Listen, die auf beiden Geraeten wachsen, zusammenfuehren statt ueberschreiben –
+      // sonst geht z. B. ein auf dem iPhone importierter Bescheid verloren, wenn der Mac spaeter pusht.
+      const _bwLokal=(state.settings.bwBescheide||[]).slice(),_trashLokal=(state.settings.trash||[]).slice(),_ackLokal=(state.settings.ackFindings||[]).slice();
       state.settings=Object.assign(state.settings,remote.settings,keepFb);
+      {const m={};[..._bwLokal,...(remote.settings.bwBescheide||[])].forEach(b=>{if(!b||!b.id)return;const a=m[b.id];
+         if(!a||String(b.importiert||'')>=String(a.importiert||''))m[b.id]=b;});
+       state.settings.bwBescheide=Object.values(m);}
+      {const m={};[..._trashLokal,...(remote.settings.trash||[])].forEach(t=>{const id=t&&t.entry&&t.entry.id;if(!id)return;
+         if(!m[id]||(t.deletedAt||0)>(m[id].deletedAt||0))m[id]=t;});
+       state.settings.trash=Object.values(m).sort((a,b)=>(b.deletedAt||0)-(a.deletedAt||0));}
+      state.settings.ackFindings=[...new Set([..._ackLokal,...(remote.settings.ackFindings||[])])];
       state.settings.geloeschteBelege=[...new Set([..._gelLokal,...(remote.settings.geloeschteBelege||[])])];
       state.settings.fbLastAppliedRemoteTs=remoteTs;
     }
+    // v5.21: Loeschungen uebertragen – ein Eintrag im Papierkorb, der nach der Loeschung nicht mehr
+    // geaendert wurde, kommt nicht ueber den Abgleich zurueck.
+    {const del={};(state.settings.trash||[]).forEach(t=>{if(t&&t.entry&&t.entry.id)del[t.entry.id]=Math.max(del[t.entry.id]||0,t.deletedAt||0);});
+     state.entries=state.entries.filter(e=>!(e.id in del)||(e.updated||0)>del[e.id]);}
     migrate();geloeschteBereinigen();persist();
     // Belege nachladen, die lokal fehlen
     downRes=await syncReceiptsDown();
@@ -10962,13 +11072,14 @@ window.extractMetadata = function(file, pdfText) {
   return metadata;
 };
 
-window.analyzeImportFile = function(file, pdfText) {
+window.analyzeImportFile = function(file, pdfText, ocrText) {
   const metadata = window.extractMetadata(file, pdfText);
 
   const result = {
     id: uid(),
     file: file,
     pdfText: pdfText,
+    ocrText: ocrText || '',
     typ: null,
     daten: null,
     validierungsFehler: [],
@@ -10992,23 +11103,49 @@ window.analyzeImportFile = function(file, pdfText) {
     // Nur Typ-Erkennung für TG/RK, nicht Belegart überschreiben
     const t = (pdfText || '').toLowerCase();
     if (!belegarntFromFilename) {
-      if (t.includes('trennungsgeld') || t.includes('tg')) {
+      // v5.21: frueher t.includes('tg') / t.includes('rk') – das traf „Fahrtgebühr“, „Parken“, „Werk“ …
+      // und machte fast jeden PDF-Beleg (z. B. Uber) zum Bescheid. Jetzt nur noch eindeutige Begriffe.
+      const beleg = belegErkennen(pdfText);
+      if (/trennungsgeld|trennungstagegeld|trennungsgeldverordnung/.test(t)) {
         result.typ = 'TG';
         result.belegart = 'TG';
         result.validierungsFehler.push('Trennungsgeld erkannt, aber nicht vollständig geparst');
-      } else if (t.includes('reisekostenabrechnung') || t.includes('rk')) {
+      } else if (/reisekostenabrechnung|reisekostenvergütung|bundesreisekostengesetz|\bbrkg\b/.test(t)) {
         result.typ = 'RK';
         result.belegart = 'RK';
         result.validierungsFehler.push('Reisekostenabrechnung erkannt, aber nicht vollständig geparst');
       } else {
-        result.typ = 'UNBEKANNT';
-        result.validierungsFehler.push('Bescheid-Typ konnte nicht erkannt werden');
+        // kein Bescheid → normaler Beleg (Taxi/Uber, Bahn, Flug, Hotel, Parken …)
+        result.typ = 'BELEG';
+        result.belegart = beleg.belegart || 'Beleg';
+        if (!result.datum) result.datum = beleg.datum || null;
+        if (result.gesamtkosten == null && beleg.betrag != null) {
+          if (beleg.waehrung === 'EUR') result.gesamtkosten = beleg.betrag;
+          else result.validierungsFehler.push('Betrag in ' + beleg.waehrung + ' (' + beleg.betrag + ') – bitte in EUR eintragen');
+        }
+        if (beleg.anbieter) result.anbieter = beleg.anbieter;
+        if (!beleg.belegart) result.validierungsFehler.push('Belegart nicht sicher erkannt – bitte prüfen');
       }
     } else {
       result.typ = 'BELEG';
+      const beleg = belegErkennen(pdfText);
+      if (!result.datum) result.datum = beleg.datum || null;
+      if (result.gesamtkosten == null && beleg.betrag != null && beleg.waehrung === 'EUR') result.gesamtkosten = beleg.betrag;
     }
   } else if (file.type && (file.type.startsWith('image/') || file.type === 'application/pdf')) {
     result.typ = 'BELEG';
+    // v5.21: Fotos und eingescannte PDFs ueber die Texterkennung (OCR-Text kommt als result.ocrText)
+    if (result.ocrText) {
+      const beleg = belegErkennen(result.ocrText);
+      if (!result.belegart) result.belegart = beleg.belegart || 'Beleg';
+      if (!result.datum) result.datum = beleg.datum || null;
+      if (result.gesamtkosten == null && beleg.betrag != null) {
+        if (beleg.waehrung === 'EUR') result.gesamtkosten = beleg.betrag;
+        else result.validierungsFehler.push('Betrag in ' + beleg.waehrung + ' (' + beleg.betrag + ') – bitte in EUR eintragen');
+      }
+      if (beleg.anbieter) result.anbieter = beleg.anbieter;
+      result.validierungsFehler.push('Werte per Texterkennung gelesen – bitte prüfen');
+    }
   }
   return result;
 };
@@ -11021,11 +11158,20 @@ window.processUploadedFiles = async function(files) {
     const file = files[i];
     window.updateProgressBar(i, files.length);
     try {
-      let pdfText = null;
+      let pdfText = null, ocr = '';
       if (file.type === 'application/pdf') {
         pdfText = await window.extractPdfText(file);
+        // v5.21: PDF ohne Textebene (Scan) → erste Seite rendern und per OCR lesen
+        if (!pdfText || pdfText.replace(/\s/g, '').length < 20) {
+          try { const imgs = await pdfToPageImages(await blobToDataURL(file), 2);
+            if (imgs[0]) { const im = await new Promise((res, rej) => { const x = new Image(); x.onload = () => res(x); x.onerror = rej; x.src = imgs[0].src; });
+              ocr = await ocrText(im); } } catch (e) { console.warn('OCR PDF', e); }
+          if (ocr) pdfText = null;
+        }
+      } else if (file.type && file.type.startsWith('image/')) {
+        try { ocr = await ocrText(file); } catch (e) { console.warn('OCR', e); toast('Texterkennung nicht möglich (offline?) – Werte bitte eintragen', 'err'); }
       }
-      const analysis = window.analyzeImportFile(file, pdfText);
+      const analysis = window.analyzeImportFile(file, pdfText, ocr);
       pendingImports.push(analysis);
     } catch (e) {
       toast('Fehler bei ' + file.name + ': ' + e.message, 'err');
