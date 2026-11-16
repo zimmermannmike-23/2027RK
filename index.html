@@ -1259,10 +1259,12 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.25.1';
-const APP_BUILD=111;
+const APP_VERSION='5.25.3';
+const APP_BUILD=113;
 const APP_DATE='16.11.2026';
 const APP_CHANGES=[
+  'Reiter Jahr: aufgeklappte Bereiche (z. B. „Aufstellung“) bleiben beim automatischen Neuzeichnen (Cloud-Sync) offen',
+  'Jahr › Selbst getragen: „Fahrtkosten ohne Beleg“ zählt Belege, die direkt an Strecke/Tag hängen, nicht mehr als fehlend und nennt je Position den nächstliegenden Ablage-Beleg; Uber/Bolt/FreeNow-Belege gelten als Taxi-Beleg',
   'iPhone: Eingabefelder 16 px und Zoom-Sperre – iOS zoomte beim Antippen eines Feldes ein, danach wanderten die fixierten Leisten (unten/links) beim Scrollen mit',
   'Jahresübersicht: „Von der Bundeswehr erstattet“ getrennt nach Dienstreisen (Reisekostenabrechnung) und Trennungsgeld (TG-Abrechnung); bei Dienstreisen steht, was die Bundeswehr direkt bezahlt hat (Flug, Hotel …) und was an dich ausgezahlt wurde',
   'Jahresübersicht: Kachel „Bw erstattet“ zählt direkt von der Bundeswehr bezahlte Dienstreise-Kosten nicht mehr als Erstattung und zeigt Trennungsgeld und Dienstreisen getrennt; „Selbst getragen“ rechnet entsprechend',
@@ -4646,7 +4648,7 @@ function belegArtKategorie(art){
   if(a.includes('flug'))return'Flugkarte';
   if(a.includes('bahn')||a.includes('zug')||a.includes('ice')||a.includes('db'))return'Bahnkarte';
   if(a.includes('bus'))return'Buskarte';
-  if(a.includes('taxi'))return'Taxi';
+  if(a.includes('taxi')||/\buber\b|\bbolt\b|free\s?now|mytaxi|fahrdienst/.test(a))return'Taxi';
   return null;
 }
 function mbBezahltFuerMonatKategorie(monat,kategorie){
@@ -4775,9 +4777,22 @@ function selbstGetragen(yr,BW){
   Z.belege.forEach((b,bi)=>{if(!imJahr(b.datum))return;const v=Z.bNum(b);if(!(v>0))return;
     if(istDT(b)){dtBelege++;return;}
     const art=belegArtGruppe(b.belegart);belegNachArt[art]=(belegNachArt[art]||0)+v;belegSum+=v;benutzt.add(bi);});
-  let wizOhne=0,wizOhneN=0;
+  let wizOhne=0,wizOhneN=0;const wizOhneListe=[],wizAbw=[],abwBelege=new Set();
   Z.kosten.forEach((k,ki)=>{if(!imJahr(k.date)||k.covered)return;if(Z.kostenZu[ki]!==undefined)return;
-    if(k.curr&&k.curr!=='EUR')return;wizOhne+=k.betrag;wizOhneN++;});
+    // v5.25.2: direkt an Strecke/Tag angehaengte Belege (Upload bei der Strecke) zaehlen als Beleg – wie in der Pruefung
+    if(k.legacy||k.tagBeleg)return;
+    if(k.curr&&k.curr!=='EUR')return;
+    // naechstliegenden nicht zugeordneten Ablage-Beleg (max. 3 Tage) als Ursache nennen
+    let kand=null,kd=Infinity,kbi=-1;
+    Z.belege.forEach((b,bi)=>{if(Z.belegZu[bi]!==undefined||abwBelege.has(bi))return;const ab=Z.tagAbst(b.datum,k.date);
+      if(ab!==null&&ab<=3&&ab<kd){kd=ab;kand=b;kbi=bi;}});
+    // Beleg am selben Tag, nur der Betrag weicht ab (z. B. Uber mit Trinkgeld): der Beleg steckt schon in der Belegsumme –
+    // die Position nicht noch einmal zaehlen (sonst doppelt); Abweichung wird nur genannt.
+    if(kand&&kd===0&&Z.bNum(kand)>0){abwBelege.add(kbi);wizAbw.push(fmtD(k.date)+' '+(k.art||'Fahrt')+': erfasst '+fmtM(k.betrag,'EUR')+', Beleg '+fmtM(Z.bNum(kand),'EUR')+' (nur Beleg gezählt)');return;}
+    wizOhne+=k.betrag;wizOhneN++;
+    wizOhneListe.push(fmtD(k.date)+' '+(k.art||'Fahrt')+' '+fmtM(k.betrag,'EUR')
+      +(kand?' → Ablage: '+Z.bName(kand)+(Z.bNum(kand)>0?' über '+fmtM(Z.bNum(kand),'EUR'):' (Betrag nicht erkannt)')+' vom '+fmtD(kand.datum)
+        :' → kein Beleg im Umkreis von 3 Tagen'));});
   // Allg. Kosten – gegen noch nicht zugeordnete Ablage-Belege abgleichen
   let allg=0;const frei=Z.belege.map((b,bi)=>({b,bi})).filter(x=>Z.belegZu[x.bi]===undefined);
   const genutzt=new Set();
@@ -4793,7 +4808,7 @@ function selbstGetragen(yr,BW){
   const r2=v=>Math.round((v||0)*100)/100;
   const kosten=[
     {n:'Belege (Belegeablage)',v:r2(belegSum),sub:Object.keys(belegNachArt).sort((a,b)=>belegNachArt[b]-belegNachArt[a]).map(k=>k+' '+r2(belegNachArt[k]).toLocaleString('de-DE',{minimumFractionDigits:2})+' €').join(' · ')},
-    {n:'Erfasste Fahrtkosten ohne Beleg',v:r2(wizOhne),sub:wizOhneN?wizOhneN+' Position(en) – Beleg fehlt in der Ablage':''},
+    {n:'Erfasste Fahrtkosten ohne Beleg',v:r2(wizOhne),sub:(wizOhneN?wizOhneN+' Position(en) – Beleg fehlt in der Ablage: '+wizOhneListe.join(' · '):'')+(wizAbw.length?(wizOhneN?' | ':'')+'Betrag weicht vom Beleg ab: '+wizAbw.join(' · '):'')},
     {n:'Allg. Kosten (Wizard, ohne Beleg)',v:r2(allg),sub:''},
     {n:'Deutschlandticket',v:r2(dt),sub:dtBelege?dtBelege+' D-Ticket-Beleg(e) der Ablage hier enthalten, nicht doppelt gezählt':''},
     {n:'Privat-Kfz (0,30 €/km)',v:r2(K.voll),sub:K.km?(Math.round(K.km*10)/10).toLocaleString('de-DE')+' km':''},
@@ -5163,11 +5178,25 @@ function setAktivesJahr(j){
 }
 /* Rendert alle Karten des Reiters „Jahresübersicht" gemeinsam. Die Belegeablage-Liste
    liest aus IndexedDB und wird deshalb nur beim Tab-Wechsel bzw. nach Änderungen erneuert. */
+/* v5.25.3: Auf-/Zuklappzustand der Aufklapp-Bloecke (Aufstellung usw.) im Reiter Jahr merken – das Neuzeichnen
+   (Cloud-Sync, Belegeablage laedt nach) setzte sie sonst jedes Mal zurueck. Schluessel = Text der Ueberschrift. */
+const jahrDetOffen={};
+document.addEventListener('toggle',function(ev){
+  const d=ev.target;if(!d||d.tagName!=='DETAILS')return;
+  const v=document.getElementById('view-jahr');if(!v||!v.contains(d))return;
+  const s=d.querySelector(':scope > summary');if(s)jahrDetOffen[s.textContent.trim()]=d.open;
+},true);
+function jahrDetailsAnwenden(){
+  const v=document.getElementById('view-jahr');if(!v)return;
+  v.querySelectorAll('details').forEach(d=>{const s=d.querySelector(':scope > summary');if(!s)return;
+    const k=s.textContent.trim();if(k in jahrDetOffen&&d.open!==jahrDetOffen[k])d.open=jahrDetOffen[k];});
+}
 function renderJahresView(){
   yrSelSync();
-  if(!ablageMeta&&typeof ablageIdsLaden==='function')ablageIdsLaden().then(()=>{if(ablageMeta){renderJahresCard();}});
+  if(!ablageMeta&&typeof ablageIdsLaden==='function')ablageIdsLaden().then(()=>{if(ablageMeta){renderJahresCard();jahrDetailsAnwenden();}});
   renderJahresCard();renderKostenChart();renderKfzCard();renderDhfCard();renderQuerCard();
   if(typeof renderBwList==='function')renderBwList();
+  jahrDetailsAnwenden();
 }
 /* Erstattet je Monat laut Bescheid (TG + RK), gestapelt; Hochrechnung TG bis Trennungsgeld-Ende */
 function renderKostenChart(){
