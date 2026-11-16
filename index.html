@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0B132B">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="TG/RB Nachweis">
@@ -398,6 +398,10 @@ datalist{display:none;}
 /* ═══ Build 68: Responsive Layout, Dark Mode, Komponenten ═══ */
 .lb-l{display:none;}
 .tab-more{display:none!important;}
+/* v5.25.1: iOS zoomt beim Antippen von Eingabefeldern unter 16 px ein; danach laesst sich die Seite seitlich verschieben
+   und die fixierten Leisten (unten/links) wandern beim Scrollen mit. Auf Touch-Geraeten daher 16 px. */
+@media(pointer:coarse){input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),select,textarea{font-size:16px!important;}}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
 .syncpill{all:unset;cursor:pointer;font-size:11.5px;font-weight:600;color:rgba(255,255,255,.85);padding:5px 10px;border-radius:999px;
   border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.07);white-space:nowrap;display:inline-flex;align-items:center;gap:6px;}
 .syncpill .sd{width:7px;height:7px;border-radius:50%;background:#7a8b8e;flex-shrink:0;}
@@ -1255,10 +1259,11 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.25.0';
-const APP_BUILD=110;
+const APP_VERSION='5.25.1';
+const APP_BUILD=111;
 const APP_DATE='16.11.2026';
 const APP_CHANGES=[
+  'iPhone: Eingabefelder 16 px und Zoom-Sperre – iOS zoomte beim Antippen eines Feldes ein, danach wanderten die fixierten Leisten (unten/links) beim Scrollen mit',
   'Jahresübersicht: „Von der Bundeswehr erstattet“ getrennt nach Dienstreisen (Reisekostenabrechnung) und Trennungsgeld (TG-Abrechnung); bei Dienstreisen steht, was die Bundeswehr direkt bezahlt hat (Flug, Hotel …) und was an dich ausgezahlt wurde',
   'Jahresübersicht: Kachel „Bw erstattet“ zählt direkt von der Bundeswehr bezahlte Dienstreise-Kosten nicht mehr als Erstattung und zeigt Trennungsgeld und Dienstreisen getrennt; „Selbst getragen“ rechnet entsprechend',
   'iPhone: untere Leiste jetzt Eintrag · Monat · Zeit · Übersicht · Mehr (Belege, Abwesenheiten, Jahr, Bescheinigung, Einstellungen unter „Mehr“); Seitenleiste am Mac/Querformat unverändert',
