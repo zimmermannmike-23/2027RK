@@ -493,7 +493,7 @@ datalist{display:none;}
   .tab.on{background:transparent;color:var(--accent);}
   .tab.nav-sec{display:none;}
   .tab-more{display:flex!important;}
-  .tab[data-v=wizard]{order:1}.tab[data-v=monat]{order:2}.tab[data-v=abwesenheiten]{order:3}.tab[data-v=export]{order:4}.tab-more{order:5}
+  .tab[data-v=wizard]{order:1}.tab[data-v=monat]{order:2}.tab[data-v=zeiterfassung]{order:3}.tab[data-v=overview]{order:4}.tab[data-v=export]{order:5}.tab-more{order:6}
   main{margin-left:0!important;padding:14px 14px calc(var(--navh) + 24px)!important;}
   .wact{left:0;border-radius:18px 18px 0 0;padding-bottom:10px;}
   .syncpill .st{display:none;}
@@ -713,10 +713,10 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
   <div class="tabs-i">
     <button class="tab" data-v="monat" title="Monatsübersicht"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M16 3v4M8 3v4M4 11h16"/></svg></span><span class="lb"><span class="lb-s">Monat</span><span class="lb-l">Monat</span></span></button>
     <button class="tab on" data-v="wizard" title="Eintrag"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1"/><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z"/><path d="M16 5l3 3"/></svg></span><span class="lb"><span class="lb-s">Eintrag</span><span class="lb-l">Neuer Eintrag</span></span></button>
-    <button class="tab nav-sec" data-v="overview" title="Übersicht"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5" rx="1"/><rect x="12" y="8" width="3" height="9" rx="1"/><rect x="17" y="5" width="3" height="12" rx="1"/></svg></span><span class="lb"><span class="lb-s">Übersicht</span><span class="lb-l">Übersicht</span></span></button>
-    <button class="tab nav-sec" data-v="zeiterfassung" title="Zeiterfassung"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span><span class="lb"><span class="lb-s">Zeit</span><span class="lb-l">Zeiterfassung</span></span></button>
+    <button class="tab" data-v="overview" title="Übersicht"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5" rx="1"/><rect x="12" y="8" width="3" height="9" rx="1"/><rect x="17" y="5" width="3" height="12" rx="1"/></svg></span><span class="lb"><span class="lb-s">Übersicht</span><span class="lb-l">Übersicht</span></span></button>
+    <button class="tab" data-v="zeiterfassung" title="Zeiterfassung"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span><span class="lb"><span class="lb-s">Zeit</span><span class="lb-l">Zeiterfassung</span></span></button>
     <button class="tab" data-v="export" title="Übersichten &amp; Belege"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2"/><path d="M9 8h6M9 12h6"/></svg></span><span class="lb"><span class="lb-s">Belege</span><span class="lb-l">Belege & Berichte</span></span></button>
-    <button class="tab" data-v="abwesenheiten" title="Abwesenheiten"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M12 19h4.5a3.5 3.5 0 0 0 0 -7h-8a3.5 3.5 0 0 1 0 -7h3.5"/></svg></span><span class="lb"><span class="lb-s">Abwes.</span><span class="lb-l">Abwesenheiten</span></span></button>
+    <button class="tab nav-sec" data-v="abwesenheiten" title="Abwesenheiten"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M12 19h4.5a3.5 3.5 0 0 0 0 -7h-8a3.5 3.5 0 0 1 0 -7h3.5"/></svg></span><span class="lb"><span class="lb-s">Abwes.</span><span class="lb-l">Abwesenheiten</span></span></button>
     <button class="tab nav-sec" data-v="jahr" title="Jahresübersicht"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M16 3v4M8 3v4M4 11h16M10 16v-3M14 16v-5M18 16v-1"/></svg></span><span class="lb"><span class="lb-s">Jahr</span><span class="lb-l">Jahresübersicht</span></span></button>
     <button class="tab nav-sec" data-v="bescheinigung" title="Bescheinigung bearbeiten"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M11 21h-4a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v3"/><path d="M18.4 14.6l-4.4 4.4l-1 3l3 -1l4.4 -4.4a1.4 1.4 0 0 0 -2 -2z"/></svg></span><span class="lb"><span class="lb-s">Bescheinig.</span><span class="lb-l">Bescheinigung bearbeiten</span></span></button>
     <button class="tab nav-sec" data-v="settings" title="Einstellungen"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="lb"><span class="lb-s">Einstell.</span><span class="lb-l">Einstellungen</span></span></button>
@@ -1252,10 +1252,11 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.24.0';
-const APP_BUILD=108;
+const APP_VERSION='5.24.1';
+const APP_BUILD=109;
 const APP_DATE='16.11.2026';
 const APP_CHANGES=[
+  'iPhone: untere Leiste jetzt Eintrag · Monat · Zeit · Übersicht · Belege · Mehr; Abwesenheiten wandern nach „Mehr“ (Seitenleiste am Mac/Querformat unverändert)',
   'Belege nur noch unter „Belege“: im Wizard kein 📎-Hochladen mehr; gescannte Belege landen immer in der Belegeablage und werden über Datum und Betrag zugeordnet',
   'Reiter Jahr: „Selbst getragen“ rechnet jetzt alle Kosten (Belege, erfasste Fahrtkosten ohne Beleg, Deutschlandticket, Privat-Kfz 0,30 €/km, Miete Zweitwohnung) abzüglich aller Erstattungen – mit Aufstellung',
   'Reiter Jahr: „Sonstige Belege“ zählt alle Dateien der Belegeablage (wie die Prüfung)',
@@ -1987,7 +1988,7 @@ function gotoView(v){
   if(typeof moreClose==='function')moreClose();
   if(v!=='wizard'&&typeof wizHintShow==='function'){wizReturn=null;wizHintShow(null);}
   document.querySelectorAll('.tab[data-v]').forEach(t=>t.classList.toggle('on',t.dataset.v===v));
-  document.querySelector('.tab-more')?.classList.toggle('on',['overview','zeiterfassung','jahr','bescheinigung','settings'].includes(v));
+  document.querySelector('.tab-more')?.classList.toggle('on',['abwesenheiten','jahr','bescheinigung','settings'].includes(v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
   if(v==='overview'){yrSelSync();const _n=new Date();const _om=document.getElementById('ovM');if(_om)_om.value=String(_n.getMonth()+1).padStart(2,'0');renderOverview();}if(v==='zeiterfassung'){initZeMonth();const _z=document.getElementById('zeMonth');const _n2=new Date();if(_z)_z.value=aktivesJahr()+'-'+String(_n2.getMonth()+1).padStart(2,'0');renderZE();}if(v==='export'){updExStats();renderFhf();initCatGrid();renderExportPdfs();renderReceipts();if(typeof renderBelegeablage==='function')renderBelegeablage();belPane();}
   if(v==='jahr'){renderJahresView();}
