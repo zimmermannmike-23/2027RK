@@ -862,7 +862,7 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
   <div class="bel-pane" id="bpAblage">
   <div class="card scan-hero" style="margin-bottom:12px">
     <div><h3 style="font-size:15px;margin-bottom:2px">&#128247; Beleg scannen</h3>
-    <p style="font-size:12px;color:var(--muted);margin:0">Foto aufnehmen oder Bild wählen &#8211; Datum und Betrag werden erkannt und der Beleg dem passenden Tag angehängt.<span class="mac-hint"> Am Mac: Bild mit &#8984;V einfügen oder Dateien ins Fenster ziehen.</span></p></div>
+    <p style="font-size:12px;color:var(--muted);margin:0">Foto aufnehmen oder Bild wählen &#8211; Datum und Betrag werden erkannt, der Beleg kommt in die Belegeablage und wird über Datum und Betrag der Fahrt zugeordnet.<span class="mac-hint"> Am Mac: Bild mit &#8984;V einfügen oder Dateien ins Fenster ziehen.</span></p></div>
     <button class="btn btn-gold" type="button" onclick="scanOpen()">&#128247; Scannen</button>
   </div>
   <div class="card" style="margin-bottom:12px;border-left:3px solid var(--accent)">
@@ -1252,10 +1252,13 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.23.0';
-const APP_BUILD=107;
+const APP_VERSION='5.24.0';
+const APP_BUILD=108;
 const APP_DATE='16.11.2026';
 const APP_CHANGES=[
+  'Belege nur noch unter „Belege“: im Wizard kein 📎-Hochladen mehr; gescannte Belege landen immer in der Belegeablage und werden über Datum und Betrag zugeordnet',
+  'Reiter Jahr: „Selbst getragen“ rechnet jetzt alle Kosten (Belege, erfasste Fahrtkosten ohne Beleg, Deutschlandticket, Privat-Kfz 0,30 €/km, Miete Zweitwohnung) abzüglich aller Erstattungen – mit Aufstellung',
+  'Reiter Jahr: „Sonstige Belege“ zählt alle Dateien der Belegeablage (wie die Prüfung)',
   'Schritt 1: Haken „Familienheimfahrt (FHF)“ steht jetzt bei jeder Tagesart zur Verfügung (über den Kacheln)',
   'Prüfung › Belege: geprüft werden jetzt alle Dateien, die in der Belegeablage angezeigt werden – auch solche ohne Eintrag in der internen Belegliste (z. B. nach Sync auf ein anderes Gerät)',
   'Prüfung › Belege: neue Zeile „Belegabgleich“ zeigt, wie viele Belege und Kostenpositionen geprüft und zugeordnet wurden',
@@ -2674,9 +2677,8 @@ function buildSeg(s,i){
           <input class="seg-cost-desc" type="text" value="${esc(s.costDesc)}" onchange="setSeg(${i},'costDesc',this.value)" placeholder="z. B. ICE München – Salzburg">
         </div>
         <div class="rec-sec" style="margin-top:9px">
-          <div class="rec-lbl"><span>Belege (${s.recIds.length})</span>
-            <label class="fbtn">📎 Hinzufügen<input type="file" accept="image/*,application/pdf" multiple onchange="handleSegRec(${i},event)"></label>
-          </div>
+          <div class="hint" style="font-size:11px;line-height:1.4">🧾 Belege bitte unter <b>Belege › Belegeablage</b> hochladen – sie werden über Datum und Betrag automatisch dieser Fahrt zugeordnet.</div>
+          ${s.recIds.length?`<div class="rec-lbl" style="margin-top:6px"><span>Früher hier angehängt (${s.recIds.length}) – bleiben gültig</span></div>`:''}
           <div class="rec-list" id="segRL_${i}"></div>
         </div>
       </div>
@@ -2776,9 +2778,8 @@ function buildCosts(){
           <textarea id="genDesc" onchange="wiz.costDesc=this.value" placeholder="z. B. Übernachtung Hotel Bad Reichenhall">${esc(wiz.costDesc)}</textarea>
         </div>
         <div class="rec-sec">
-          <div class="rec-lbl"><span>Allg. Belege (${wiz.recIds.length})</span>
-            <label class="fbtn">📎 Hinzufügen<input type="file" id="genRI" accept="image/*,application/pdf" multiple onchange="handleGenRec(event)"></label>
-          </div>
+          <div class="hint" style="font-size:11px;line-height:1.4">🧾 Belege bitte unter <b>Belege › Belegeablage</b> hochladen – sie werden über Datum und Betrag automatisch dieser Fahrt zugeordnet.</div>
+          ${wiz.recIds.length?`<div class="rec-lbl" style="margin-top:6px"><span>Früher hier angehängt (${wiz.recIds.length}) – bleiben gültig</span></div>`:''}
           <div class="rec-list" id="genRL"></div>
         </div>
         </div>
@@ -4606,11 +4607,12 @@ function belegArtGruppe(art){
 }
 /* Summen der über die Belegeablage hochgeladenen sonstigen Belege (Bahn/Bus/Flug/Bilder), gefiltert nach Jahr/Monat-Präfix */
 function mbSummen(praefix){
-  const items=(state.settings.mbReceipts&&state.settings.mbReceipts['unassigned'])||[];
+  // v5.24: dieselbe Quelle wie Pruefung und Belegeablage-Anzeige
+  const items=typeof ablagePruefBelege==='function'?ablagePruefBelege():((state.settings.mbReceipts&&state.settings.mbReceipts['unassigned'])||[]);
   const l=items.filter(r=>!praefix||(r.datum||'').startsWith(praefix));
   const s={anzahl:l.length,gesamt:0,nachArt:{},nachArtAnz:{}};
   l.forEach(r=>{
-    const betrag=parseFloat(r.gesamtkosten)||0;
+    const betrag=zahlDE(r.gesamtkosten);
     s.gesamt+=betrag;
     const art=belegArtGruppe(r.belegart);
     s.nachArt[art]=(s.nachArt[art]||0)+betrag;
@@ -4732,8 +4734,69 @@ function jahresUebersicht(yr){
   });
   u.bw=bwSummen(y);
   u.mb=mbSummen(y);
-  u.eigen=Math.max(0,u.kostGesamt-(u.bw.fahrkosten||0));
+  u.sg=selbstGetragen(y,u.bw);
+  u.eigen=u.sg.saldo;
   return u;
+}
+/* v5.24: Selbst getragene Kosten = alle eigenen Ausgaben abzueglich ALLER Erstattungen.
+   Bisher: nur im Wizard erfasste Fahrtkosten minus Fahrkosten-Erstattung, nach unten auf 0 begrenzt –
+   seit die Belege nur noch in der Belegeablage liegen, stand dort fast immer 0,00 €.
+   Kosten (ohne Doppelzaehlung):
+   1. Belege der Belegeablage im Jahr (tatsaechlich bezahlt)
+   2. im Wizard erfasste Fahrtkosten, denen KEIN Ablage-Beleg zugeordnet ist (Zuordnung wie in der Pruefung)
+   3. „Allg. Kosten“ im Wizard, sofern kein betragsgleicher Ablage-Beleg (±3 Tage) dafuer da ist
+   4. Deutschlandticket (Einstellungen)          5. Privat-Kfz: gefahrene km × 0,30 €/km
+   6. Miete Zweitwohnung × Monate (Einstellungen, ungedeckelt)
+   Erstattungen: alles aus den TG- und RK-Bescheiden (Unterkunft, Trennungs-/Tagegeld, Fahrkosten, Sonstiges). */
+function selbstGetragen(yr,BW){
+  const y=String(yr);BW=BW||bwSummen(y);
+  const Z=belegZuordnung();
+  const imJahr=d=>!!d&&String(d).startsWith(y);
+  const benutzt=new Set();
+  const dt=(typeof dtKostenImJahr==='function'?dtKostenImJahr(y).gesamt:0)||0;
+  // Deutschlandticket steht in den Einstellungen – hochgeladene D-Ticket-Rechnungen nicht doppelt zaehlen
+  const istDT=b=>dt>0&&/deutschland.?ticket|d-?ticket/i.test(String(b.belegart||'')+' '+String(b.dateiname||''));
+  let belegSum=0,dtBelege=0;const belegNachArt={};
+  Z.belege.forEach((b,bi)=>{if(!imJahr(b.datum))return;const v=Z.bNum(b);if(!(v>0))return;
+    if(istDT(b)){dtBelege++;return;}
+    const art=belegArtGruppe(b.belegart);belegNachArt[art]=(belegNachArt[art]||0)+v;belegSum+=v;benutzt.add(bi);});
+  let wizOhne=0,wizOhneN=0;
+  Z.kosten.forEach((k,ki)=>{if(!imJahr(k.date)||k.covered)return;if(Z.kostenZu[ki]!==undefined)return;
+    if(k.curr&&k.curr!=='EUR')return;wizOhne+=k.betrag;wizOhneN++;});
+  // Allg. Kosten – gegen noch nicht zugeordnete Ablage-Belege abgleichen
+  let allg=0;const frei=Z.belege.map((b,bi)=>({b,bi})).filter(x=>Z.belegZu[x.bi]===undefined);
+  const genutzt=new Set();
+  state.entries.filter(e=>imJahr(e.date)).forEach(e=>{
+    const v=(!e.costCurr||e.costCurr==='EUR')?zahlDE(e.costAmt):0;if(!(v>0))return;
+    const t=frei.find(x=>!genutzt.has(x.bi)&&Math.abs(Z.bNum(x.b)-v)<=0.01&&Z.tagAbst(x.b.datum,e.date)!==null&&Z.tagAbst(x.b.datum,e.date)<=3);
+    if(t){genutzt.add(t.bi);return;}
+    allg+=v;});
+  const K=typeof kfzVergleich==='function'?kfzVergleich(y):{km:0,voll:0};
+  const miete=parseFloat(state.settings.mieteZweit)||0;
+  const mMonate=miete?(dhfUnterkunftAnteilig(y,1,BW.anzTG||0)||0):0;
+  const unterkunft=Math.round(miete*mMonate*100)/100;
+  const r2=v=>Math.round((v||0)*100)/100;
+  const kosten=[
+    {n:'Belege (Belegeablage)',v:r2(belegSum),sub:Object.keys(belegNachArt).sort((a,b)=>belegNachArt[b]-belegNachArt[a]).map(k=>k+' '+r2(belegNachArt[k]).toLocaleString('de-DE',{minimumFractionDigits:2})+' €').join(' · ')},
+    {n:'Erfasste Fahrtkosten ohne Beleg',v:r2(wizOhne),sub:wizOhneN?wizOhneN+' Position(en) – Beleg fehlt in der Ablage':''},
+    {n:'Allg. Kosten (Wizard, ohne Beleg)',v:r2(allg),sub:''},
+    {n:'Deutschlandticket',v:r2(dt),sub:dtBelege?dtBelege+' D-Ticket-Beleg(e) der Ablage hier enthalten, nicht doppelt gezählt':''},
+    {n:'Privat-Kfz (0,30 €/km)',v:r2(K.voll),sub:K.km?(Math.round(K.km*10)/10).toLocaleString('de-DE')+' km':''},
+    {n:'Miete Zweitwohnung',v:unterkunft,sub:miete?(Math.round(mMonate*100)/100).toLocaleString('de-DE')+' Monat(e) × '+miete.toLocaleString('de-DE',{minimumFractionDigits:2})+' €':'Miete in den Einstellungen eintragen'},
+  ];
+  const erst=[
+    {n:'Unterkunft / Übernachtung',v:r2(BW.unterkunft)},
+    {n:'Trennungs-/Tagegeld',v:r2(BW.tagegeld)},
+    {n:'Fahrkosten',v:r2(BW.fahrkosten)},
+    {n:'Sonstige (z. B. Nebenkosten)',v:r2(BW.sonstigeFk)},
+  ];
+  const kSum=r2(kosten.reduce((a,x)=>a+x.v,0)),eSum=r2(erst.reduce((a,x)=>a+x.v,0));
+  // Kontrolle: Summe der Erstattungsposten soll der Bescheid-Gesamtsumme entsprechen
+  const rest=r2((BW.gesamt||0)-eSum);
+  if(Math.abs(rest)>=0.01)erst.push({n:'Übrige Bescheidbeträge',v:rest});
+  const eGes=r2(eSum+(Math.abs(rest)>=0.01?rest:0));
+  const ohneTagegeld=r2(kSum-(eGes-r2(BW.tagegeld)));
+  return{kosten,erst,kSum,eSum:eGes,saldo:r2(kSum-eGes),ohneTagegeld,mieteFehlt:!miete};
 }
 /* ═══ Trennungsgeld gegen doppelte Haushaltsfuehrung ═══
    Nur STEUERFREIE Erstattungen mindern den Werbungskostenabzug (§ 3c EStG).
@@ -5081,6 +5144,7 @@ function setAktivesJahr(j){
    liest aus IndexedDB und wird deshalb nur beim Tab-Wechsel bzw. nach Änderungen erneuert. */
 function renderJahresView(){
   yrSelSync();
+  if(!ablageMeta&&typeof ablageIdsLaden==='function')ablageIdsLaden().then(()=>{if(ablageMeta){renderJahresCard();}});
   renderJahresCard();renderKostenChart();renderKfzCard();renderDhfCard();renderQuerCard();
   if(typeof renderBwList==='function')renderBwList();
 }
@@ -5211,8 +5275,16 @@ function renderJahresCard(){
           ${bw.kmVergKfz?`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2.5px 0;border-bottom:1px solid var(--lsoft)"><span>Reisebeihilfe Wegstrecke Kfz <span style="color:var(--muted);font-size:10px">(Rechengröße, keine gefahrenen km)</span></span><b>${n(bw.kmVergKfz)} km${bw.kostKfz?' &middot; '+e(bw.kostKfz)+' €':''}</b></div>`:''}
           <div style="font-size:10px;color:var(--muted);margin-top:2px">Aus den TG-Abrechnungen (RK-Abrechnungen enthalten keine km). Die Reisebeihilfe rechnet je Heimfahrt eine Kfz-Wegstrecke ab (0,20 €/km, höchstens 650 km = 130 €) – auch wenn geflogen wurde.</div>
           <div style="margin-top:8px;padding:7px 9px;background:var(--lsoft);border-radius:8px">
-            <div style="font-size:10px;color:var(--muted)">Selbst getragen (Kosten abzgl. Erstattung)</div>
-            <div style="font-size:16px;font-weight:800;color:var(--navy)">${e(u.eigen)} €</div>
+            <div style="font-size:10px;color:var(--muted)">${u.sg.saldo>=0?'Selbst getragen (alle Kosten abzgl. aller Erstattungen)':'Mehr erstattet als ausgegeben (alle Kosten abzgl. aller Erstattungen)'}</div>
+            <div style="font-size:16px;font-weight:800;color:${u.sg.saldo>=0?'var(--navy)':'var(--ok)'}">${e(Math.abs(u.sg.saldo))} €</div>
+            <div style="font-size:10px;color:var(--muted)">ohne Trennungs-/Tagegeld gerechnet: ${e(u.sg.ohneTagegeld)} €</div>
+            <details style="margin-top:4px"><summary style="font-size:11px;cursor:pointer;color:var(--navy);font-weight:600">Aufstellung</summary>
+              <div style="font-size:10px;font-weight:700;color:var(--navy);margin:6px 0 2px">Kosten ${e(u.sg.kSum)} €</div>
+              ${u.sg.kosten.map(x=>`<div style="display:flex;justify-content:space-between;gap:6px;font-size:11.5px;padding:2px 0;border-bottom:1px solid var(--line)"><span>${esc(x.n)}${x.sub?`<div style="font-size:10px;color:var(--muted)">${esc(x.sub)}</div>`:''}</span><b style="white-space:nowrap">${e(x.v)} €</b></div>`).join('')}
+              <div style="font-size:10px;font-weight:700;color:var(--ok);margin:6px 0 2px">Erstattungen ${e(u.sg.eSum)} €</div>
+              ${u.sg.erst.map(x=>`<div style="display:flex;justify-content:space-between;gap:6px;font-size:11.5px;padding:2px 0;border-bottom:1px solid var(--line)"><span>${esc(x.n)}</span><b style="white-space:nowrap;color:var(--ok)">− ${e(x.v)} €</b></div>`).join('')}
+              <div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.35">Belege zählen einmal: erfasste Fahrtkosten nur, wenn kein Beleg zugeordnet ist (wie in der Prüfung). Privat-Kfz mit 0,30 €/km als Kostenansatz. Verpflegung hat keinen Kostenbeleg – deshalb zusätzlich der Wert ohne Trennungs-/Tagegeld.</div>
+            </details>
           </div>`
         :'<div style="font-size:11px;color:var(--muted)">Noch keine Bescheide eingelesen. Im Reiter <b>Belege</b> unter „Bundeswehr-Bescheid einlesen" einf&#252;gen.</div>'}
       </div>
@@ -5556,6 +5628,104 @@ function renderVersion(){
   const c=document.getElementById('verChanges');
   if(c)c.innerHTML='<details><summary style="font-size:12px;font-weight:700;color:var(--navy);cursor:pointer">Neu in dieser Version ('+APP_CHANGES.length+')</summary><div style="margin-top:6px">'
     +APP_CHANGES.map(x=>'<div style="font-size:12px;color:var(--text);padding:2px 0;display:flex;gap:6px"><span style="color:var(--gold)">&bull;</span><span>'+esc(x)+'</span></div>').join('')+'</div></details>';
+}
+/* v5.24: Zuordnung Belegeablage ↔ erfasste Fahrtkosten – ausgelagert, damit Pruefung und
+   Jahresauswertung („Selbst getragen“) dieselbe Zuordnung verwenden und nichts doppelt zaehlt. */
+function belegZuordnung(meldung){
+  meldung=meldung||function(){};
+  const dstr=d=>fmtD(d);
+    const belege=ablagePruefBelege();   // v5.23: alles, was die Belegeablage anzeigt
+    // v5.22: Betrag robust lesen („23,45“ ergab bisher 23) — fehlt er, aus dem Dateinamen (…_23,45EUR.pdf)
+    const bNum=b=>{const v=zahlDE(b.gesamtkosten);if(v>0)return v;
+      const m=String(b.dateiname||'').match(/(\d{1,5}[.,]\d{2})\s*(?:EUR|€)/i);return m?zahlDE(m[1]):0;};
+    // Klartext: die Ausgabe in runCheckBox escapt die Meldung bereits
+    const bName=b=>b.dateiname||b.belegart||'Beleg';
+    // Kostenpflichtige Fahrt-Segmente aus dem Wizard
+    const kosten=[];
+    // Zuordnung über ALLE Einträge (Belege und Fahrten liegen am Jahreswechsel oft in
+    // verschiedenen Jahren); gemeldet wird nur, was im Prüfzeitraum liegt.
+    const imZR=d=>!d||imCheckBoxZeitraum(d);
+    const alleTage=new Set(state.entries.filter(e=>e.date).map(e=>e.date));
+    // v5.22: Belege, die direkt am Tag haengen (Wizard „Allg. Belege“ oder Scan mit vorhandenem
+    // Eintrag → e.recIds), zaehlen wie ein Streckenbeleg. So zeigt es auch der Kalender (entryCostNoReceipt).
+    // Eine Datei, die auf DIESEM Geraet (noch) fehlt, aber nicht geloescht ist, gilt als vorhanden.
+    const recDa=id=>!!id&&!istGeloescht(id);
+    const recLokal=id=>inAblage(id);
+    state.entries.filter(e=>e.date).forEach(e=>{
+      // Ein Tagesbeleg fuer „Allg. Kosten“ (z. B. Parken) darf keine fehlende Fahrkarte verdecken
+      const tagRec=(e.recIds||[]).filter(recDa).slice(zahlDE(e.costAmt)>0?1:0);
+      (e.segs||[]).forEach((s,si)=>{
+        // „Bereits erfasst“-Strecken zählen nicht, dürfen aber einen Beleg tragen
+        // (z. B. eigener Beleg für den Rückflug) — sonst entstehen Schein-Abweichungen.
+        const _cov=s.enabled!==false&&s.costEnabled!==false&&s.costScope==='covered'&&zahlDE(s.costAmt)>0;
+        if(!segCostCounts(s)&&!_cov)return;
+        if(/Deutschlandticket|Pendlerpauschale/i.test(s.costType||''))return;
+        const segRec=(s.recIds||[]).filter(recDa);
+        kosten.push({covered:_cov,date:e.date,id:e.id,nr:si+1,betrag:zahlDE(s.costAmt),
+          curr:s.costCurr||'EUR',art:s.costType||s.mode||'Fahrt',mode:s.mode||'',
+          von:s.fromLoc||'',bis:s.toLoc||'',isFHF:e.isFHF===true,code:e.dayCode,code2:e.dayCode2||'',codes:tagCodes(e),
+          legacy:segRec.length>0,tagBeleg:!segRec.length&&tagRec.length>0,
+          nurAndererGeraet:(segRec.length?segRec:tagRec).length>0&&!(segRec.length?segRec:tagRec).some(recLokal)});
+      });
+    });
+    const TOL_TAGE=45;
+    const tagAbst=(a,b)=>{if(!a||!b)return null;
+      const d=(new Date(b+'T12:00')-new Date(a+'T12:00'))/86400000;return isNaN(d)?null:Math.abs(d);};
+    const belegZu={},kostenZu={};
+    // Runde 1: Datum UND Betrag treffen
+    belege.forEach((b,bi)=>{
+      const ki=kosten.findIndex((k,i)=>kostenZu[i]===undefined&&k.date===b.datum&&Math.abs(k.betrag-bNum(b))<=0.01);
+      if(ki>=0){belegZu[bi]=ki;kostenZu[ki]=bi;}
+    });
+    // Runde 2: nur Betrag, Datum innerhalb der Toleranz (Kauf- vs. Reisedatum)
+    belege.forEach((b,bi)=>{
+      if(belegZu[bi]!==undefined||bNum(b)<=0)return;
+      let best=-1,bestAb=Infinity;
+      kosten.forEach((k,ki)=>{
+        if(kostenZu[ki]!==undefined||Math.abs(k.betrag-bNum(b))>0.01)return;
+        const ab=tagAbst(b.datum,k.date);
+        if(ab===null||ab>TOL_TAGE||ab>=bestAb)return;
+        bestAb=ab;best=ki;
+      });
+      if(best>=0){
+        belegZu[bi]=best;kostenZu[best]=bi;
+        if(imZR(kosten[best].date))meldung('info','Belege',bName(belege[bi])+': Belegdatum '+dstr(belege[bi].datum)+' weicht '
+          +Math.round(bestAb)+' Tag(e) vom Eintrag ('+dstr(kosten[best].date)+') ab – über den Betrag zugeordnet',
+          kosten[best].date,kosten[best].id);
+      }
+    });
+
+    // Runde 3 (v5.22): Summenabgleich — EIN Beleg deckt mehrere Strecken (z. B. Bus + Zug auf einer
+    // Fahrkarte, Hin- und Rueckfahrt) oder MEHRERE Belege eine Strecke (z. B. zwei Uber-Fahrten als
+    // eine Taxi-Strecke erfasst). Nur offene Positionen, Datum innerhalb von 3 Tagen.
+    {
+      const SUM_TAGE=3;
+      const offK=()=>kosten.map((k,ki)=>({k,ki})).filter(x=>kostenZu[x.ki]===undefined&&!x.k.legacy&&!x.k.tagBeleg&&x.k.betrag>0);
+      const offB=()=>belege.map((b,bi)=>({b,bi})).filter(x=>belegZu[x.bi]===undefined&&bNum(x.b)>0);
+      const kombis=(arr,max)=>{const out=[];const rec=(st,acc)=>{if(acc.length>=2)out.push(acc.slice());if(acc.length===max)return;
+        for(let i=st;i<arr.length;i++){acc.push(arr[i]);rec(i+1,acc);acc.pop();}};rec(0,[]);return out;};
+      const summe=(l,f)=>Math.round(l.reduce((a,x)=>a+f(x),0)*100)/100;
+      // a) ein Beleg = Summe mehrerer Strecken
+      offB().forEach(({b,bi})=>{
+        const kand=offK().filter(x=>{const ab=tagAbst(b.datum,x.k.date);return ab!==null&&ab<=SUM_TAGE;}).slice(0,12);
+        const treffer=kombis(kand,3).find(l=>Math.abs(summe(l,x=>x.k.betrag)-bNum(b))<=0.01);
+        if(!treffer)return;
+        belegZu[bi]=treffer[0].ki;treffer.forEach(x=>{kostenZu[x.ki]=bi;});
+        if(treffer.some(x=>imZR(x.k.date)))meldung('info','Belege',bName(b)+' ('+fmtM(bNum(b),'EUR')+') deckt '+treffer.length+' Strecken zusammen ab: '
+          +treffer.map(x=>dstr(x.k.date)+' Strecke '+x.k.nr+' '+x.k.art+' '+fmtM(x.k.betrag,x.k.curr)).join(' + '),treffer[0].k.date,treffer[0].k.id);
+      });
+      // b) mehrere Belege = eine Strecke
+      offK().forEach(({k,ki})=>{
+        const kand=offB().filter(x=>{const ab=tagAbst(x.b.datum,k.date);return ab!==null&&ab<=SUM_TAGE;}).slice(0,12);
+        const treffer=kombis(kand,3).find(l=>Math.abs(summe(l,x=>bNum(x.b))-k.betrag)<=0.01);
+        if(!treffer)return;
+        kostenZu[ki]=treffer[0].bi;treffer.forEach(x=>{belegZu[x.bi]=ki;});
+        if(imZR(k.date))meldung('info','Belege',dstr(k.date)+' Strecke '+k.nr+' '+k.art+' ('+fmtM(k.betrag,k.curr)+') ist durch '+treffer.length+' Belege belegt: '
+          +treffer.map(x=>bName(x.b)+' '+fmtM(bNum(x.b),'EUR')).join(' + '),k.date,k.id);
+      });
+    }
+
+    return{belege,bNum,bName,kosten,imZR,alleTage,tagAbst,belegZu,kostenZu};
 }
 function checkBoxAnalyze(){
   const F=[]; // {sev:'err'|'warn'|'info', cat, msg, date, id}
@@ -5933,96 +6103,8 @@ function checkBoxAnalyze(){
   // Zugeordnet wird deshalb rechnerisch: erst exakt (Datum + Betrag), dann ueber den
   // Betrag mit Datumstoleranz — Flugtickets tragen das Kaufdatum, nicht das Reisedatum.
   {
-    const belege=ablagePruefBelege();   // v5.23: alles, was die Belegeablage anzeigt
-    // v5.22: Betrag robust lesen („23,45“ ergab bisher 23) — fehlt er, aus dem Dateinamen (…_23,45EUR.pdf)
-    const bNum=b=>{const v=zahlDE(b.gesamtkosten);if(v>0)return v;
-      const m=String(b.dateiname||'').match(/(\d{1,5}[.,]\d{2})\s*(?:EUR|€)/i);return m?zahlDE(m[1]):0;};
-    // Klartext: die Ausgabe in runCheckBox escapt die Meldung bereits
-    const bName=b=>b.dateiname||b.belegart||'Beleg';
-    // Kostenpflichtige Fahrt-Segmente aus dem Wizard
-    const kosten=[];
-    // Zuordnung über ALLE Einträge (Belege und Fahrten liegen am Jahreswechsel oft in
-    // verschiedenen Jahren); gemeldet wird nur, was im Prüfzeitraum liegt.
-    const imZR=d=>!d||imCheckBoxZeitraum(d);
-    const alleTage=new Set(state.entries.filter(e=>e.date).map(e=>e.date));
-    // v5.22: Belege, die direkt am Tag haengen (Wizard „Allg. Belege“ oder Scan mit vorhandenem
-    // Eintrag → e.recIds), zaehlen wie ein Streckenbeleg. So zeigt es auch der Kalender (entryCostNoReceipt).
-    // Eine Datei, die auf DIESEM Geraet (noch) fehlt, aber nicht geloescht ist, gilt als vorhanden.
-    const recDa=id=>!!id&&!istGeloescht(id);
-    const recLokal=id=>inAblage(id);
-    state.entries.filter(e=>e.date).forEach(e=>{
-      // Ein Tagesbeleg fuer „Allg. Kosten“ (z. B. Parken) darf keine fehlende Fahrkarte verdecken
-      const tagRec=(e.recIds||[]).filter(recDa).slice(zahlDE(e.costAmt)>0?1:0);
-      (e.segs||[]).forEach((s,si)=>{
-        // „Bereits erfasst“-Strecken zählen nicht, dürfen aber einen Beleg tragen
-        // (z. B. eigener Beleg für den Rückflug) — sonst entstehen Schein-Abweichungen.
-        const _cov=s.enabled!==false&&s.costEnabled!==false&&s.costScope==='covered'&&zahlDE(s.costAmt)>0;
-        if(!segCostCounts(s)&&!_cov)return;
-        if(/Deutschlandticket|Pendlerpauschale/i.test(s.costType||''))return;
-        const segRec=(s.recIds||[]).filter(recDa);
-        kosten.push({covered:_cov,date:e.date,id:e.id,nr:si+1,betrag:zahlDE(s.costAmt),
-          curr:s.costCurr||'EUR',art:s.costType||s.mode||'Fahrt',mode:s.mode||'',
-          von:s.fromLoc||'',bis:s.toLoc||'',isFHF:e.isFHF===true,code:e.dayCode,code2:e.dayCode2||'',codes:tagCodes(e),
-          legacy:segRec.length>0,tagBeleg:!segRec.length&&tagRec.length>0,
-          nurAndererGeraet:(segRec.length?segRec:tagRec).length>0&&!(segRec.length?segRec:tagRec).some(recLokal)});
-      });
-    });
-    const TOL_TAGE=45;
-    const tagAbst=(a,b)=>{if(!a||!b)return null;
-      const d=(new Date(b+'T12:00')-new Date(a+'T12:00'))/86400000;return isNaN(d)?null:Math.abs(d);};
-    const belegZu={},kostenZu={};
-    // Runde 1: Datum UND Betrag treffen
-    belege.forEach((b,bi)=>{
-      const ki=kosten.findIndex((k,i)=>kostenZu[i]===undefined&&k.date===b.datum&&Math.abs(k.betrag-bNum(b))<=0.01);
-      if(ki>=0){belegZu[bi]=ki;kostenZu[ki]=bi;}
-    });
-    // Runde 2: nur Betrag, Datum innerhalb der Toleranz (Kauf- vs. Reisedatum)
-    belege.forEach((b,bi)=>{
-      if(belegZu[bi]!==undefined||bNum(b)<=0)return;
-      let best=-1,bestAb=Infinity;
-      kosten.forEach((k,ki)=>{
-        if(kostenZu[ki]!==undefined||Math.abs(k.betrag-bNum(b))>0.01)return;
-        const ab=tagAbst(b.datum,k.date);
-        if(ab===null||ab>TOL_TAGE||ab>=bestAb)return;
-        bestAb=ab;best=ki;
-      });
-      if(best>=0){
-        belegZu[bi]=best;kostenZu[best]=bi;
-        if(imZR(kosten[best].date))add('info','Belege',bName(belege[bi])+': Belegdatum '+dstr(belege[bi].datum)+' weicht '
-          +Math.round(bestAb)+' Tag(e) vom Eintrag ('+dstr(kosten[best].date)+') ab – über den Betrag zugeordnet',
-          kosten[best].date,kosten[best].id);
-      }
-    });
-
-    // Runde 3 (v5.22): Summenabgleich — EIN Beleg deckt mehrere Strecken (z. B. Bus + Zug auf einer
-    // Fahrkarte, Hin- und Rueckfahrt) oder MEHRERE Belege eine Strecke (z. B. zwei Uber-Fahrten als
-    // eine Taxi-Strecke erfasst). Nur offene Positionen, Datum innerhalb von 3 Tagen.
-    {
-      const SUM_TAGE=3;
-      const offK=()=>kosten.map((k,ki)=>({k,ki})).filter(x=>kostenZu[x.ki]===undefined&&!x.k.legacy&&!x.k.tagBeleg&&x.k.betrag>0);
-      const offB=()=>belege.map((b,bi)=>({b,bi})).filter(x=>belegZu[x.bi]===undefined&&bNum(x.b)>0);
-      const kombis=(arr,max)=>{const out=[];const rec=(st,acc)=>{if(acc.length>=2)out.push(acc.slice());if(acc.length===max)return;
-        for(let i=st;i<arr.length;i++){acc.push(arr[i]);rec(i+1,acc);acc.pop();}};rec(0,[]);return out;};
-      const summe=(l,f)=>Math.round(l.reduce((a,x)=>a+f(x),0)*100)/100;
-      // a) ein Beleg = Summe mehrerer Strecken
-      offB().forEach(({b,bi})=>{
-        const kand=offK().filter(x=>{const ab=tagAbst(b.datum,x.k.date);return ab!==null&&ab<=SUM_TAGE;}).slice(0,12);
-        const treffer=kombis(kand,3).find(l=>Math.abs(summe(l,x=>x.k.betrag)-bNum(b))<=0.01);
-        if(!treffer)return;
-        belegZu[bi]=treffer[0].ki;treffer.forEach(x=>{kostenZu[x.ki]=bi;});
-        if(treffer.some(x=>imZR(x.k.date)))add('info','Belege',bName(b)+' ('+fmtM(bNum(b),'EUR')+') deckt '+treffer.length+' Strecken zusammen ab: '
-          +treffer.map(x=>dstr(x.k.date)+' Strecke '+x.k.nr+' '+x.k.art+' '+fmtM(x.k.betrag,x.k.curr)).join(' + '),treffer[0].k.date,treffer[0].k.id);
-      });
-      // b) mehrere Belege = eine Strecke
-      offK().forEach(({k,ki})=>{
-        const kand=offB().filter(x=>{const ab=tagAbst(x.b.datum,k.date);return ab!==null&&ab<=SUM_TAGE;}).slice(0,12);
-        const treffer=kombis(kand,3).find(l=>Math.abs(summe(l,x=>bNum(x.b))-k.betrag)<=0.01);
-        if(!treffer)return;
-        kostenZu[ki]=treffer[0].bi;treffer.forEach(x=>{belegZu[x.bi]=ki;});
-        if(imZR(k.date))add('info','Belege',dstr(k.date)+' Strecke '+k.nr+' '+k.art+' ('+fmtM(k.betrag,k.curr)+') ist durch '+treffer.length+' Belege belegt: '
-          +treffer.map(x=>bName(x.b)+' '+fmtM(bNum(x.b),'EUR')).join(' + '),k.date,k.id);
-      });
-    }
+    const _Z=belegZuordnung(add);
+    const {belege,bNum,bName,kosten,imZR,alleTage,tagAbst,belegZu,kostenZu}=_Z;
 
     // I.1 Doppelte Belege in der Ablage
     const gesehen={},doppelt=new Set();
@@ -10409,7 +10491,7 @@ function scanMatchInfo(){
   const d=document.getElementById('scanDate')?.value||'';
   const e=scanEntryFor(d);
   el.innerHTML=!d?'<span style="color:var(--muted)">Kein Datum — der Beleg kommt nur in die Belegeablage.</span>'
-    :e?`<span style="color:var(--ok)">Wird dem Eintrag vom ${fmtD(d)} (<b>${esc(e.dayCode)}</b>${e.isFHF?' · FHF':''}) angehängt.</span>`
+    :e?`<span style="color:var(--ok)">Kommt in die Belegeablage – passender Eintrag vom ${fmtD(d)} (<b>${esc(e.dayCode)}</b>${e.isFHF?' · FHF':''}); die Zuordnung erfolgt über Datum und Betrag.</span>`
     :`<span style="color:var(--muted)">Für den ${fmtD(d)} gibt es noch keinen Eintrag — der Beleg kommt in die Belegeablage.</span>`;
 }
 async function scanSave(){
@@ -10425,16 +10507,16 @@ async function scanSave(){
   const fname=`${(datum||'ohneDatum').replace(/-/g,'_')}_Beleg_${art.replace(/[^A-Za-zÄÖÜäöüß0-9]+/g,'_')}${bez?'_'+bez.replace(/\s+/g,'_'):''}${isNaN(betrag)?'':'_'+betrag.toFixed(2).replace('.',',')+cur}.jpg`;
   const file=new File([blob],fname,{type:'image/jpeg'});
   const id=await storeOriginalFile(file,{prefix:'scan',monat:datum?datum.slice(0,7):null,typ:'Beleg',belegart:art,datum:datum||null,betrag:isNaN(betrag)?null:betrag,waehrung:cur});
+  // v5.24: Belege werden nur noch in der Belegeablage gefuehrt – keine Verknuepfung mehr am Eintrag.
+  // Die Zuordnung zur Fahrt macht die Pruefung ueber Datum und Betrag.
   const e=scanEntryFor(datum);
-  if(e){if(!Array.isArray(e.recIds))e.recIds=[];e.recIds.push(id);}
-  else{
-    if(!state.settings.mbReceipts)state.settings.mbReceipts={};
-    if(!state.settings.mbReceipts['unassigned'])state.settings.mbReceipts['unassigned']=[];
-    state.settings.mbReceipts['unassigned'].push({id,dateiname:fname,belegart:art,datum:datum||null,gesamtkosten:isNaN(betrag)||cur!=='EUR'?null:betrag,waehrung:cur,betragFremd:cur!=='EUR'&&!isNaN(betrag)?betrag:null});
-  }
+  if(!state.settings.mbReceipts)state.settings.mbReceipts={};
+  if(!state.settings.mbReceipts['unassigned'])state.settings.mbReceipts['unassigned']=[];
+  state.settings.mbReceipts['unassigned'].push({id,dateiname:fname,belegart:art,datum:datum||null,gesamtkosten:isNaN(betrag)||cur!=='EUR'?null:betrag,waehrung:cur,betragFremd:cur!=='EUR'&&!isNaN(betrag)?betrag:null});
+  if(ablageIds)ablageIds.add(id);
   persist();if(typeof scheduleCloudPush==='function')scheduleCloudPush();
   if(typeof window.renderBelegeablage==='function')window.renderBelegeablage();
-  toast(e?`Beleg dem ${fmtD(datum)} angehängt ✓`:'Beleg in der Belegeablage gespeichert ✓','ok');
+  toast('Beleg in der Belegeablage gespeichert ✓'+(e?` – passt zum Eintrag vom ${fmtD(datum)}`:''),'ok');
   scanClose();
 }
 
