@@ -1107,6 +1107,7 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
     <div style="margin:-4px 0 14px">
       <button class="btn btn-s btn-sm" id="fbDiagBtn" onclick="fbDiagnose()">&#129658; Sync-Diagnose</button>
       <button class="btn btn-g btn-sm" id="fbDiagCopy" onclick="fbDiagKopieren()" style="display:none">&#128203; Ergebnis kopieren</button>
+      <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;margin-top:8px;cursor:pointer"><input type="checkbox" id="fbLongPoll" onchange="state.settings.fbLongPoll=this.checked;persist();toast('Gilt nach dem nächsten Neuladen der App','ok')"> Kompatibler Verbindungsmodus (Long-Polling) – bei Zeitüberschreitungen im Sync, z. B. mit VPN</label>
       <div id="fbDiag" style="display:none;margin-top:8px;padding:9px 12px;background:var(--lsoft);border:1px solid var(--line);border-radius:var(--r);font-size:11.5px;line-height:1.55"></div>
     </div>
     <div id="fbAuthBox" style="display:none">
@@ -1264,10 +1265,13 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.26.0';
-const APP_BUILD=114;
+const APP_VERSION='5.26.3';
+const APP_BUILD=117;
 const APP_DATE='16.11.2026';
 const APP_CHANGES=[
+  'Cloud-Sync: Endlosschleife behoben – nach jedem Upload wurde sofort der nächste ausgelöst (alle ~2 s, 6 Schreibvorgänge) und das Tageskontingent von Firebase aufgebraucht; unveränderte Daten werden nicht mehr hochgeladen',
+  'Sync-Diagnose: Direktabfrage an Firestore (ohne SDK) zeigt den echten Fehler – z. B. erschöpftes Tageskontingent, Regeln oder blockiertes Netz',
+  'Cloud-Sync: automatische Long-Polling-Erkennung, Zeitüberschreitungen mit klarer Meldung statt endlosem Warten, Schalter „Kompatibler Verbindungsmodus“; Diagnose nennt Ursache bei hängender Verbindung',
   'Einstellungen › Cloud-Sync: neue „Sync-Diagnose“ prüft Netzwerk, Cloud-Modul, Anmeldung, Lesen, Datenblöcke, Schreibtest, Datenmenge und zeigt den letzten Sync-Fehler – Ergebnis lässt sich kopieren',
   'Reiter Jahr: aufgeklappte Bereiche (z. B. „Aufstellung“) bleiben beim automatischen Neuzeichnen (Cloud-Sync) offen',
   'Jahr › Selbst getragen: „Fahrtkosten ohne Beleg“ zählt Belege, die direkt an Strecke/Tag hängen, nicht mehr als fehlend und nennt je Position den nächstliegenden Ablage-Beleg; Uber/Bolt/FreeNow-Belege gelten als Taxi-Beleg',
@@ -10293,9 +10297,16 @@ function initFirebase(){
     loadFirebaseSdk().then(()=>initFirebase()).catch(()=>fbStatusUI('err','Cloud-Modul nicht geladen','Keine Internetverbindung? Die App funktioniert lokal weiter.'));
     return;}
   try{
+    const _fbNeu=!fbApp;
     if(!fbApp)fbApp=firebase.initializeApp(cfg);
     fbAuth=firebase.auth();fbDB=firebase.firestore();
+    /* v5.26.1: Firestore stockte bei kleinen Abfragen ok, bei Schreiben/grossen Daten nicht (Zeitueberschreitung).
+       Typisch fuer blockierte WebSocket-/WebChannel-Verbindungen (VPN, Filter, Safari). Automatische Erkennung auf
+       Long-Polling; per Schalter „Kompatibler Verbindungsmodus“ erzwingbar. */
+    if(_fbNeu){try{fbDB.settings(state.settings.fbLongPoll?{experimentalForceLongPolling:true,merge:true}:{experimentalAutoDetectLongPolling:true,merge:true});}
+      catch(e){console.warn('Firestore-Einstellung:',e);}}
     document.getElementById('fbAuthBox').style.display='block';
+    {const lp=document.getElementById('fbLongPoll');if(lp)lp.checked=!!state.settings.fbLongPoll;}
     fbStatusUI('wait','Verbunden','Bitte anmelden.');
     fbAuth.onAuthStateChanged(u=>{
       fbUser=u;
@@ -10378,6 +10389,37 @@ async function fbDiagnose(){
       await mitZeit(col.doc('_diag').delete(),12000,'Aufräumen');
       add('ok','Schreibtest','Schreiben in die Cloud funktioniert');
     }catch(e){add('err','Schreibtest',fe(e)+(/permission/i.test(fe(e))?' – Sicherheitsregeln verweigern Schreiben':/exhaust|quota/i.test(fe(e))?' – Tageskontingent für Schreibvorgänge erschöpft (kostenloser Tarif: 20.000/Tag). Morgen wieder versuchen oder Tarif prüfen':''));}
+    // Direktabfrage ueber die Firestore-REST-Schnittstelle: liefert den ECHTEN Fehler (HTTP-Status, Meldung), den das SDK bei
+    // Wiederholungsversuchen als blosse Zeitueberschreitung verschluckt (z. B. Tageskontingent, Regeln, blockiertes Netz).
+    {
+      const rest=async(pfad,methode,body)=>{
+        const tok=await fbUser.getIdToken();
+        const ac=new AbortController();const to=setTimeout(()=>ac.abort(),15000);const t0=Date.now();
+        try{
+          const r=await fetch('https://firestore.googleapis.com/v1/projects/'+cfg.projectId+'/databases/(default)/documents/'+pfad,
+            {method:methode,headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,signal:ac.signal});
+          const txt=await r.text();let j=null;try{j=JSON.parse(txt);}catch(e){}
+          return{status:r.status,ms:Date.now()-t0,len:txt.length,err:j&&j.error?(j.error.status||'')+' '+(j.error.message||''):''};
+        }catch(e){return{status:0,ms:Date.now()-t0,len:0,err:e.name==='AbortError'?'keine Antwort nach 15 s':String(e.message||e)};}
+        finally{clearTimeout(to);}
+      };
+      const bew=(r,was)=>{
+        if(r.status>=200&&r.status<300)return['ok',was+': HTTP '+r.status+' in '+r.ms+' ms'+(r.len?' ('+Math.round(r.len/1024)+' KB)':'')];
+        if(r.status===429||/RESOURCE_EXHAUSTED|quota/i.test(r.err))return['err',was+': HTTP '+r.status+' – '+r.err+' → Tageskontingent bei Firebase ERSCHÖPFT (kostenloser Tarif). Zurücksetzung nachts; Abhilfe: Blaze-Tarif oder weniger Uploads'];
+        if(r.status===403||r.status===401)return['err',was+': HTTP '+r.status+' – '+r.err+' → Zugriff/Regeln'];
+        if(r.status===0)return['err',was+': '+r.err+' → Verbindung zu firestore.googleapis.com blockiert oder gestört (VPN, Filter, Netz)'];
+        return['err',was+': HTTP '+r.status+' – '+r.err];
+      };
+      try{
+        const uid=fbUser.uid;
+        const g=await rest('users/'+uid+'/state/main_p0','GET');const a=bew(g,'Direktabfrage Lesen (1 Datenblock)');add(a[0],'Firestore-Direkt',a[1]);
+        const w=await rest('users/'+uid+'/state/_diag','PATCH',{fields:{t:{integerValue:String(Date.now())},build:{integerValue:String(APP_BUILD)}}});
+        const b=bew(w,'Direktabfrage Schreiben');add(b[0],'Firestore-Direkt',b[1]);
+        if(w.status>=200&&w.status<300)rest('users/'+uid+'/state/_diag','DELETE');
+        if(g.status>=200&&g.status<300&&w.status>=200&&w.status<300&&L.some(x=>x.s==='err'&&/timeout|Zeitüberschreitung/.test(x.v)))
+          add('warn','Einschätzung','Direkt (ohne SDK) geht alles durch, nur das SDK läuft in die Zeitüberschreitung → hängende SDK-Verbindung: App komplett schließen und neu öffnen; Build ab 5.26.1 mit Long-Polling-Erkennung nutzen.');
+      }catch(e){add('warn','Firestore-Direkt','nicht ausführbar: '+fe(e));}
+    }
     // Lokale Datenmenge
     try{
       const payload=JSON.stringify({entries:state.entries,settings:stripLocalOnly(state.settings)});
@@ -10390,6 +10432,9 @@ async function fbDiagnose(){
   }catch(e){if(e.message!=='stop')add('err','Diagnose',fe(e));}
   if(fbLetzterFehler)add('warn','Letzter Sync-Fehler seit App-Start',alter(fbLetzterFehler.t)+' · '+fbLetzterFehler.wo+' · '+(fbLetzterFehler.code?fbLetzterFehler.code+' · ':'')+fbLetzterFehler.msg.slice(0,220));
   else add('info','Letzter Sync-Fehler seit App-Start','keiner aufgetreten');
+  if(L.some(x=>x.s==='err'&&/timeout|Zeitüberschreitung/.test(x.v))&&!L.some(x=>x.k==='Einschätzung'||(x.k==='Firestore-Direkt'&&x.s==='err'))){
+    add('warn','Einschätzung','Verbindung zu Firebase stockt: kleine Abfragen gehen durch, große Daten/Schreiben nicht. Meist VPN (z. B. Surfshark), Firewall oder ein hängender Verbindungsaufbau. 1) VPN kurz ausschalten, 2) App komplett schließen und neu öffnen, 3) Schalter „Kompatibler Verbindungsmodus“ aktivieren, App neu laden, Diagnose wiederholen.');
+  }
   const fehler=L.filter(x=>x.s==='err').length,warn=L.filter(x=>x.s==='warn').length;
   fbDiagText='Sync-Diagnose '+new Date().toLocaleString('de-DE')+'\n'+L.map(x=>(x.s==='ok'?'[OK]  ':x.s==='err'?'[FEHLER] ':x.s==='warn'?'[WARNUNG] ':'[INFO] ')+x.k+': '+x.v).join('\n');
   box.innerHTML=L.map(x=>'<div>'+ICON[x.s]+' <b>'+esc(x.k)+':</b> '+esc(x.v)+'</div>').join('')
@@ -10706,27 +10751,34 @@ function cloudStateTeilen(str){
   }
   return teile.length?teile:[''];
 }
+function fbMitZeit(p,ms,name){
+  return Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(Object.assign(new Error('Zeitüberschreitung ('+name+', '+ms/1000+' s) – Verbindung zu Firebase stockt. VPN/Netzwerk prüfen, App neu laden.'),{code:'timeout'})),ms))]);
+}
 async function cloudStateSchreiben(payload,now){
   const col=fbDB.collection('users').doc(fbUser.uid).collection('state');
   const teile=cloudStateTeilen(payload);
   const batch=fbDB.batch();
   teile.forEach((t,i)=>batch.set(col.doc('main_p'+i),{data:t,i,n:teile.length,updatedAt:now}));
   batch.set(col.doc('main'),{format:2,chunks:teile.length,laenge:payload.length,updatedAt:now,device:navigator.platform||'web'});
-  await batch.commit();
+  await fbMitZeit(batch.commit(),60000,'Hochladen');
 }
 async function cloudStateLesen(d){
   if(!d)return null;
   if(typeof d.payload==='string')return d.payload; // altes Format (bis v5.18.1)
   const n=+d.chunks||0;if(!n)return null;
   const col=fbDB.collection('users').doc(fbUser.uid).collection('state');
-  const snaps=await Promise.all(Array.from({length:n},(_,i)=>col.doc('main_p'+i).get()));
+  const snaps=await fbMitZeit(Promise.all(Array.from({length:n},(_,i)=>col.doc('main_p'+i).get())),45000,'Herunterladen');
   if(snaps.some(x=>!x.exists||x.data().updatedAt!==d.updatedAt))return null;
   const p=snaps.map(x=>x.data().data).join('');
   if(d.laenge&&p.length!==d.laenge)return null;
   return p;
 }
+/* v5.26.3: cloudPush schrieb am Ende fbLastSync und rief persist() auf – das plante sofort den naechsten Upload (Endlosschleife,
+   alle ca. 2 s je 6 Schreibvorgaenge) und verbrauchte das Tageskontingent von Firebase. Jetzt: Sperre waehrend dieses
+   Speicherns, und unveraenderte Daten werden gar nicht erst hochgeladen. */
+let fbPushSperre=false,fbLetzterPayload='';
 function scheduleCloudPush(){
-  if(!fbUser||state.settings.fbAutoSync===false||fbApplyingRemote)return;
+  if(!fbUser||state.settings.fbAutoSync===false||fbApplyingRemote||fbPushSperre)return;
   if(fbSyncTimer)clearTimeout(fbSyncTimer);
   fbSyncTimer=setTimeout(()=>cloudPush(false),1500);
 }
@@ -10739,9 +10791,11 @@ async function cloudPush(manual){
     const r=await syncReceiptsUp();
     // 2. State-Dokument schreiben
     const payload=JSON.stringify({entries:state.entries,settings:stripLocalOnly(state.settings)});
+    if(!manual&&payload===fbLetzterPayload)return;   // nichts geaendert seit dem letzten Upload – nichts schreiben
     const now=Date.now();
     await cloudStateSchreiben(payload,now);
-    state.settings.fbLastSync=now;persist();
+    fbLetzterPayload=payload;
+    fbPushSperre=true;try{state.settings.fbLastSync=now;persist();}finally{fbPushSperre=false;}
     if(typeof renderSyncStatus==='function')renderSyncStatus();
     const info=document.getElementById('fbSyncInfo');if(info)info.textContent='Zuletzt: '+new Date(now).toLocaleString('de-DE');
     if(manual){
@@ -10792,7 +10846,7 @@ function stripLocalOnly(s){
   // naechsten Abgleich eines der beiden Geraete unbemerkt auf das jeweils andere Jahr um
   // — und CheckBox/Übersicht/etc. zeigen dadurch auf beiden Geraeten unterschiedliche,
   // scheinbar "asynchrone" Ergebnisse, obwohl die zugrundeliegenden Eintraege identisch sind.
-  delete c.fbConfig;delete c.fbAutoSync;delete c.fbLastSync;delete c.fbLastAppliedRemoteTs;delete c.belegMetaSyncV2;delete c.aktivesJahr;
+  delete c.fbConfig;delete c.fbAutoSync;delete c.fbLongPoll;delete c.fbLastSync;delete c.fbLastAppliedRemoteTs;delete c.belegMetaSyncV2;delete c.aktivesJahr;
   return c;
 }
 
@@ -10825,7 +10879,7 @@ async function mergeRemote(remote,remoteTs){
       // aktivesJahr bleibt geraetelokal (siehe stripLocalOnly) — hier zusaetzlich als
       // Uebergangsschutz explizit erhalten, falls das SENDENDE Geraet noch auf einem
       // aelteren Build laeuft und aktivesJahr trotzdem noch mitschickt.
-      const keepFb={fbConfig:state.settings.fbConfig,fbAutoSync:state.settings.fbAutoSync,fbLastSync:state.settings.fbLastSync,aktivesJahr:state.settings.aktivesJahr};
+      const keepFb={fbLongPoll:state.settings.fbLongPoll,fbConfig:state.settings.fbConfig,fbAutoSync:state.settings.fbAutoSync,fbLastSync:state.settings.fbLastSync,aktivesJahr:state.settings.aktivesJahr};
       const _gelLokal=(state.settings.geloeschteBelege||[]).slice();
       // v5.21: Listen, die auf beiden Geraeten wachsen, zusammenfuehren statt ueberschreiben –
       // sonst geht z. B. ein auf dem iPhone importierter Bescheid verloren, wenn der Mac spaeter pusht.
