@@ -88,6 +88,7 @@ body{padding-bottom:env(safe-area-inset-bottom);}
 .tab.on .ic svg{stroke-width:2.2;}
 main{margin-left:68px;max-width:1100px;padding:20px 20px 96px;}
 @media(max-width:600px){
+  :root{--railw:58px;}
   .tabs{width:58px;}
   .tabs-i{padding-left:3px;padding-right:3px;}
   .tab .lb{font-size:8.7px;}
@@ -478,8 +479,10 @@ datalist{display:none;}
 .drop-veil.show{display:flex;}
 @media(pointer:coarse){.btn-xs{min-height:32px;padding:6px 11px;}.btn-sm{min-height:36px;}}
 
-/* ── iPhone: Tab-Leiste unten ── */
-@media(max-width:700px){
+/* ── iPhone: Tab-Leiste unten ──
+   v5.22 (iPhone Duo): nur noch im HOCHformat bis 640 px bzw. bei schmalen Fenstern mit genug Hoehe.
+   Duo zugeklappt quer (594×~400) und aufgeklappt (669×~900) bekommen die Seitenleiste. */
+@media(max-width:640px) and (orientation:portrait),(max-width:640px) and (min-height:501px){
   :root{--navh:calc(58px + env(safe-area-inset-bottom));--railw:0px;}
   .tabs{top:auto;bottom:0;left:0;right:0;width:auto;height:auto;border-right:none;border-top:1px solid var(--line);
     overflow:visible;padding-bottom:env(safe-area-inset-bottom);}
@@ -500,6 +503,64 @@ datalist{display:none;}
   .cal-d .cnum{font-size:11.5px;}
   .cdot{font-size:7.5px;}
 }
+/* ── v5.22 iPhone Duo / niedrige Displays ──
+   Duo zugeklappt hoch ≈ 382×600, quer ≈ 594×390; aufgeklappt hoch ≈ 669×890, quer ≈ 951×600
+   (WebKit, Safari 27.1). Gezielt nach Hoehe/Ausrichtung statt nach Geraet. */
+/* a) schmal + niedrig im Hochformat (Duo zugeklappt, Duo geteilte Ansicht, iPhone mini) */
+@media(max-width:640px) and (max-height:700px) and (orientation:portrait){
+  :root{--navh:calc(50px + env(safe-area-inset-bottom));}
+  .topbar{padding:6px 12px;padding-top:calc(6px + env(safe-area-inset-top));}
+  .bmark{width:28px;height:28px;font-size:15px;border-radius:7px;}
+  .btitle{font-size:14px;}
+  .bsub{display:none;}
+  .tabs-i{padding:3px 4px 2px;}
+  .tab{padding:3px 0 2px;gap:1px;}
+  .tab .ic svg{width:21px;height:21px;}
+  .tab .lb{font-size:9.5px;}
+  main{padding:10px 10px calc(var(--navh) + 18px)!important;}
+  .wcard-head{padding:9px 13px 7px;}
+  .wcard-head h3{font-size:15.5px;}
+  .wbody{padding:11px 12px;}
+  .wact{padding:7px 12px 8px;}
+  .dt{min-height:66px;padding:10px 6px;border-radius:14px;}
+  .dt .dd{display:none;}
+  .toast{top:calc(env(safe-area-inset-top) + 48px);}
+  .update-banner{top:40px;padding:8px 12px;}
+  .prog-wrap{top:calc(40px + env(safe-area-inset-top));padding:6px 10px;margin-bottom:8px;}
+  #tvBox>.card{max-height:128px;overflow-y:auto;}
+}
+/* b) Querformat mit wenig Hoehe (Duo zugeklappt quer, iPhone quer): Seitenleiste kompakt */
+@media(orientation:landscape) and (max-height:500px){
+  .topbar{padding:5px 14px;padding-top:calc(5px + env(safe-area-inset-top));padding-left:calc(14px + env(safe-area-inset-left));}
+  .bmark{width:26px;height:26px;font-size:14px;border-radius:7px;}
+  .btitle{font-size:14px;}
+  .bsub{display:none;}
+  .update-banner{top:40px;padding:6px 14px;}
+  .tabs{padding-left:env(safe-area-inset-left);}
+  .tabs-i{padding-top:calc(46px + env(safe-area-inset-top));gap:1px;}
+  .tab{padding:5px 2px;gap:1px;border-radius:10px;}
+  .tab .ic svg{width:19px;height:19px;}
+  .tab .lb{font-size:8.5px;}
+  main{padding:10px 12px 70px;}
+  .wcard-head{padding:8px 13px 6px;}
+  .wbody{padding:10px 12px;}
+  .wact{padding:6px 12px calc(6px + env(safe-area-inset-bottom));}
+  .dt-grid{grid-template-columns:repeat(3,1fr);gap:8px;}
+  .dt{min-height:58px;padding:8px 6px;border-radius:14px;}
+  .dt .dd{display:none;}
+  .toast{top:calc(env(safe-area-inset-top) + 42px);}
+  .prog-wrap{top:calc(36px + env(safe-area-inset-top));padding:5px 10px;margin-bottom:8px;}
+  .pbar{margin-top:4px;}
+  #tvBox>.card{max-height:104px;overflow-y:auto;}
+}
+/* c) breitere Darstellung ab 641 px (Duo aufgeklappt, iPad): mehr Spalten bei den Tagesarten */
+@media(min-width:641px){.dt-grid{grid-template-columns:repeat(3,1fr);}}
+@media(min-width:900px){.dt-grid{grid-template-columns:repeat(4,1fr);}}
+/* d) Duo aufgeklappt hochkant (fast quadratisch): Kalenderzellen nicht ueberhoch */
+@media(min-width:641px) and (max-width:760px) and (orientation:portrait){
+  main{padding:16px 18px 96px;}
+}
+
 /* ── Mac/iPad breit: ausgeschriebene Seitenleiste ── */
 @media(min-width:1200px){
   :root{--railw:212px;}
@@ -1190,10 +1251,15 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.21.3';
-const APP_BUILD=105;
-const APP_DATE='15.11.2026';
+const APP_VERSION='5.22.0';
+const APP_BUILD=106;
+const APP_DATE='16.11.2026';
 const APP_CHANGES=[
+  'Besuchsfahrt zusätzlich zu zwei Tagesarten: Haken „+ Besuchsfahrt (BF)“ in Schritt 1 (z. B. AW + DR + BF) – wird wie die Tagesart BF berechnet',
+  'Prüfung › Belege: Belege, die im Wizard unter „Allg. Belege“ oder per Scan direkt am Tag hängen, zählen jetzt als vorhanden (bisher „kein Beleg“)',
+  'Prüfung › Belege: Taxi/Uber-Belege werden bei Betragsabweichung als vorhanden erkannt; ein Beleg kann mehrere Strecken abdecken und mehrere Belege eine Strecke (Summenabgleich)',
+  'Prüfung › Belege: Beträge mit Komma und Betrag aus dem Dateinamen (…_23,45EUR) werden gelesen; bei „kein Beleg“ wird der nächstliegende Beleg aus der Ablage als Kandidat genannt',
+  'iPhone Duo: eigene Darstellung zugeklappt (hoch/quer) und aufgeklappt – kompakte Kopf- und Tab-Leiste, Seitenleiste im Querformat, 3–4 Spalten bei den Tagesarten',
   'Mehrarbeit: Herkunft des Satzes wird angezeigt (Tabellenwert / durch Abrechnung belegt / vorläufiger Rechenwert ab 05/2026)',
   'Mehrarbeit: Satz je Monat der Leistung – bis 03/2025 34,46 €/h, 04/2025–04/2026 35,49 €/h, ab 05/2026 36,48 €/h (Abschlag +2,8 %, vorläufig; in Einstellungen überschreibbar)',
   'Mehrarbeit: Texte nach SMVergV (mehr als 5 h, nur angeordnet/genehmigt); Hinweis auf anteilige Mindeststundenzahl im Teilmonat',
@@ -1497,7 +1563,7 @@ function zeText(e){
   return[p,s2].filter((x,i,a)=>x&&a.indexOf(x)===i).join(' / ');
 }
 function zeEntry(e){return(e&&e.dayCode==='BF'&&!e.dayCode2&&!e.workStart&&!e.workEnd)?null:e;}
-function pill2(e){return(e&&e.dayCode2)?' <span class="cpill '+e.dayCode2+'" style="opacity:.9">+ '+e.dayCode2+'</span>':'';}
+function pill2(e){return((e&&e.dayCode2)?' <span class="cpill '+e.dayCode2+'" style="opacity:.9">+ '+e.dayCode2+'</span>':'')+((e&&e.bf&&e.dayCode!=='BF'&&e.dayCode2!=='BF')?' <span class="cpill BF" style="opacity:.9">+ BF</span>':'');}
 // Transport modes with PP rate
 const MODES=[
   {v:'',         l:'— Auswählen —',        pp:0,     ppN:''},
@@ -1524,7 +1590,16 @@ const WS_CODES=new Set(['AW','WFH','LG','ÜB']);
 // Taetigkeit etc. werden NICHT beruecksichtigt.
 const AW_HOME_KW=['bad reichenhall','freilassing'];
 /* Beide Tagesarten eines Eintrags (dayCode + optionaler dayCode2) */
-function tagCodes(e){return e?[e.dayCode,e.dayCode2].filter(Boolean):[];}
+function tagCodes(e){if(!e)return[];const l=[e.dayCode,e.dayCode2].filter(Boolean);if(e.bf&&!l.includes('BF'))l.push('BF');return l;}
+/* v5.22: Besuchsfahrt als Zusatz-Kennzeichen (e.bf) — fuer Tage, an denen schon zwei Tagesarten
+   belegt sind (z. B. AW + DR). Wirkt ueber tagCodes()/hatCode() ueberall wie BF als Tagesart.
+   Ist nur EINE Tagesart gewaehlt, wird der Haken zur 2. Tagesart BF (kein Doppel-Modell). */
+function bfNormalisieren(w){
+  if(!w)return w;
+  if(w.bf&&(w.dayCode==='BF'||w.dayCode2==='BF'))w.bf=false;
+  if(w.bf&&!w.dayCode2){w.dayCode2='BF';w.dual=true;w.bf=false;}
+  return w;
+}
 function hatCode(e,liste){return tagCodes(e).some(c=>liste.includes(c));}
 function codeText(e){return tagCodes(e).join(' + ')||'?';}
 /* v5.19: zweite Arbeitsstaette (Einstellungen: addrWork2, optional gueltig von/bis).
@@ -1584,7 +1659,7 @@ let lastNom=0, folderHandle=null;
 function freshW(){return{costEnabled:true,useFahrt:true,useAufenthalt:false,
   date:todayISO(),dayCode:'AW',vorhaben:'',isFHF:false,presentNoWork:false,
   workStart:'',workEnd:'',workLocation:'',workLocation2:'',workLocation3:'',workNotes:'',
-  verpflegung:'',verpflegungNE:'',verpflQuelle:'',stayLocation:'',nachweis:'',bemerkung:'',zeActivity:'',zeActivity2:'',dayCode2:'',dual:false,
+  verpflegung:'',verpflegungNE:'',verpflQuelle:'',stayLocation:'',nachweis:'',bemerkung:'',zeActivity:'',zeActivity2:'',dayCode2:'',dual:false,bf:false,
   segs:[],recIds:[],
 };}
 function freshSeg(){return{mode:'',fromLoc:'',toLoc:'',fromGeo:null,toGeo:null,
@@ -1602,6 +1677,13 @@ const COST_SCOPES=[
   {v:'roundtrip',l:'Hin- und Rückflug (Gesamtpreis)'},
   {v:'covered',  l:'Bereits erfasst (anderer Beleg)'},
 ];
+/* v5.22: Zahl robust lesen – 23,45 · 23.45 · 1.234,56 · 1,234.56 · Zahl (parseFloat("23,45") ergab 23). */
+function zahlDE(v){
+  if(typeof v==='number')return isFinite(v)?v:0;
+  let s=String(v==null?'':v).replace(/[\s€]|EUR/gi,'');if(!s)return 0;
+  if(/,\d{1,2}$/.test(s))s=s.replace(/\./g,'').replace(',','.');else s=s.replace(/,/g,'');
+  const n=parseFloat(s);return isFinite(n)?n:0;
+}
 function segCostCounts(s){
   if(!s)return false;
   if(s.enabled===false)return false;
@@ -1928,11 +2010,13 @@ function sizeMonatView(){
   const top=wrap.getBoundingClientRect().top;
   const nh=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--navh'))||0;
   const nav=document.querySelector('.tabs');const navH=(nh&&nav)?nav.getBoundingClientRect().height:0;
-  view.style.height=Math.max(280,window.innerHeight-top-16-navH)+'px';
+  view.style.height=Math.max(window.innerHeight<500?200:280,window.innerHeight-top-16-navH)+'px';
 }
 window.addEventListener('resize',()=>{
   if(document.getElementById('view-monat')?.classList.contains('on'))sizeMonatView();
 });
+// v5.22: iPhone Duo auf-/zuklappen wechselt das Display — Groesse nach dem Umschalten neu setzen
+window.addEventListener('orientationchange',()=>setTimeout(()=>{if(document.getElementById('view-monat')?.classList.contains('on'))sizeMonatView();},250));
 
 /* CALENDAR */
 function renderCal(){
@@ -1950,10 +2034,10 @@ function renderCal(){
     const today=iso===todayISO();
     const miss=!e&&iso<todayISO();
     const cls=['cal-d',e?'has':'',e?'c-'+calCat(e.dayCode):'',isWe&&!e?'we':'',today?'today':'',miss?'miss':''].filter(Boolean).join(' ');
-    const dot=e?`<span class="cdot">${esc(e.dayCode||'AW')}${e.dayCode2?'/'+esc(e.dayCode2):''}</span>`:'';
+    const dot=e?`<span class="cdot">${esc(e.dayCode||'AW')}${e.dayCode2?'/'+esc(e.dayCode2):''}${e.bf&&e.dayCode!=='BF'&&e.dayCode2!=='BF'?'+':''}</span>`:'';
     const nb=e&&entryCostNoReceipt(e)?'<span class="cnb" title="Kosten ohne Beleg"></span>':'';
     const fh=e&&e.isFHF?'<span class="cfhf" title="Familienheimfahrt">★</span>':'';
-    cells+=`<div class="${cls}${(typeof calSel!=='undefined'&&calSel&&calSel.has(iso))?' sel':''}" onclick="calClick('${iso}')" title="${e?esc((DT[e.dayCode]||{}).n||''):(miss?'Kein Eintrag':'')}"><span class="cnum">${d}</span>${dot}${nb}${fh}</div>`;
+    cells+=`<div class="${cls}${(typeof calSel!=='undefined'&&calSel&&calSel.has(iso))?' sel':''}" onclick="calClick('${iso}')" title="${e?esc(tagCodes(e).map(c=>(DT[c]||{}).n||c).join(' + ')):(miss?'Kein Eintrag':'')}"><span class="cnum">${d}</span>${dot}${nb}${fh}</div>`;
   }
   grid.innerHTML=cells;
   // Zeilenzahl (4-6 Wochen je nach Monat) exakt setzen, statt eine fixe Maximalzahl
@@ -2239,6 +2323,12 @@ function buildDaytype(){
         <small>Haken entfernen bei Sonderurlaub oder Dienstbefreiung, die den Urlaubsanspruch nicht mindert.</small></label>
     </div>`:'';
   const dualOn=wiz.dual===true||!!wiz.dayCode2;
+  const bfZusatz=(wiz.dayCode2&&wiz.dayCode!=='BF'&&wiz.dayCode2!=='BF')||wiz.bf?`
+    <div class="tblock blue" style="margin-top:9px">
+      <input type="checkbox" id="bfCb" ${wiz.bf?'checked':''} onchange="setBfZusatz(this.checked)">
+      <label class="tl" for="bfCb"><b>👨‍👩‍👧 + Besuchsfahrt (BF) als 3. Kennzeichen</b>
+        <small>Familie besucht mich am Dienstort – zusätzlich zu ${esc(wiz.dayCode)} + ${esc(wiz.dayCode2||'…')}. Wird wie die Tagesart BF berechnet (Trennungsgeld, Belegprüfung); erscheint nicht im Zeiterfassungsblatt.</small></label>
+    </div>`:'';
   const grid2=codes.filter(c=>c!==wiz.dayCode).map(code=>`<button class="dt${wiz.dayCode2===code?' on':''}" type="button" onclick="selectCode2('${code}')">
     <span class="dc">${code}</span>
     <span class="dn">${DT[code].n}</span>
@@ -2268,7 +2358,7 @@ function buildDaytype(){
       <div class="dt-auto">${(wiz.dual||wiz.dayCode2)?'Zwei Tagesarten gewählt — mit „Weiter →“ bestätigen.':codeHasExtras(wiz.dayCode)
         ? 'Diese Tagesart hat Zusatzoptionen — mit „Weiter → “ bestätigen.'
         : 'Auswahl springt automatisch weiter zu „'+(getSteps(wiz.dayCode,wiz.dayCode2)[1]?.l||'Weiter')+'“'}</div>
-      ${fhf}${urBlock}${dualBlock}
+      ${fhf}${urBlock}${dualBlock}${bfZusatz}
       ${['DR','LG','\u00dcB','ES','EGV'].includes(wiz.dayCode)?`
       <div class="tblock" style="margin-top:9px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--lsoft)">
         <div style="font-weight:600;font-size:12px;color:var(--navy);margin-bottom:6px">&#128196; Nachweis (f\u00fcr Abwesenheitsbescheinigung)</div>
@@ -2301,6 +2391,7 @@ function cancelAutoAdv(){if(autoAdvTimer){clearTimeout(autoAdvTimer);autoAdvTime
 function selectCode(code){
   wiz.dayCode=code;
   if(wiz.dayCode2===code){wiz.dayCode2='';wiz.zeActivity2='';}
+  bfNormalisieren(wiz);
   if(code==='AW'){wiz.segs=[];autoFillTrip();}
   renderStep('daytype');
   renderProg();
@@ -2317,6 +2408,12 @@ function toggleDual(on){
   cancelAutoAdv();
   wiz.dual=!!on;
   if(!on){wiz.dayCode2='';wiz.zeActivity2='';}
+  bfNormalisieren(wiz);
+  renderStep('daytype');renderProg();
+}
+function setBfZusatz(on){
+  cancelAutoAdv();
+  wiz.bf=!!on;bfNormalisieren(wiz);
   renderStep('daytype');renderProg();
 }
 function selectCode2(code){
@@ -2324,6 +2421,7 @@ function selectCode2(code){
   if(code===wiz.dayCode)return;
   wiz.dayCode2=(wiz.dayCode2===code)?'':code;
   wiz.zeActivity2='';wiz.dual=true;
+  bfNormalisieren(wiz);
   renderStep('daytype');renderProg();
 }
 function autoFillTrip(){
@@ -3056,6 +3154,7 @@ function closeRv(){document.getElementById('rvModal').classList.remove('show');r
 /* SAVE / EDIT / DELETE */
 function saveEntry(){
   collectCur();if(!wiz.date){toast('Datum fehlt','err');return;}
+  bfNormalisieren(wiz);
   (wiz.segs||[]).forEach(s=>pendelDTDefault(s,false));
   const alsoDates=(wiz._alsoDates||[]).filter(d=>d!==wiz.date);
   const entry={...wiz,id:editId||uid(),updated:Date.now()};
@@ -5362,7 +5461,7 @@ function checkBoxAnalyze(){
     const hasS=!!e.workStart,hasE=!!e.workEnd;
     if(hasS!==hasE)add('err','Arbeitszeit',`Nur ${hasS?'Beginn':'Ende'} erfasst – Gegenstück fehlt`,e.date,e.id);
     if(dt.noT&&(hasS||hasE))add('warn','Arbeitszeit',`Arbeitszeit trotz Code „${dt.n}" (kein Dienst erwartet)`,e.date,e.id);
-    if(!dt.noT&&!hasS&&!hasE&&e.dayCode!=='HF'&&e.dayCode!=='RF'&&e.dayCode!=='BF'&&e.dayCode2!=='BF'&&e.date<=todayISO())
+    if(!dt.noT&&!hasS&&!hasE&&e.dayCode!=='HF'&&e.dayCode!=='RF'&&!hatCode(e,['BF'])&&e.date<=todayISO())
       add('warn','Arbeitszeit',`Keine Arbeitszeit bei Code „${dt.n||e.dayCode}"`,e.date,e.id);
     if(hasS&&hasE){
       const s=toMin(e.workStart),en=toMin(e.workEnd);
@@ -5711,7 +5810,9 @@ function checkBoxAnalyze(){
   // Betrag mit Datumstoleranz — Flugtickets tragen das Kaufdatum, nicht das Reisedatum.
   {
     const belege=ablageBelege();   // nur Dateien, die wirklich in der Belegablage liegen
-    const bNum=b=>parseFloat(b.gesamtkosten)||0;
+    // v5.22: Betrag robust lesen („23,45“ ergab bisher 23) — fehlt er, aus dem Dateinamen (…_23,45EUR.pdf)
+    const bNum=b=>{const v=zahlDE(b.gesamtkosten);if(v>0)return v;
+      const m=String(b.dateiname||'').match(/(\d{1,5}[.,]\d{2})\s*(?:EUR|€)/i);return m?zahlDE(m[1]):0;};
     // Klartext: die Ausgabe in runCheckBox escapt die Meldung bereits
     const bName=b=>b.dateiname||b.belegart||'Beleg';
     // Kostenpflichtige Fahrt-Segmente aus dem Wizard
@@ -5720,17 +5821,26 @@ function checkBoxAnalyze(){
     // verschiedenen Jahren); gemeldet wird nur, was im Prüfzeitraum liegt.
     const imZR=d=>!d||imCheckBoxZeitraum(d);
     const alleTage=new Set(state.entries.filter(e=>e.date).map(e=>e.date));
+    // v5.22: Belege, die direkt am Tag haengen (Wizard „Allg. Belege“ oder Scan mit vorhandenem
+    // Eintrag → e.recIds), zaehlen wie ein Streckenbeleg. So zeigt es auch der Kalender (entryCostNoReceipt).
+    // Eine Datei, die auf DIESEM Geraet (noch) fehlt, aber nicht geloescht ist, gilt als vorhanden.
+    const recDa=id=>!!id&&!istGeloescht(id);
+    const recLokal=id=>inAblage(id);
     state.entries.filter(e=>e.date).forEach(e=>{
+      // Ein Tagesbeleg fuer „Allg. Kosten“ (z. B. Parken) darf keine fehlende Fahrkarte verdecken
+      const tagRec=(e.recIds||[]).filter(recDa).slice(zahlDE(e.costAmt)>0?1:0);
       (e.segs||[]).forEach((s,si)=>{
         // „Bereits erfasst“-Strecken zählen nicht, dürfen aber einen Beleg tragen
         // (z. B. eigener Beleg für den Rückflug) — sonst entstehen Schein-Abweichungen.
-        const _cov=s.enabled!==false&&s.costEnabled!==false&&s.costScope==='covered'&&parseFloat(s.costAmt)>0;
+        const _cov=s.enabled!==false&&s.costEnabled!==false&&s.costScope==='covered'&&zahlDE(s.costAmt)>0;
         if(!segCostCounts(s)&&!_cov)return;
         if(/Deutschlandticket|Pendlerpauschale/i.test(s.costType||''))return;
-        kosten.push({covered:_cov,date:e.date,id:e.id,nr:si+1,betrag:_cov?(parseFloat(s.costAmt)||0):segCostRoh(s),
+        const segRec=(s.recIds||[]).filter(recDa);
+        kosten.push({covered:_cov,date:e.date,id:e.id,nr:si+1,betrag:zahlDE(s.costAmt),
           curr:s.costCurr||'EUR',art:s.costType||s.mode||'Fahrt',mode:s.mode||'',
-          von:s.fromLoc||'',bis:s.toLoc||'',isFHF:e.isFHF===true,code:e.dayCode,code2:e.dayCode2||'',
-          legacy:!!(s.recIds&&s.recIds.some(inAblage))});
+          von:s.fromLoc||'',bis:s.toLoc||'',isFHF:e.isFHF===true,code:e.dayCode,code2:e.dayCode2||'',codes:tagCodes(e),
+          legacy:segRec.length>0,tagBeleg:!segRec.length&&tagRec.length>0,
+          nurAndererGeraet:(segRec.length?segRec:tagRec).length>0&&!(segRec.length?segRec:tagRec).some(recLokal)});
       });
     });
     const TOL_TAGE=45;
@@ -5759,6 +5869,36 @@ function checkBoxAnalyze(){
           kosten[best].date,kosten[best].id);
       }
     });
+
+    // Runde 3 (v5.22): Summenabgleich — EIN Beleg deckt mehrere Strecken (z. B. Bus + Zug auf einer
+    // Fahrkarte, Hin- und Rueckfahrt) oder MEHRERE Belege eine Strecke (z. B. zwei Uber-Fahrten als
+    // eine Taxi-Strecke erfasst). Nur offene Positionen, Datum innerhalb von 3 Tagen.
+    {
+      const SUM_TAGE=3;
+      const offK=()=>kosten.map((k,ki)=>({k,ki})).filter(x=>kostenZu[x.ki]===undefined&&!x.k.legacy&&!x.k.tagBeleg&&x.k.betrag>0);
+      const offB=()=>belege.map((b,bi)=>({b,bi})).filter(x=>belegZu[x.bi]===undefined&&bNum(x.b)>0);
+      const kombis=(arr,max)=>{const out=[];const rec=(st,acc)=>{if(acc.length>=2)out.push(acc.slice());if(acc.length===max)return;
+        for(let i=st;i<arr.length;i++){acc.push(arr[i]);rec(i+1,acc);acc.pop();}};rec(0,[]);return out;};
+      const summe=(l,f)=>Math.round(l.reduce((a,x)=>a+f(x),0)*100)/100;
+      // a) ein Beleg = Summe mehrerer Strecken
+      offB().forEach(({b,bi})=>{
+        const kand=offK().filter(x=>{const ab=tagAbst(b.datum,x.k.date);return ab!==null&&ab<=SUM_TAGE;}).slice(0,12);
+        const treffer=kombis(kand,3).find(l=>Math.abs(summe(l,x=>x.k.betrag)-bNum(b))<=0.01);
+        if(!treffer)return;
+        belegZu[bi]=treffer[0].ki;treffer.forEach(x=>{kostenZu[x.ki]=bi;});
+        if(treffer.some(x=>imZR(x.k.date)))add('info','Belege',bName(b)+' ('+fmtM(bNum(b),'EUR')+') deckt '+treffer.length+' Strecken zusammen ab: '
+          +treffer.map(x=>dstr(x.k.date)+' Strecke '+x.k.nr+' '+x.k.art+' '+fmtM(x.k.betrag,x.k.curr)).join(' + '),treffer[0].k.date,treffer[0].k.id);
+      });
+      // b) mehrere Belege = eine Strecke
+      offK().forEach(({k,ki})=>{
+        const kand=offB().filter(x=>{const ab=tagAbst(x.b.datum,k.date);return ab!==null&&ab<=SUM_TAGE;}).slice(0,12);
+        const treffer=kombis(kand,3).find(l=>Math.abs(summe(l,x=>bNum(x.b))-k.betrag)<=0.01);
+        if(!treffer)return;
+        kostenZu[ki]=treffer[0].bi;treffer.forEach(x=>{belegZu[x.bi]=ki;});
+        if(imZR(k.date))add('info','Belege',dstr(k.date)+' Strecke '+k.nr+' '+k.art+' ('+fmtM(k.betrag,k.curr)+') ist durch '+treffer.length+' Belege belegt: '
+          +treffer.map(x=>bName(x.b)+' '+fmtM(bNum(x.b),'EUR')).join(' + '),k.date,k.id);
+      });
+    }
 
     // I.1 Doppelte Belege in der Ablage
     const gesehen={},doppelt=new Set();
@@ -5793,7 +5933,7 @@ function checkBoxAnalyze(){
       const belegt=amTag.filter(x=>Math.abs(x.k.betrag-bNum(b))<=0.01);
       const _kat=belegArtKategorie(b.belegart);
       const amTagK=amTag.filter(x=>{if(!_kat)return true;const g=MODE_GRUPPE[x.k.mode]||'';
-        return(_kat==='Flugkarte'&&g==='Flugzeug')||(_kat==='Bahnkarte'&&g==='Bahn')||(_kat==='Buskarte'&&g==='Bus/ÖPNV');});
+        return(_kat==='Flugkarte'&&g==='Flugzeug')||(_kat==='Bahnkarte'&&g==='Bahn')||(_kat==='Buskarte'&&g==='Bus/ÖPNV')||(_kat==='Taxi'&&g==='Taxi');});
       if(belegt.length){
         add('warn','Belege','Überzähliger Beleg am '+dstr(b.datum)+': '+bName(b)+' über '
           +fmtM(bNum(b),'EUR')+' – die betragsgleiche Kostenposition ist bereits durch einen anderen Beleg abgedeckt',
@@ -5819,13 +5959,22 @@ function checkBoxAnalyze(){
     let fhfOffenGezaehlt=0,fhfLegacyGezaehlt=0,fhfZugeordnetGezaehlt=0;
     kosten.forEach((k,ki)=>{
       if(!imZR(k.date))return;
-      if(k.isFHF&&k.legacy)fhfLegacyGezaehlt++;
+      if(k.isFHF&&(k.legacy||k.tagBeleg)&&kostenZu[ki]===undefined)fhfLegacyGezaehlt++;
       if(k.isFHF&&kostenZu[ki]!==undefined)fhfZugeordnetGezaehlt++;
-      if(kostenZu[ki]!==undefined||k.legacy||erklaert.has(ki)||k.covered)return;
+      if((k.legacy||k.tagBeleg)&&k.nurAndererGeraet)
+        add('info','Belege',dstr(k.date)+' Strecke '+k.nr+': Beleg ist verknüpft, die Datei liegt aber auf diesem Gerät (noch) nicht vor – evtl. Synchronisation abwarten',k.date,k.id);
+      if(kostenZu[ki]!==undefined||k.legacy||k.tagBeleg||erklaert.has(ki)||k.covered)return;
       if(!imZR(k.date))return;
       if(k.isFHF)fhfOffenGezaehlt++;
+      // v5.22: naechstliegenden offenen Beleg als Kandidaten nennen, damit die Ursache sichtbar wird
+      let kand=null,kandAb=Infinity;
+      belege.forEach((b,bi)=>{if(belegZu[bi]!==undefined)return;const ab=tagAbst(b.datum,k.date);if(ab===null)return;
+        const gleich=Math.abs(bNum(b)-k.betrag)<=0.01;const score=gleich?ab:ab+(ab<=3?10:1000);
+        if((gleich&&ab<=120)||ab<=3){if(score<kandAb){kandAb=score;kand=b;}}});
+      const kandTxt=kand?' · Kandidat in der Ablage: „'+bName(kand)+'“ vom '+(kand.datum?dstr(kand.datum):'?')+' über '+fmtM(bNum(kand),'EUR')
+        +(Math.abs(bNum(kand)-k.betrag)<=0.01?' – gleicher Betrag, Datum liegt aber zu weit weg':' – Betrag weicht ab; Betrag im Wizard oder in der Belegeablage angleichen'):'';
       add(k.isFHF?'err':'warn','Belege',(k.isFHF?'Familienheimfahrt – kein Beleg: ':'Kein Beleg vorhanden: ')
-        +'Strecke '+k.nr+' '+k.art+' '+k.von+' → '+k.bis+' ('+fmtM(k.betrag,k.curr)+')',
+        +'Strecke '+k.nr+' '+k.art+' '+k.von+' → '+k.bis+' ('+fmtM(k.betrag,k.curr)+')'+kandTxt,
         k.date,k.id);
     });
 
@@ -5840,7 +5989,7 @@ function checkBoxAnalyze(){
       add('info','Belege','Diagnose: '+fhfTripsGesamt+' Familienheimfahrt(en) insgesamt · '
         +fhfKostenGesamt+' Fahrtkosten-Position(en) mit Betrag, davon '
         +fhfZugeordnetGezaehlt+' über die Belegeablage zugeordnet, '
-        +fhfLegacyGezaehlt+' bereits über einen älteren Beleg verknüpft (📎-Upload im Wizard), '
+        +fhfLegacyGezaehlt+' bereits über einen Beleg im Wizard verknüpft (📎-Upload bei der Strecke oder am Tag), '
         +fhfOffenGezaehlt+' als Fehler unten gemeldet · '
         +fhfOhneKostenGesamt+' Familienheimfahrt(en) ganz ohne Kostenangabe (siehe Warnungen)','','');
     }
@@ -5870,9 +6019,11 @@ function checkBoxAnalyze(){
     // nicht dazu passt (z. B. eine Dienstreise mit zufällig gleichem Ticketpreis).
     belege.forEach((b,bi)=>{
       const ki=belegZu[bi];if(ki===undefined)return;
-      if(!belegArtKategorie(b.belegart))return;   // nur Fahrkarten-Typen, keine sonstigen Belege
+      const _bk=belegArtKategorie(b.belegart);
+      if(!_bk||_bk==='Taxi')return;   // nur Fahrkarten-Typen (Flug/Bahn/Bus); Taxi/Uber faellt auch an Dienstort-Tagen an
       if(kosten[ki].isFHF||!imZR(kosten[ki].date))return;
-      if(['HF','RF','BF'].includes(kosten[ki].code)||['HF','RF','BF'].includes(kosten[ki].code2))return;   // Heim-/Rück-/Besuchsfahrt: Fahrkarte passt inhaltlich
+      if(belege.some((x,xi)=>xi!==bi&&belegZu[xi]===ki)||kosten.some((k,kj)=>kj!==ki&&kostenZu[kj]===bi))return;   // Summenabgleich – bewusst zugeordnet
+      if((kosten[ki].codes||[]).some(c=>['HF','RF','BF'].includes(c)))return;   // Heim-/Rück-/Besuchsfahrt: Fahrkarte passt inhaltlich
       add('warn','Belege',dstr(kosten[ki].date)+': Beleg „'+bName(b)+'" ist einem Eintrag ohne '
         +'Familienheimfahrt-Kennzeichnung zugeordnet (Code '+esc(kosten[ki].code||'?')
         +') – Datum und Betrag passen zufällig, prüfen ob das wirklich die richtige Fahrt ist',
@@ -7237,7 +7388,7 @@ async function doPrint(slim){
         <b style="font-size:8pt">${fmtD(e.date)}</b><br><span style="color:#888;font-size:6.5pt">${dayN(e.date)}</span>
       </td>
       <td rowspan="${n}" style="${TD}text-align:center">
-        <span style="background:#c9a84c;color:#1a3a5c;padding:0 4px;border-radius:2px;font-size:7.5pt;font-weight:700">${e.dayCode}</span>${e.dayCode2?`<br><span style="font-size:6.5pt;color:#1a3a5c">+ ${esc(e.dayCode2)}</span>`:''}
+        <span style="background:#c9a84c;color:#1a3a5c;padding:0 4px;border-radius:2px;font-size:7.5pt;font-weight:700">${e.dayCode}</span>${e.dayCode2?`<br><span style="font-size:6.5pt;color:#1a3a5c">+ ${esc(e.dayCode2)}</span>`:''}${e.bf&&e.dayCode!=='BF'&&e.dayCode2!=='BF'?`<br><span style="font-size:6.5pt;color:#1a3a5c">+ BF</span>`:''}
       </td>
       <td rowspan="${n}" style="${TD}text-align:center;font-size:7.5pt">${fhfTag}</td>
       <td rowspan="${n}" style="${TD}font-size:7.5pt">${esc(dt.n)}</td>
