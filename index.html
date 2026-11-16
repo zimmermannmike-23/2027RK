@@ -1104,6 +1104,11 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
       <textarea id="fbConfig" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","appId":"..."}' style="min-height:90px;font-family:monospace;font-size:11px"></textarea>
     </div>
     <button class="btn btn-s btn-sm" onclick="saveFbConfig()" style="margin-bottom:14px">&#128190; Konfiguration speichern &amp; verbinden</button>
+    <div style="margin:-4px 0 14px">
+      <button class="btn btn-s btn-sm" id="fbDiagBtn" onclick="fbDiagnose()">&#129658; Sync-Diagnose</button>
+      <button class="btn btn-g btn-sm" id="fbDiagCopy" onclick="fbDiagKopieren()" style="display:none">&#128203; Ergebnis kopieren</button>
+      <div id="fbDiag" style="display:none;margin-top:8px;padding:9px 12px;background:var(--lsoft);border:1px solid var(--line);border-radius:var(--r);font-size:11.5px;line-height:1.55"></div>
+    </div>
     <div id="fbAuthBox" style="display:none">
       <h4 style="font-size:13px;color:var(--navy);margin:6px 0 8px">Anmeldung</h4>
       <div class="g g2" style="gap:8px">
@@ -1259,10 +1264,11 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.25.3';
-const APP_BUILD=113;
+const APP_VERSION='5.26.0';
+const APP_BUILD=114;
 const APP_DATE='16.11.2026';
 const APP_CHANGES=[
+  'Einstellungen › Cloud-Sync: neue „Sync-Diagnose“ prüft Netzwerk, Cloud-Modul, Anmeldung, Lesen, Datenblöcke, Schreibtest, Datenmenge und zeigt den letzten Sync-Fehler – Ergebnis lässt sich kopieren',
   'Reiter Jahr: aufgeklappte Bereiche (z. B. „Aufstellung“) bleiben beim automatischen Neuzeichnen (Cloud-Sync) offen',
   'Jahr › Selbst getragen: „Fahrtkosten ohne Beleg“ zählt Belege, die direkt an Strecke/Tag hängen, nicht mehr als fehlend und nennt je Position den nächstliegenden Ablage-Beleg; Uber/Bolt/FreeNow-Belege gelten als Taxi-Beleg',
   'iPhone: Eingabefelder 16 px und Zoom-Sperre – iOS zoomte beim Antippen eines Feldes ein, danach wanderten die fixierten Leisten (unten/links) beim Scrollen mit',
@@ -10244,7 +10250,11 @@ function confirmZePdfImport(){
 /* ═══════════════ FIREBASE CLOUD SYNC ═══════════════ */
 let fbApp=null,fbAuth=null,fbDB=null,fbUser=null,fbUnsub=null,fbSyncTimer=null,fbApplyingRemote=false;
 
+/* v5.26.0: letzter Sync-Fehler wird fuer die Sync-Diagnose gemerkt */
+let fbLetzterFehler=null;
+function fbMerkeFehler(wo,e){fbLetzterFehler={t:Date.now(),wo:wo,code:(e&&e.code)||'',msg:String((e&&e.message)||e||'')};}
 function fbStatusUI(state,title,sub){
+  if(state==='err')fbMerkeFehler(title,{message:sub});
   const el=document.getElementById('fbStatus');if(!el)return;
   const dot={off:'\u26AA',wait:'\u{1F7E1}',ok:'\u{1F7E2}',err:'\u{1F534}'}[state]||'\u26AA';
   el.innerHTML=`<span>${dot}</span><div><b style="display:block;font-size:12px">${esc(title)}</b><small style="color:var(--muted)">${esc(sub||'')}</small></div>`;
@@ -10303,6 +10313,89 @@ function initFirebase(){
     });
   }catch(e){fbStatusUI('err','Fehler',e.message);toast('Firebase-Fehler: '+e.message,'err');}
 }
+/* ─── Sync-Diagnose (v5.26.0): prueft Schritt fuer Schritt, wo der Cloud-Sync haengt ─── */
+let fbDiagText='';
+function fbDiagKopieren(){
+  const t=fbDiagText||'';
+  const fertig=()=>toast('Diagnose kopiert','ok');
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(fertig).catch(()=>toast('Kopieren nicht möglich – bitte Text markieren','err'));}
+  else toast('Kopieren nicht möglich – bitte Text markieren','err');
+}
+async function fbDiagnose(){
+  const box=document.getElementById('fbDiag'),btn=document.getElementById('fbDiagBtn'),cp=document.getElementById('fbDiagCopy');
+  if(!box)return;
+  box.style.display='block';cp.style.display='none';btn.disabled=true;
+  const L=[];const ICON={ok:'✅',warn:'⚠️',err:'❌',info:'ℹ️'};
+  const zeigen=()=>{box.innerHTML=L.map(x=>'<div>'+ICON[x.s]+' <b>'+esc(x.k)+':</b> '+esc(x.v)+'</div>').join('')+'<div style="color:var(--muted)">… läuft</div>';};
+  const add=(s,k,v)=>{L.push({s,k,v});zeigen();};
+  const mitZeit=(p,ms,name)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(Object.assign(new Error('Zeitüberschreitung nach '+ms/1000+' s ('+name+')'),{code:'timeout'})),ms))]);
+  const fe=e=>((e&&e.code)?e.code+': ':'')+String((e&&e.message)||e).slice(0,200);
+  const alter=ts=>{if(!ts)return 'unbekannt';const m=Math.round((Date.now()-ts)/60000);return m<1?'gerade eben':m<60?'vor '+m+' Min.':m<1440?'vor '+Math.round(m/60)+' Std.':'vor '+Math.round(m/1440)+' Tg.';};
+  try{
+    add('info','App','Version '+APP_VERSION+' · Build '+APP_BUILD+' · '+(navigator.platform||'?')+(window.navigator.standalone?' · Home-Bildschirm-App':''));
+    add(navigator.onLine?'ok':'err','Netzwerk',navigator.onLine?'Gerät meldet: online':'Gerät meldet: OFFLINE – ohne Internet kein Sync');
+    const cfg=state.settings.fbConfig;
+    if(!cfg||!cfg.apiKey){add('err','Konfiguration','Keine Firebase-Konfiguration gespeichert');throw new Error('stop');}
+    const fehlt=['apiKey','authDomain','projectId','appId'].filter(k=>!cfg[k]);
+    add(fehlt.length?'warn':'ok','Konfiguration','Projekt „'+cfg.projectId+'“'+(fehlt.length?' · fehlende Felder: '+fehlt.join(', '):''));
+    const sdk=typeof firebase!=='undefined'&&firebase.auth&&firebase.firestore;
+    if(!sdk){
+      add('warn','Cloud-Modul','noch nicht geladen – lade von gstatic.com …');
+      try{await mitZeit(loadFirebaseSdk(),12000,'Firebase-Modul');add('ok','Cloud-Modul','geladen');}
+      catch(e){add('err','Cloud-Modul','nicht ladbar ('+fe(e)+') – Verbindung zu www.gstatic.com blockiert? (VPN, Filter, Offline)');throw new Error('stop');}
+    } else add('ok','Cloud-Modul','geladen');
+    if(!fbDB||!fbAuth){add('warn','Verbindung','Firebase noch nicht initialisiert – initialisiere …');try{initFirebase();await new Promise(r=>setTimeout(r,1500));}catch(e){add('err','Verbindung',fe(e));}}
+    if(!fbUser){add('err','Anmeldung','Nicht angemeldet – bitte unter „Anmeldung“ mit E-Mail und Passwort anmelden');throw new Error('stop');}
+    add('ok','Anmeldung',fbUser.email+' (Konto-ID …'+String(fbUser.uid).slice(-5)+')');
+    try{await mitZeit(fbUser.getIdToken(true),10000,'Token');add('ok','Anmelde-Token','erneuert – Konto bei Firebase erreichbar');}
+    catch(e){add('err','Anmelde-Token',fe(e)+' – ggf. abmelden und neu anmelden');}
+    // Lesen direkt vom Server (nicht aus dem lokalen Zwischenspeicher)
+    const col=fbDB.collection('users').doc(fbUser.uid).collection('state');
+    let hauptDaten=null;
+    try{
+      const d=await mitZeit(col.doc('main').get({source:'server'}),12000,'Lesen');
+      if(!d.exists)add('warn','Cloud-Stand','Noch kein Stand in der Cloud (erst auf einem Gerät „Jetzt hochladen“)');
+      else{
+        hauptDaten=d.data();
+        add('ok','Cloud-Stand','gelesen · zuletzt geschrieben '+alter(hauptDaten.updatedAt)+' ('+new Date(hauptDaten.updatedAt).toLocaleString('de-DE')+') von '+(hauptDaten.device||'?')+' · '+(hauptDaten.chunks||'altes Format')+' Block/Blöcke, '+(hauptDaten.laenge?Math.round(hauptDaten.laenge/1024)+' KB':'?'));
+      }
+    }catch(e){add('err','Cloud-Stand lesen',fe(e)+(/permission/i.test(fe(e))?' – Firestore-Sicherheitsregeln verweigern den Zugriff':/exhaust|quota/i.test(fe(e))?' – Tageskontingent von Firebase erschöpft':''));}
+    if(hauptDaten&&hauptDaten.chunks){
+      try{
+        const n=+hauptDaten.chunks;
+        const sn=await mitZeit(Promise.all(Array.from({length:n},(_,i)=>col.doc('main_p'+i).get({source:'server'}))),15000,'Datenblöcke');
+        const fehlend=sn.map((x,i)=>x.exists?null:i).filter(i=>i!==null);
+        const alt=sn.map((x,i)=>x.exists&&x.data().updatedAt!==hauptDaten.updatedAt?i:null).filter(i=>i!==null);
+        if(fehlend.length)add('err','Datenblöcke','Block(e) '+fehlend.join(', ')+' fehlen in der Cloud – ein Upload wurde abgebrochen. Auf dem Gerät mit dem richtigen Stand „Jetzt hochladen“ drücken');
+        else if(alt.length)add('err','Datenblöcke','Block(e) '+alt.join(', ')+' gehören zu einem anderen Stand – zwei Geräte haben gleichzeitig geschrieben oder ein Upload brach ab. „Jetzt hochladen“ auf dem Gerät mit dem richtigen Stand');
+        else{const len=sn.map(x=>x.data().data).join('').length;
+          add(hauptDaten.laenge&&len!==hauptDaten.laenge?'err':'ok','Datenblöcke',n+' Block/Blöcke vollständig'+(hauptDaten.laenge&&len!==hauptDaten.laenge?' – aber Länge passt nicht ('+len+' ≠ '+hauptDaten.laenge+')':''));}
+      }catch(e){add('err','Datenblöcke',fe(e));}
+    }
+    // Schreibtest mit Mini-Dokument
+    try{
+      await mitZeit(col.doc('_diag').set({t:Date.now(),build:APP_BUILD}),12000,'Schreiben');
+      await mitZeit(col.doc('_diag').delete(),12000,'Aufräumen');
+      add('ok','Schreibtest','Schreiben in die Cloud funktioniert');
+    }catch(e){add('err','Schreibtest',fe(e)+(/permission/i.test(fe(e))?' – Sicherheitsregeln verweigern Schreiben':/exhaust|quota/i.test(fe(e))?' – Tageskontingent für Schreibvorgänge erschöpft (kostenloser Tarif: 20.000/Tag). Morgen wieder versuchen oder Tarif prüfen':''));}
+    // Lokale Datenmenge
+    try{
+      const payload=JSON.stringify({entries:state.entries,settings:stripLocalOnly(state.settings)});
+      const teile=Math.ceil(payload.length/FB_TEIL);
+      add(teile>30?'warn':'ok','Lokale Datenmenge',Math.round(payload.length/1024)+' KB · '+state.entries.length+' Einträge · '+teile+' Block/Blöcke ('+(teile+1)+' Schreibvorgänge je Upload)'+(teile>30?' – sehr groß':''));
+    }catch(e){add('err','Lokale Datenmenge',fe(e));}
+    add(state.settings.fbLastSync?'ok':'warn','Letzter Upload dieses Geräts',state.settings.fbLastSync?alter(state.settings.fbLastSync)+' ('+new Date(state.settings.fbLastSync).toLocaleString('de-DE')+')':'noch nie');
+    add(state.settings.fbAutoSync!==false?(fbUnsub?'ok':'warn'):'warn','Auto-Sync',state.settings.fbAutoSync!==false?(fbUnsub?'an, Echtzeit-Listener läuft':'an, aber Listener läuft NICHT – Seite neu laden'):'ausgeschaltet');
+    if(fbApplyingRemote)add('warn','Abgleich','hängt anscheinend in einem Abgleich (Seite neu laden)');
+  }catch(e){if(e.message!=='stop')add('err','Diagnose',fe(e));}
+  if(fbLetzterFehler)add('warn','Letzter Sync-Fehler seit App-Start',alter(fbLetzterFehler.t)+' · '+fbLetzterFehler.wo+' · '+(fbLetzterFehler.code?fbLetzterFehler.code+' · ':'')+fbLetzterFehler.msg.slice(0,220));
+  else add('info','Letzter Sync-Fehler seit App-Start','keiner aufgetreten');
+  const fehler=L.filter(x=>x.s==='err').length,warn=L.filter(x=>x.s==='warn').length;
+  fbDiagText='Sync-Diagnose '+new Date().toLocaleString('de-DE')+'\n'+L.map(x=>(x.s==='ok'?'[OK]  ':x.s==='err'?'[FEHLER] ':x.s==='warn'?'[WARNUNG] ':'[INFO] ')+x.k+': '+x.v).join('\n');
+  box.innerHTML=L.map(x=>'<div>'+ICON[x.s]+' <b>'+esc(x.k)+':</b> '+esc(x.v)+'</div>').join('')
+    +'<div style="margin-top:6px;font-weight:700;color:'+(fehler?'var(--err,#c0392b)':warn?'var(--warn)':'var(--ok)')+'">'+(fehler?fehler+' Fehler gefunden':warn?'Keine Fehler, '+warn+' Hinweis(e)':'Alles in Ordnung')+'</div>';
+  cp.style.display='inline-block';btn.disabled=false;
+}
 async function fbRegister(){
   if(!fbAuth){toast('Erst Konfiguration speichern','err');return;}
   const em=document.getElementById('fbEmail').value.trim(),pw=document.getElementById('fbPass').value;
@@ -10334,7 +10427,7 @@ function startAutoSync(){
       const d=doc.data();
       try{const p=await cloudStateLesen(d);if(p)mergeRemote(JSON.parse(p),d.updatedAt);}
       catch(e){console.error('Sync listener:',e);}
-    },err=>console.error('Sync listener:',err));
+    },err=>{console.error('Sync listener:',err);fbMerkeFehler('Echtzeit-Listener',err);});
   document.getElementById('fbSyncInfo').textContent='Auto-Sync l\u00e4uft';
 }
 function stopAutoSync(){if(fbUnsub){fbUnsub();fbUnsub=null;}const el=document.getElementById('fbSyncInfo');if(el)el.textContent='';}
