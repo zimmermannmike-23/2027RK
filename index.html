@@ -1107,9 +1107,9 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
     <div style="margin:-4px 0 14px">
       <button class="btn btn-s btn-sm" id="fbDiagBtn" onclick="fbDiagnose()">&#129658; Sync-Diagnose</button>
       <button class="btn btn-g btn-sm" id="fbDiagCopy" onclick="fbDiagKopieren()" style="display:none">&#128203; Ergebnis kopieren</button>
-      <button class="btn btn-gold btn-sm" id="fbAblageFix" onclick="fbAblageReparieren()" style="display:none">&#128295; Belegablage reparieren</button>
       <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;margin-top:8px;cursor:pointer"><input type="checkbox" id="fbLongPoll" onchange="state.settings.fbLongPoll=this.checked;persist();toast('Gilt nach dem nächsten Neuladen der App','ok')"> Kompatibler Verbindungsmodus (Long-Polling) – bei Zeitüberschreitungen im Sync, z. B. mit VPN</label>
       <div id="fbDiag" style="display:none;margin-top:8px;padding:9px 12px;background:var(--lsoft);border:1px solid var(--line);border-radius:var(--r);font-size:11.5px;line-height:1.55"></div>
+      <button class="btn btn-gold btn-sm" id="fbAblageFix" onclick="fbAblageReparieren()" style="display:none;margin-top:8px">&#128295; Fehlende Belege der Ablage jetzt laden</button>
     </div>
     <div id="fbAuthBox" style="display:none">
       <h4 style="font-size:13px;color:var(--navy);margin:6px 0 8px">Anmeldung</h4>
@@ -1266,10 +1266,11 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.26.8';
-const APP_BUILD=122;
+const APP_VERSION='5.26.9';
+const APP_BUILD=123;
 const APP_DATE='16.11.2026';
 const APP_CHANGES=[
+  'Sync: Dateien, die direkt in die Belegablage gezogen wurden, werden jetzt auch auf das zweite Gerät geladen (bisher nur Belege mit Bezug im Datenstand); Knopf unter der Diagnose',
   'Cloud-Anzeige: zeigt jetzt getrennt ↑ letzter Upload und ↓ letztes Laden (bisher nur Upload – „Laden“ änderte die Zeit nie)',
   'Sync-Diagnose: Belegablage wird mit der Cloud abgeglichen (fehlend / ohne Kennzeichen / durch aktives Jahr ausgeblendet) – mit Knopf „Belegablage reparieren“; Listener liest bei Unstimmigkeit den Cloud-Kopf frisch',
   'Kopfzeile zeigt nach der Anmeldung „Cloud · Uhrzeit“ statt fälschlich „Lokal“',
@@ -10462,12 +10463,13 @@ async function fbDiagnose(){
       try{
         const an=await fbAblageAnalyse();
         const nm2=pr=>(pr.cd.belegart||pr.cd.typ||'Beleg')+' '+(pr.cd.name||pr.cd.filename||'')+(pr.cd.datum?' ('+pr.cd.datum+')':'');
-        add(an.probleme.length?'warn':'ok','Belegablage',an.upl+' Ablage-Dateien in der Cloud, '+an.sichtbar+' hier sichtbar (aktives Jahr '+an.jahr+')'+(an.probleme.length?' → '+an.probleme.length+' hier nicht sichtbar':''));
-        const txt={fehlt:'Datei fehlt auf diesem Gerät',ohneKennzeichen:'Datei da, aber ohne Ablage-Kennzeichen (erscheint nicht in der Ablage)',anderesJahr:'wegen aktivem Jahr '+an.jahr+' ausgeblendet (Jahr oben umstellen)'};
-        an.probleme.slice(0,10).forEach(pr=>add('warn','Nicht in der Ablage',nm2(pr)+' – '+txt[pr.art]));
-        if(an.probleme.length>10)add('info','Nicht in der Ablage','… und '+(an.probleme.length-10)+' weitere');
+        const imJ=an.probleme.filter(pr=>pr.art!=='anderesJahr'&&(pr.m==='Ohne Datum'||pr.m.startsWith(an.jahr))),anderes=an.probleme.length-imJ.length;
+        add(imJ.length?'warn':'ok','Belegablage',an.upl+' Ablage-Dateien in der Cloud, '+an.sichtbar+' hier sichtbar (aktives Jahr '+an.jahr+') \u2192 '+imJ.length+' davon im aktiven Jahr hier nicht sichtbar'+(anderes?', '+anderes+' weitere in anderen Jahren':''));
+        const txt={fehlt:'Datei fehlt auf diesem Gerät (wurde nie hierher geladen)',ohneKennzeichen:'Datei da, aber ohne Ablage-Kennzeichen (erscheint nicht in der Ablage)',anderesJahr:'wegen aktivem Jahr '+an.jahr+' ausgeblendet (Jahr oben umstellen)'};
+        imJ.slice(0,10).forEach(pr=>add('warn','Nicht in der Ablage',nm2(pr)+' – '+txt[pr.art]));
+        if(imJ.length>10)add('info','Nicht in der Ablage','… und '+(imJ.length-10)+' weitere (neueste zuerst)');
         const fix=document.getElementById('fbAblageFix');
-        if(fix)fix.style.display=an.probleme.some(pr=>pr.art!=='anderesJahr')?'inline-block':'none';
+        if(fix)fix.style.display=imJ.length?'inline-block':'none';
       }catch(e){add('warn','Belegablage','Abgleich nicht möglich: '+fe(e));}
     }
     // Lokale Datenmenge
@@ -10892,35 +10894,45 @@ async function fbAblageAnalyse(){
     else if(!imJahr)probleme.push({art:'anderesJahr',cd,m});
     else sichtbar++;
   }
+  probleme.sort((a,b)=>String(b.cd.datum||b.m).localeCompare(String(a.cd.datum||a.m)));
   return{cloudGesamt:cloud.length,upl,sichtbar,jahr,probleme};
+}
+/* v5.26.9: URSACHE der fehlenden Ablage-Dateien: syncReceiptsDown() holte nur Belege, deren ID im State steht. Dateien, die direkt in die
+   Belegablage gezogen wurden, stehen aber nur als Datei in IndexedDB/Cloud – das zweite Geraet kannte ihre IDs nie. Jetzt wird die Cloud-Liste
+   (Metadaten) abgeglichen und alles Fehlende des aktiven Jahres (+ 'Ohne Datum') nachgeladen, neueste zuerst. */
+async function fbAblageNachladen(res,max){
+  let liste;try{liste=await fbCloudBelegListe();}catch(e){res.fehler.push({id:'Cloud-Liste',message:e.message||String(e)});return 0;}
+  const jahr=aktivesJahr();let n=0;
+  const kand=liste.filter(cd=>cd.herkunft==='upload'&&!istGeloescht(cd.id)).map(cd=>({cd,m:fbMonatVon(cd)}))
+    .filter(x=>x.m==='Ohne Datum'||x.m.startsWith(jahr))
+    .sort((a,b)=>String(b.cd.datum||b.m).localeCompare(String(a.cd.datum||a.m)));
+  const meta=(z,d)=>{['herkunft','monat','typ','belegart','datum'].forEach(k=>{if(d[k])z[k]=d[k];});if(d.betrag!=null)z.betrag=d.betrag;return z;};
+  for(const {cd} of kand){
+    if(n>=max)break;
+    try{
+      const rec=await idbGetF(cd.id);
+      if(rec&&rec.blob){
+        if(rec.herkunft!=='upload'){meta(rec,cd);rec.herkunft='upload';await idbFile(rec);res.repariert++;n++;}
+        continue;
+      }
+      const doc=await fbDokLesen('receipts',cd.id);
+      const d=doc.exists?doc.data():null;if(!d||!d.data){res.nochNichtInCloud++;continue;}
+      const blob=await (await fetch(d.data)).blob();
+      await idbFile(meta({id:cd.id,blob,name:d.name||cd.id,type:d.type||blob.type,size:blob.size,created:Date.now(),filename:d.filename||d.name||cd.id},d));
+      res.heruntergeladen++;n++;
+    }catch(e){res.fehler.push({id:cd.id,message:e.message||String(e)});}
+  }
+  return n;
 }
 async function fbAblageReparieren(){
   const btn=document.getElementById('fbAblageFix');if(btn)btn.disabled=true;
   try{
-    const an=await fbAblageAnalyse();let n=0,fehler=0;
-    for(const pr of an.probleme){
-      const cd=pr.cd;
-      try{
-        if(pr.art==='ohneKennzeichen'){
-          const rec=await idbGetF(cd.id);
-          ['herkunft','monat','typ','belegart','datum'].forEach(k=>{if(cd[k])rec[k]=cd[k];});
-          if(cd.betrag!=null)rec.betrag=cd.betrag;
-          await idbFile(rec);n++;
-        }else if(pr.art==='fehlt'){
-          const doc=await fbDokLesen('receipts',cd.id);
-          const d=doc.exists?doc.data():null;if(!d||!d.data){fehler++;continue;}
-          const blob=await (await fetch(d.data)).blob();
-          const rec={id:cd.id,blob,name:d.name||cd.id,type:d.type||blob.type,size:blob.size,created:Date.now(),filename:d.filename||d.name||cd.id};
-          ['herkunft','monat','typ','belegart','datum'].forEach(k=>{if(d[k])rec[k]=d[k];});
-          if(d.betrag!=null)rec.betrag=d.betrag;
-          await idbFile(rec);n++;
-        }
-      }catch(e){fehler++;console.warn('Ablage-Reparatur',cd.id,e);}
-    }
+    const res={heruntergeladen:0,nochNichtInCloud:0,repariert:0,fehler:[]};
+    await fbMitZeit(fbAblageNachladen(res,1000),300000,'Belegablage nachladen');
     if(typeof ablageIdsLaden==='function'){try{await ablageIdsLaden();}catch(e){}}
     if(typeof renderBelegeablage==='function')renderBelegeablage();
     if(typeof renderJahresCard==='function')renderJahresCard();
-    toast(n+' Datei(en) in die Belegablage übernommen'+(fehler?' · '+fehler+' nicht möglich':''),fehler?'err':'ok');
+    toast(res.heruntergeladen+' Datei(en) nachgeladen'+(res.repariert?', '+res.repariert+' repariert':'')+(res.fehler.length?' · '+res.fehler.length+' Fehler ('+res.fehler[0].message+')':''),res.fehler.length?'err':'ok');
   }catch(e){toast('Ablage-Reparatur: '+e.message,'err');}
   if(btn)btn.disabled=false;
 }
@@ -11219,6 +11231,7 @@ async function syncReceiptsDown(){
       res.heruntergeladen++;
     }catch(e){res.fehler.push({id,message:e.message||String(e)});}
   }
+  await fbAblageNachladen(res,60);   // Ablage-Dateien ohne State-Bezug (max. 60 je Lauf, neueste zuerst)
   return res;
 }
 /* Stellt die Belegeablage-Kennzeichen lokal wieder her. Noetig fuer Dateien, die vor
