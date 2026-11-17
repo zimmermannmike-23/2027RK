@@ -1107,6 +1107,7 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
     <div style="margin:-4px 0 14px">
       <button class="btn btn-s btn-sm" id="fbDiagBtn" onclick="fbDiagnose()">&#129658; Sync-Diagnose</button>
       <button class="btn btn-g btn-sm" id="fbDiagCopy" onclick="fbDiagKopieren()" style="display:none">&#128203; Ergebnis kopieren</button>
+      <button class="btn btn-gold btn-sm" id="fbAblageFix" onclick="fbAblageReparieren()" style="display:none">&#128295; Belegablage reparieren</button>
       <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;margin-top:8px;cursor:pointer"><input type="checkbox" id="fbLongPoll" onchange="state.settings.fbLongPoll=this.checked;persist();toast('Gilt nach dem nächsten Neuladen der App','ok')"> Kompatibler Verbindungsmodus (Long-Polling) – bei Zeitüberschreitungen im Sync, z. B. mit VPN</label>
       <div id="fbDiag" style="display:none;margin-top:8px;padding:9px 12px;background:var(--lsoft);border:1px solid var(--line);border-radius:var(--r);font-size:11.5px;line-height:1.55"></div>
     </div>
@@ -1265,10 +1266,13 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.26.5';
-const APP_BUILD=119;
+const APP_VERSION='5.26.8';
+const APP_BUILD=122;
 const APP_DATE='16.11.2026';
 const APP_CHANGES=[
+  'Cloud-Anzeige: zeigt jetzt getrennt ↑ letzter Upload und ↓ letztes Laden (bisher nur Upload – „Laden“ änderte die Zeit nie)',
+  'Sync-Diagnose: Belegablage wird mit der Cloud abgeglichen (fehlend / ohne Kennzeichen / durch aktives Jahr ausgeblendet) – mit Knopf „Belegablage reparieren“; Listener liest bei Unstimmigkeit den Cloud-Kopf frisch',
+  'Kopfzeile zeigt nach der Anmeldung „Cloud · Uhrzeit“ statt fälschlich „Lokal“',
   'Cloud-Sync: Lesen der Datenblöcke und Belege fällt bei hängendem SDK automatisch auf Direktabfrage zurück (iPhone: Zeitüberschreitung beim Laden)',
   'Auto-Sync: Echtzeit-Listener startet nach Fehlern neu und holt nach Hintergrund/Offline den Stand nach; Belege-Download hat Zeitgrenze; Diagnose zeigt echten Listener-Zustand',
   'Sync-Diagnose: prüft Belege – welche Dateien hier fehlen, ob sie in der Cloud liegen, und nennt Belege über 700 KB, die nicht synchronisiert werden können',
@@ -10313,6 +10317,7 @@ function initFirebase(){
     fbStatusUI('wait','Verbunden','Bitte anmelden.');
     fbAuth.onAuthStateChanged(u=>{
       fbUser=u;
+      if(typeof renderSyncStatus==='function')renderSyncStatus();   // Kopfzeilen-Anzeige „Lokal“ → „Cloud“ nach der Anmeldung
       if(u){
         document.getElementById('fbSyncBox').style.display='block';
         fbStatusUI('ok','Angemeldet',u.email);
@@ -10453,6 +10458,17 @@ async function fbDiagnose(){
         }
         if(fehlt.length>8)add('info','Belege hier','… und '+(fehlt.length-8)+' weitere fehlende');
       }catch(e){add('warn','Belege','Prüfung nicht möglich: '+fe(e));}
+      // Belegablage gegen die Cloud abgleichen
+      try{
+        const an=await fbAblageAnalyse();
+        const nm2=pr=>(pr.cd.belegart||pr.cd.typ||'Beleg')+' '+(pr.cd.name||pr.cd.filename||'')+(pr.cd.datum?' ('+pr.cd.datum+')':'');
+        add(an.probleme.length?'warn':'ok','Belegablage',an.upl+' Ablage-Dateien in der Cloud, '+an.sichtbar+' hier sichtbar (aktives Jahr '+an.jahr+')'+(an.probleme.length?' → '+an.probleme.length+' hier nicht sichtbar':''));
+        const txt={fehlt:'Datei fehlt auf diesem Gerät',ohneKennzeichen:'Datei da, aber ohne Ablage-Kennzeichen (erscheint nicht in der Ablage)',anderesJahr:'wegen aktivem Jahr '+an.jahr+' ausgeblendet (Jahr oben umstellen)'};
+        an.probleme.slice(0,10).forEach(pr=>add('warn','Nicht in der Ablage',nm2(pr)+' – '+txt[pr.art]));
+        if(an.probleme.length>10)add('info','Nicht in der Ablage','… und '+(an.probleme.length-10)+' weitere');
+        const fix=document.getElementById('fbAblageFix');
+        if(fix)fix.style.display=an.probleme.some(pr=>pr.art!=='anderesJahr')?'inline-block':'none';
+      }catch(e){add('warn','Belegablage','Abgleich nicht möglich: '+fe(e));}
     }
     // Lokale Datenmenge
     try{
@@ -10507,8 +10523,11 @@ function startAutoSync(){
       const d=doc.data();
       try{
         let p=await cloudStateLesen(d);
-        if(!p){await new Promise(r=>setTimeout(r,4000));p=await cloudStateLesen(d);}   // einmal nachfassen, falls gerade geschrieben wird
-        if(p)mergeRemote(JSON.parse(p),d.updatedAt);
+        let dd=d;
+        if(!p){await new Promise(r=>setTimeout(r,4000));
+          // Zwischenzeitlich kann ein neuerer Stand geschrieben worden sein: Kopf frisch lesen statt mit dem alten zu vergleichen
+          try{const fr=await fbDokLesen('state','main');if(fr.exists){dd=fr.data();p=await cloudStateLesen(dd);}}catch(e){}}
+        if(p)mergeRemote(JSON.parse(p),dd.updatedAt);
         else fbMerkeFehler('Echtzeit-Listener',{message:'Cloud-Stand unvollständig – wird beim nächsten Abgleich erneut versucht'});
       }
       catch(e){console.error('Sync listener:',e);fbMerkeFehler('Echtzeit-Listener',e);}
@@ -10844,6 +10863,67 @@ async function fbRestDoc(pfad){
     return{exists:true,data:()=>o};
   }finally{clearTimeout(to);}
 }
+/* v5.26.7: Belegablage mit der Cloud abgleichen (nur Metadaten per Direktabfrage). Findet Dateien, die in der Cloud liegen, hier aber
+   fehlen, ohne Ablage-Kennzeichen vorliegen oder wegen des aktiven Jahres ausgeblendet sind. */
+async function fbCloudBelegListe(){
+  const cfg=state.settings.fbConfig,uid=fbUser.uid,tok=await fbUser.getIdToken();const out=[];let pt='';
+  do{
+    const url='https://firestore.googleapis.com/v1/projects/'+cfg.projectId+'/databases/(default)/documents/users/'+uid+'/receipts?pageSize=300'
+      +['name','filename','herkunft','monat','datum','belegart','typ','betrag','size'].map(k=>'&mask.fieldPaths='+k).join('')+(pt?'&pageToken='+encodeURIComponent(pt):'');
+    const r=await fetch(url,{headers:{Authorization:'Bearer '+tok}});
+    if(!r.ok){const t=await r.text();throw new Error('HTTP '+r.status+' '+t.slice(0,100));}
+    const j=await r.json();
+    (j.documents||[]).forEach(dc=>{const o={id:dc.name.split('/').pop()};Object.keys(dc.fields||{}).forEach(k=>{o[k]=fbRestWert(dc.fields[k]);});out.push(o);});
+    pt=j.nextPageToken||'';
+  }while(pt);
+  return out;
+}
+const fbMonatVon=f=>(f.monat&&/^\d{4}-\d{2}$/.test(f.monat))?f.monat:(f.datum&&/^\d{4}-\d{2}/.test(f.datum))?f.datum.slice(0,7):'Ohne Datum';
+async function fbAblageAnalyse(){
+  const cloud=await fbCloudBelegListe();const jahr=aktivesJahr();const probleme=[];let upl=0,sichtbar=0;
+  for(const cd of cloud){
+    if(cd.herkunft!=='upload'||istGeloescht(cd.id))continue;
+    upl++;
+    let rec=null;try{rec=await idbGetF(cd.id);}catch(e){}
+    const m=fbMonatVon(cd.herkunft==='upload'&&rec&&rec.herkunft==='upload'?rec:cd);
+    const imJahr=m==='Ohne Datum'||m.startsWith(jahr);
+    if(!rec||!rec.blob)probleme.push({art:'fehlt',cd,m});
+    else if(rec.herkunft!=='upload')probleme.push({art:'ohneKennzeichen',cd,m});
+    else if(!imJahr)probleme.push({art:'anderesJahr',cd,m});
+    else sichtbar++;
+  }
+  return{cloudGesamt:cloud.length,upl,sichtbar,jahr,probleme};
+}
+async function fbAblageReparieren(){
+  const btn=document.getElementById('fbAblageFix');if(btn)btn.disabled=true;
+  try{
+    const an=await fbAblageAnalyse();let n=0,fehler=0;
+    for(const pr of an.probleme){
+      const cd=pr.cd;
+      try{
+        if(pr.art==='ohneKennzeichen'){
+          const rec=await idbGetF(cd.id);
+          ['herkunft','monat','typ','belegart','datum'].forEach(k=>{if(cd[k])rec[k]=cd[k];});
+          if(cd.betrag!=null)rec.betrag=cd.betrag;
+          await idbFile(rec);n++;
+        }else if(pr.art==='fehlt'){
+          const doc=await fbDokLesen('receipts',cd.id);
+          const d=doc.exists?doc.data():null;if(!d||!d.data){fehler++;continue;}
+          const blob=await (await fetch(d.data)).blob();
+          const rec={id:cd.id,blob,name:d.name||cd.id,type:d.type||blob.type,size:blob.size,created:Date.now(),filename:d.filename||d.name||cd.id};
+          ['herkunft','monat','typ','belegart','datum'].forEach(k=>{if(d[k])rec[k]=d[k];});
+          if(d.betrag!=null)rec.betrag=d.betrag;
+          await idbFile(rec);n++;
+        }
+      }catch(e){fehler++;console.warn('Ablage-Reparatur',cd.id,e);}
+    }
+    if(typeof ablageIdsLaden==='function'){try{await ablageIdsLaden();}catch(e){}}
+    if(typeof renderBelegeablage==='function')renderBelegeablage();
+    if(typeof renderJahresCard==='function')renderJahresCard();
+    toast(n+' Datei(en) in die Belegablage übernommen'+(fehler?' · '+fehler+' nicht möglich':''),fehler?'err':'ok');
+  }catch(e){toast('Ablage-Reparatur: '+e.message,'err');}
+  if(btn)btn.disabled=false;
+}
 async function fbDokLesen(sammlung,id){
   try{return await fbMitZeit(fbDB.collection('users').doc(fbUser.uid).collection(sammlung).doc(id).get(),12000,'Lesen');}
   catch(e){console.warn('SDK-Lesen fehlgeschlagen, Ersatzweg:',sammlung,id,e.message);return await fbRestDoc('users/'+fbUser.uid+'/'+sammlung+'/'+id);}
@@ -10899,6 +10979,13 @@ async function cloudPush(manual){
   }catch(e){fbStatusUI('err','Sync-Fehler',e.message);if(manual)toast('Upload: '+e.message,'err');}
 }
 
+/* v5.26.8: Zeitpunkt des letzten ERFOLGREICHEN Ladens (geraetelokal, wird nicht synchronisiert). Bisher zeigte die Kopfzeile nur den
+   letzten Upload – ein Laden war daher von aussen nicht erkennbar. */
+function fbPullMerken(){
+  fbPushSperre=true;
+  try{state.settings.fbLastPull=Date.now();persist();}finally{fbPushSperre=false;}
+  if(typeof renderSyncStatus==='function')renderSyncStatus();
+}
 async function cloudPull(manual){
   if(!fbUser||!fbDB){if(manual)toast('Nicht angemeldet','err');return;}
   try{
@@ -10912,13 +10999,15 @@ async function cloudPull(manual){
       if(r0&&r0.heruntergeladen){const a=document.querySelector('.tab.on')?.dataset.v;
         if(a==='jahr'&&typeof renderBelegeablage==='function')renderBelegeablage();
         if(a==='export'&&typeof renderBelegeablage==='function')renderBelegeablage();}
+      fbPullMerken();
       return;
     }
     const p=await cloudStateLesen(d);
     if(!p)throw new Error('Cloud-Stand unvollst\u00e4ndig (anderes Ger\u00e4t schreibt gerade) \u2014 bitte gleich nochmal laden');
     const r=await mergeRemote(JSON.parse(p),d.updatedAt);
+    fbPullMerken();
     if(manual){
-      fbStatusUI('ok','Geladen',fbUser.email);
+      fbStatusUI('ok','Geladen',fbUser.email+' \u00b7 '+new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}));
       const probleme=[];
       if(r?.heruntergeladen)probleme.push(r.heruntergeladen+' Beleg(e) heruntergeladen');
       if(r?.repariert)probleme.push(r.repariert+' Beleg(e) der Belegeablage zugeordnet');
@@ -10940,7 +11029,7 @@ function stripLocalOnly(s){
   // naechsten Abgleich eines der beiden Geraete unbemerkt auf das jeweils andere Jahr um
   // — und CheckBox/Übersicht/etc. zeigen dadurch auf beiden Geraeten unterschiedliche,
   // scheinbar "asynchrone" Ergebnisse, obwohl die zugrundeliegenden Eintraege identisch sind.
-  delete c.fbConfig;delete c.fbAutoSync;delete c.fbLongPoll;delete c.fbLastSync;delete c.fbLastAppliedRemoteTs;delete c.belegMetaSyncV2;delete c.aktivesJahr;
+  delete c.fbConfig;delete c.fbAutoSync;delete c.fbLongPoll;delete c.fbLastSync;delete c.fbLastPull;delete c.fbLastAppliedRemoteTs;delete c.belegMetaSyncV2;delete c.aktivesJahr;
   return c;
 }
 
@@ -10973,7 +11062,7 @@ async function mergeRemote(remote,remoteTs){
       // aktivesJahr bleibt geraetelokal (siehe stripLocalOnly) — hier zusaetzlich als
       // Uebergangsschutz explizit erhalten, falls das SENDENDE Geraet noch auf einem
       // aelteren Build laeuft und aktivesJahr trotzdem noch mitschickt.
-      const keepFb={fbLongPoll:state.settings.fbLongPoll,fbConfig:state.settings.fbConfig,fbAutoSync:state.settings.fbAutoSync,fbLastSync:state.settings.fbLastSync,aktivesJahr:state.settings.aktivesJahr};
+      const keepFb={fbLongPoll:state.settings.fbLongPoll,fbConfig:state.settings.fbConfig,fbAutoSync:state.settings.fbAutoSync,fbLastSync:state.settings.fbLastSync,fbLastPull:state.settings.fbLastPull,aktivesJahr:state.settings.aktivesJahr};
       const _gelLokal=(state.settings.geloeschteBelege||[]).slice();
       // v5.21: Listen, die auf beiden Geraeten wachsen, zusammenfuehren statt ueberschreiben –
       // sonst geht z. B. ein auf dem iPhone importierter Bescheid verloren, wenn der Mac spaeter pusht.
@@ -12346,11 +12435,13 @@ function renderSyncStatus(){
   const pill=document.getElementById('syncPill');
   if(pill){
     let cls='',txt;
-    if(user){cls=cl&&Date.now()-cl<86400000?'ok':'warn';txt='Cloud · '+(cl?syncAgo(cl).replace('heute ',''):'—');}
+    if(user){const pl=state.settings.fbLastPull||0,neu=Math.max(cl,pl);cls=neu&&Date.now()-neu<86400000?'ok':'warn';
+      const z=t=>syncAgo(t).replace('heute ','');
+      txt=(cl&&pl)?'Cloud · \u2191'+z(cl)+' \u2193'+z(pl):'Cloud · '+(cl?'\u2191'+z(cl):pl?'\u2193'+z(pl):'\u2014');}
     else{cls=bkAge===null||bkAge>8?'warn':'ok';txt='Lokal · Backup '+(bkAge===null?'nie':bkAge===0?'heute':'vor '+bkAge+' T.');}
     pill.className='syncpill '+cls;
     pill.innerHTML=`<span class="sd"></span><span class="st">${esc(txt)}</span>`;
-    pill.title=(user?'Cloud-Sync aktiv, zuletzt '+syncAgo(cl):'Cloud-Sync nicht angemeldet')+' · Letzte Backup-Datei: '+(bkTs?syncAgo(bkTs):'nie');
+    pill.title=(user?'Cloud-Sync aktiv · \u2191 zuletzt hochgeladen '+syncAgo(cl)+' · \u2193 zuletzt geladen '+syncAgo(state.settings.fbLastPull||0):'Cloud-Sync nicht angemeldet')+' · Letzte Backup-Datei: '+(bkTs?syncAgo(bkTs):'nie');
   }
   const el=document.getElementById('bkStatus');
   if(el){
@@ -12358,7 +12449,7 @@ function renderSyncStatus(){
     el.innerHTML=`<div style="display:grid;grid-template-columns:auto 1fr;gap:3px 12px;padding:9px 12px;background:var(--lsoft);border:1px solid var(--line);border-radius:var(--r)">
       <span style="color:var(--muted)">Letzte Backup-Datei</span><b style="color:${bkAge===null||bkAge>8?'var(--warn)':'var(--navy)'}">${bkTs?syncAgo(bkTs):'noch keine'}</b>
       <span style="color:var(--muted)">Nächste automatisch</span><span>${next?next.toLocaleDateString('de-DE'):'beim nächsten Start'}</span>
-      <span style="color:var(--muted)">Cloud-Sync</span><span>${user?'aktiv · zuletzt '+syncAgo(cl):'nicht angemeldet'}</span></div>`;
+      <span style="color:var(--muted)">Cloud-Sync</span><span>${user?'aktiv · \u2191 '+syncAgo(cl)+' · \u2193 '+syncAgo(state.settings.fbLastPull||0):'nicht angemeldet'}</span></div>`;
   }
 }
 (function(){
