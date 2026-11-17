@@ -1265,10 +1265,12 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.26.3';
-const APP_BUILD=117;
+const APP_VERSION='5.26.4';
+const APP_BUILD=118;
 const APP_DATE='16.11.2026';
 const APP_CHANGES=[
+  'Auto-Sync: Echtzeit-Listener startet nach Fehlern neu und holt nach Hintergrund/Offline den Stand nach; Belege-Download hat Zeitgrenze; Diagnose zeigt echten Listener-Zustand',
+  'Sync-Diagnose: prüft Belege – welche Dateien hier fehlen, ob sie in der Cloud liegen, und nennt Belege über 700 KB, die nicht synchronisiert werden können',
   'Cloud-Sync: Endlosschleife behoben – nach jedem Upload wurde sofort der nächste ausgelöst (alle ~2 s, 6 Schreibvorgänge) und das Tageskontingent von Firebase aufgebraucht; unveränderte Daten werden nicht mehr hochgeladen',
   'Sync-Diagnose: Direktabfrage an Firestore (ohne SDK) zeigt den echten Fehler – z. B. erschöpftes Tageskontingent, Regeln oder blockiertes Netz',
   'Cloud-Sync: automatische Long-Polling-Erkennung, Zeitüberschreitungen mit klarer Meldung statt endlosem Warten, Schalter „Kompatibler Verbindungsmodus“; Diagnose nennt Ursache bei hängender Verbindung',
@@ -10399,7 +10401,7 @@ async function fbDiagnose(){
           const r=await fetch('https://firestore.googleapis.com/v1/projects/'+cfg.projectId+'/databases/(default)/documents/'+pfad,
             {method:methode,headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,signal:ac.signal});
           const txt=await r.text();let j=null;try{j=JSON.parse(txt);}catch(e){}
-          return{status:r.status,ms:Date.now()-t0,len:txt.length,err:j&&j.error?(j.error.status||'')+' '+(j.error.message||''):''};
+          return{status:r.status,ms:Date.now()-t0,len:txt.length,j:j,err:j&&j.error?(j.error.status||'')+' '+(j.error.message||''):''};
         }catch(e){return{status:0,ms:Date.now()-t0,len:0,err:e.name==='AbortError'?'keine Antwort nach 15 s':String(e.message||e)};}
         finally{clearTimeout(to);}
       };
@@ -10419,6 +10421,29 @@ async function fbDiagnose(){
         if(g.status>=200&&g.status<300&&w.status>=200&&w.status<300&&L.some(x=>x.s==='err'&&/timeout|Zeitüberschreitung/.test(x.v)))
           add('warn','Einschätzung','Direkt (ohne SDK) geht alles durch, nur das SDK läuft in die Zeitüberschreitung → hängende SDK-Verbindung: App komplett schließen und neu öffnen; Build ab 5.26.1 mit Long-Polling-Erkennung nutzen.');
       }catch(e){add('warn','Firestore-Direkt','nicht ausführbar: '+fe(e));}
+      // Belege: was ist hier vorhanden, was fehlt, und liegt es in der Cloud? (nur Metadaten, ohne die Dateien zu laden)
+      try{
+        const ids=allReceiptIds().filter(id=>!istGeloescht(id));
+        const meta={};((state.settings.mbReceipts||{}).unassigned||[]).forEach(r=>{if(r&&r.id)meta[r.id]=r;});
+        const nm=id=>{const m=meta[id];return m?((m.dateiname||m.belegart||'Beleg')+(m.datum?' '+m.datum:'')):id.slice(0,8);};
+        const fehlt=[],nichtHoch=[],grossL=[];let lok=0;const up=state.settings.fbUploaded||{};
+        for(const id of ids){
+          let rec=null;try{rec=await idbGetF(id);}catch(e){}
+          if(rec&&rec.blob){lok++;if(!up[id]){if(rec.blob.size>700000)grossL.push(nm(id)+' ('+Math.round(rec.blob.size/1024)+' KB)');else nichtHoch.push(nm(id));}}
+          else fehlt.push(id);
+        }
+        add('info','Belege hier',ids.length+' im Datenstand, '+lok+' als Datei vorhanden, '+fehlt.length+' fehlen');
+        if(grossL.length)add('err','Belege zu groß für den Sync',grossL.length+' Datei(en) über 700 KB werden NIE hochgeladen und fehlen daher auf anderen Geräten: '+grossL.slice(0,8).join(' · '));
+        if(nichtHoch.length)add('warn','Belege noch nicht hochgeladen',nichtHoch.length+' Datei(en) hier, noch nicht in der Cloud: '+nichtHoch.slice(0,8).join(' · ')+' → „Jetzt hochladen“');
+        for(const id of fehlt.slice(0,8)){
+          const g=await rest('users/'+fbUser.uid+'/receipts/'+id+'?mask.fieldPaths=name&mask.fieldPaths=size','GET');
+          if(g.status===200){const sz=g.j&&g.j.fields&&g.j.fields.size?+g.j.fields.size.integerValue:0;
+            add('warn','Beleg fehlt hier',nm(id)+' – liegt in der Cloud ('+Math.round(sz/1024)+' KB) → „Jetzt laden“ drücken');}
+          else if(g.status===404)add('err','Beleg fehlt hier',nm(id)+' – NICHT in der Cloud: auf dem Gerät, das ihn hat, „Jetzt hochladen“ drücken (bei Fehler/zu groß siehe oben)');
+          else add('err','Beleg fehlt hier',nm(id)+' – Cloud-Abfrage: HTTP '+g.status+' '+g.err);
+        }
+        if(fehlt.length>8)add('info','Belege hier','… und '+(fehlt.length-8)+' weitere fehlende');
+      }catch(e){add('warn','Belege','Prüfung nicht möglich: '+fe(e));}
     }
     // Lokale Datenmenge
     try{
@@ -10427,7 +10452,7 @@ async function fbDiagnose(){
       add(teile>30?'warn':'ok','Lokale Datenmenge',Math.round(payload.length/1024)+' KB · '+state.entries.length+' Einträge · '+teile+' Block/Blöcke ('+(teile+1)+' Schreibvorgänge je Upload)'+(teile>30?' – sehr groß':''));
     }catch(e){add('err','Lokale Datenmenge',fe(e));}
     add(state.settings.fbLastSync?'ok':'warn','Letzter Upload dieses Geräts',state.settings.fbLastSync?alter(state.settings.fbLastSync)+' ('+new Date(state.settings.fbLastSync).toLocaleString('de-DE')+')':'noch nie');
-    add(state.settings.fbAutoSync!==false?(fbUnsub?'ok':'warn'):'warn','Auto-Sync',state.settings.fbAutoSync!==false?(fbUnsub?'an, Echtzeit-Listener läuft':'an, aber Listener läuft NICHT – Seite neu laden'):'ausgeschaltet');
+    add(state.settings.fbAutoSync===false?'warn':(fbUnsub&&fbListener.ok?'ok':'err'),'Auto-Sync',state.settings.fbAutoSync===false?'ausgeschaltet':(fbListener.ok?'an · Listener lief zuletzt '+alter(fbListener.zuletzt)+' (Meldung vom Server)':'an, aber Listener ist NICHT aktiv'+(fbListener.fehler?' – '+fbListener.fehler:' – noch keine Meldung vom Server')+'; Neustart-Versuch läuft'));
     if(fbApplyingRemote)add('warn','Abgleich','hängt anscheinend in einem Abgleich (Seite neu laden)');
   }catch(e){if(e.message!=='stop')add('err','Diagnose',fe(e));}
   if(fbLetzterFehler)add('warn','Letzter Sync-Fehler seit App-Start',alter(fbLetzterFehler.t)+' · '+fbLetzterFehler.wo+' · '+(fbLetzterFehler.code?fbLetzterFehler.code+' · ':'')+fbLetzterFehler.msg.slice(0,220));
@@ -10468,13 +10493,37 @@ function startAutoSync(){
   // Realtime-Listener auf das State-Dokument
   fbUnsub=fbDB.collection('users').doc(fbUser.uid).collection('state').doc('main')
     .onSnapshot(async doc=>{
+      fbListener.ok=true;fbListener.zuletzt=Date.now();fbListener.fehler='';
       if(!doc.exists||doc.metadata.hasPendingWrites)return;
       const d=doc.data();
-      try{const p=await cloudStateLesen(d);if(p)mergeRemote(JSON.parse(p),d.updatedAt);}
-      catch(e){console.error('Sync listener:',e);}
-    },err=>{console.error('Sync listener:',err);fbMerkeFehler('Echtzeit-Listener',err);});
+      try{
+        let p=await cloudStateLesen(d);
+        if(!p){await new Promise(r=>setTimeout(r,4000));p=await cloudStateLesen(d);}   // einmal nachfassen, falls gerade geschrieben wird
+        if(p)mergeRemote(JSON.parse(p),d.updatedAt);
+        else fbMerkeFehler('Echtzeit-Listener',{message:'Cloud-Stand unvollständig – wird beim nächsten Abgleich erneut versucht'});
+      }
+      catch(e){console.error('Sync listener:',e);fbMerkeFehler('Echtzeit-Listener',e);}
+    },err=>{
+      // Nach einem Fehler beendet Firestore den Listener endgueltig – frueher blieb Auto-Sync dann stumm aus. Jetzt Neustart.
+      console.error('Sync listener:',err);fbMerkeFehler('Echtzeit-Listener',err);
+      fbListener.ok=false;fbListener.fehler=(err&&err.code?err.code+': ':'')+String((err&&err.message)||err).slice(0,120);
+      setTimeout(()=>{if(fbUser&&state.settings.fbAutoSync!==false&&!fbListener.ok)startAutoSync();},15000);
+    });
   document.getElementById('fbSyncInfo').textContent='Auto-Sync l\u00e4uft';
 }
+/* v5.26.4: Zustand des Echtzeit-Listeners + Nachholen nach Hintergrund/Offline (iOS beendet Verbindungen im Hintergrund) */
+const fbListener={ok:false,zuletzt:0,fehler:'',letzterPull:0};
+function fbNachholen(){
+  if(!fbUser||!fbDB||state.settings.fbAutoSync===false)return;
+  if(Date.now()-fbListener.letzterPull<20000)return;
+  fbListener.letzterPull=Date.now();
+  if(!fbListener.ok||Date.now()-fbListener.zuletzt>600000)startAutoSync();
+  cloudPull(false);
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')fbNachholen();});
+window.addEventListener('online',()=>fbNachholen());
+window.addEventListener('pageshow',()=>fbNachholen());
+setInterval(()=>{if(document.visibilityState==='visible')fbNachholen();},300000);
 function stopAutoSync(){if(fbUnsub){fbUnsub();fbUnsub=null;}const el=document.getElementById('fbSyncInfo');if(el)el.textContent='';}
 
 // Lokale Aenderung -> debounced push
@@ -10820,6 +10869,14 @@ async function cloudPull(manual){
     const doc=await fbDB.collection('users').doc(fbUser.uid).collection('state').doc('main').get();
     if(!doc.exists){if(manual)toast('Noch keine Cloud-Daten','err');fbStatusUI('ok','Angemeldet',fbUser.email);return;}
     const d=doc.data();
+    if(!manual&&state.settings.fbLastAppliedRemoteTs&&d.updatedAt<=state.settings.fbLastAppliedRemoteTs){
+      // Stand unveraendert: keine 5 Datenbloecke lesen (spart Kontingent); nur fehlende Belegdateien nachholen
+      const r0=await fbMitZeit(syncReceiptsDown(),90000,'Belege laden');
+      if(r0&&r0.heruntergeladen){const a=document.querySelector('.tab.on')?.dataset.v;
+        if(a==='jahr'&&typeof renderBelegeablage==='function')renderBelegeablage();
+        if(a==='export'&&typeof renderBelegeablage==='function')renderBelegeablage();}
+      return;
+    }
     const p=await cloudStateLesen(d);
     if(!p)throw new Error('Cloud-Stand unvollst\u00e4ndig (anderes Ger\u00e4t schreibt gerade) \u2014 bitte gleich nochmal laden');
     const r=await mergeRemote(JSON.parse(p),d.updatedAt);
@@ -10901,7 +10958,7 @@ async function mergeRemote(remote,remoteTs){
      state.entries=state.entries.filter(e=>!(e.id in del)||(e.updated||0)>del[e.id]);}
     migrate();geloeschteBereinigen();persist();
     // Belege nachladen, die lokal fehlen
-    downRes=await syncReceiptsDown();
+    downRes=await fbMitZeit(syncReceiptsDown(),90000,'Belege laden');
     // Danach: unvollstaendig uebertragene Altbestaende lokal nachkennzeichnen
     const repN=await repariereBelegMetadaten();
     await bwRelinkDateien();
