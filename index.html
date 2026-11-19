@@ -9303,7 +9303,7 @@ async function genFahrtkostenPdf(){
         rowsB.map(r=>({a:r[0],km:/Privat/.test(r[0])?String(Math.round(r[1])):'',b:eur(r[2])})),'Summe Teil 3  ('+FHFK.trips.length+' Heimfahrten)',sumB);
       else P('Keine Heimfahrten mit Kosten erfasst.',8,GR);
       if(FHFK.hfOhneSegmente>0)P('Hinweis: '+FHFK.hfOhneSegmente+' Heimfahrt(en) ohne erfasste Fahrtdetails - keine Kosten ansetzbar.',7.5,GR);
-      P('Dienstwagen-Fahrten: 0 EUR. Reisebeihilfe/Erstattungen stehen gesondert (Abschnitt 7a).',7.5,GR);
+      P('Dienstwagen-Fahrten: 0 EUR. Reisebeihilfe/Erstattungen stehen gesondert (Abschnitt 7b).',7.5,GR);
     } else {
     H2('3  Familienheimfahrten ('+String.fromCharCode(167)+' 9 Abs. 1 Satz 3 Nr. 5 EStG)');
     P('Eine Familienheimfahrt je Kalenderwoche; Hin- und Rueckfahrt sind mit der Pauschale abgegolten.',7.5,GR);
@@ -9336,7 +9336,7 @@ async function genFahrtkostenPdf(){
     H2('4  Flugkosten (tatsaechliche Aufwendungen)');
     if(AWM){
       P('Tatsaechliche Ticketkosten laut Beleg; Hin- und Rueckflug derselben Heimfahrt stehen in einer Zeile.',7.5,GR);
-      P('Einordnung der Heimfluege im Rahmen der Auswaertstaetigkeit sowie die Behandlung der erstatteten Fluege (Abschnitt 7a)',7.5,GR);
+      P('Einordnung der Heimfluege im Rahmen der Auswaertstaetigkeit sowie die Behandlung der erstatteten Fluege (Abschnitt 7b)',7.5,GR);
       P('sind mit dem Berater abzustimmen.',7.5,GR);
     } else {
     P('Fuer Flugstrecken ist die Entfernungspauschale gesetzlich ausgeschlossen; anzusetzen sind die',7.5,GR);
@@ -9405,8 +9405,24 @@ async function genFahrtkostenPdf(){
     y-=32;
     if(AWM){
       const BWs=bwSummen(yr);
+      const BES=[];state.entries.filter(e=>e.date&&e.date.startsWith(String(yr))).sort((a,b)=>a.date.localeCompare(b.date)).forEach(e=>(e.segs||[]).forEach(sg=>{
+        if(sg.enabled===false)return;const ds=String(sg.costDesc||'');if(!/besuchsfahrt/i.test(ds)||/covered/i.test(String(sg.costScope||'')+' '+ds))return;
+        const a=parseFloat(sg.costAmt)||0;if(a>0)BES.push({d:e.date,t:sg.costType||'',a});}));
+      if(BES.length){
+        need(60);
+        H2('7a  Davon: Besuchsfahrten Angehoeriger (in der Summe enthalten)');
+        BES.forEach(r=>{need(13);
+          pg.drawText(san(fmtD(r.d)+'   '+r.t),{x:ML+5,y,size:8.5,font:fn,color:BLK});
+          const v=san(eur(r.a)+' EUR');pg.drawText(v,{x:ML+TW-5-fn.widthOfTextAtSize(v,8.5),y,size:8.5,font:fn,color:BLK});y-=13;});
+        need(14);
+        const bs=BES.reduce((a,r)=>a+r.a,0);
+        pg.drawText(san('Summe Besuchsfahrten Angehoeriger'),{x:ML+5,y,size:8.5,font:fb,color:BLK});
+        const bv=san(eur(bs)+' EUR');pg.drawText(bv,{x:ML+TW-5-fb.widthOfTextAtSize(bv,8.5),y,size:8.5,font:fb,color:BLK});y-=13;
+        P('Enthalten in Teil 3/4. Behandlung ohne doppelte Haushaltsfuehrung mit dem Berater klaeren; Betrag ggf. abziehen.',7.5,GR);
+        y-=6;
+      }
       need(70);
-      H2('7a  Erstattungen (nachrichtlich, nicht verrechnet)');
+      H2('7b  Erstattungen (nachrichtlich, nicht verrechnet)');
       [['Fahrkosten-Erstattung lt. TG-Bescheiden',BWs.tgFahrkosten||0],['Fahrkosten-Erstattung lt. Reisekostenabrechnungen',BWs.rkFahrkosten||0],['davon steuerfrei (TG)',BWs.fkSteuerfreiTG||0]].forEach(r=>{need(13);
         pg.drawText(san(r[0]),{x:ML+5,y,size:8.5,font:fn,color:BLK});
         const v=san(eur(r[1])+' EUR');pg.drawText(v,{x:ML+TW-5-fn.widthOfTextAtSize(v,8.5),y,size:8.5,font:fn,color:BLK});y-=13;});
@@ -9468,9 +9484,10 @@ async function genFahrtkostenPdf(){
       'R 9.5 Abs. 1 Satz 5 LStR). Keine Entfernungspauschale.',
       '',
       'Diese Aufstellung weist die Aufwendungen VOR Anrechnung von Erstattungen aus. Erstattungen',
-      '(Trennungsgeld, Reisekostenvergütung) stehen gesondert in Abschnitt 7a und sind nicht verrechnet.',
+      '(Trennungsgeld, Reisekostenvergütung) stehen gesondert in Abschnitt 7b und sind nicht verrechnet.',
       '',
       'Heimfahrten mit dem Privat-Kfz sind mit 0,30 EUR/km angesetzt - Behandlung mit dem Berater klaeren.',
+      'Besuchsfahrten Angehoeriger sind in der Summe enthalten und in Abschnitt 7a gesondert ausgewiesen.',
       '',
       'Nicht in dieser Aufstellung: Unterkunftskosten der Zweitwohnung (Miete tatsaechlich '+eur(mieteTatsaechlich())+' EUR/Monat;',
       'TG-Unterkunftssatz '+eur(mieteTg())+' EUR/Monat) sowie Verpflegungsmehraufwand.',
