@@ -1184,6 +1184,9 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
       <div class="f"><label>Resturlaub Vorjahr (&Uuml;bertrag)</label><input type="number" step="0.5" id="sUrlaubUebertrag" placeholder="0"></div>
       <div class="f"><label>FvD-&Uuml;bertrag Vorjahr (Tage)</label><input type="number" step="0.5" id="sFvdUebertrag" placeholder="0"></div>
       <div class="f"><label>Miete Zweitwohnung &euro;/Monat</label><input type="number" step="1" id="sMieteZweit" placeholder="670"></div>
+      <div class="f"><label>Steuerliche Einordnung</label><select id="sSteuerEinord"><option value="auswaerts">Ausw&auml;rtst&auml;tigkeit</option><option value="dhf">Doppelte Haushaltsf&uuml;hrung</option></select></div>
+      <div class="f"><label>Miete tats&auml;chlich &euro;/Monat</label><input type="number" step="1" id="sMieteTatsaechlich" placeholder="650"></div>
+      <div class="f"><label>TG-Unterkunftssatz &euro;/Monat</label><input type="number" step="1" id="sMieteTg" placeholder="670"></div>
       <div class="f"><label>Beginn doppelte Haushaltsf&#252;hrung</label><input type="date" id="sDhfStart"></div>
       <div class="f"><label>Ende doppelte Haushaltsf&#252;hrung</label><input type="date" id="sDhfEnde"></div>
       <div class="f"><label>Ende Trennungsgeld</label><input type="date" id="sTgEnde"></div>
@@ -1215,6 +1218,8 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
     <div id="bkStatus" style="font-size:12px;margin-bottom:10px"></div>
     <div style="display:flex;gap:9px;flex-wrap:wrap">
       <button class="btn btn-s btn-sm" onclick="doExport()">&#128229; JSON-Backup</button>
+      <button class="btn btn-s btn-sm" onclick="doExportSteuer()">&#129534; Steuer-&#220;bergabe</button>
+      <button class="btn btn-s btn-sm" onclick="dbRender()">&#129529; Datenbereinigung</button>
       <label class="btn btn-s btn-sm" style="cursor:pointer">&#128228; JSON laden<input type="file" accept="application/json" onchange="doImport(event)" style="display:none"></label>
     </div>
     <h3 style="margin-top:22px;margin-bottom:5px">&#128190; Speicher</h3>
@@ -1266,10 +1271,13 @@ html.dark [style*="background:#f9f9fb"]{background:var(--lsoft)!important;}}
    Dienstreise PKW: 0,30 €/km (tatsächlich gefahren) */
 
 /* ═══ VERSION — bei jeder Änderung APP_BUILD hochzählen ═══ */
-const APP_VERSION='5.26.9';
-const APP_BUILD=123;
-const APP_DATE='16.11.2026';
+const APP_VERSION='5.28.0';
+const APP_BUILD=126;
+const APP_DATE='19.11.2026';
 const APP_CHANGES=[
+  'Build 126: Steuerliche Einordnung (Ausw\u00e4rtst\u00e4tigkeit/DHF), Pendelwege je Tag (pendelWege 0/1/2), Miete tats\u00e4chlich/TG getrennt, Datenbereinigung',
+  'Steuer-Übergabe: Zwischenabordnung/Einsatz (z. B. Lehnin) wird mit Übernachtung am Ort berechnet – 28 € volle Tage, 14 € An-/Abreise- und Heimfahrttage, Kürzung für gestellte Mahlzeiten, nur innerhalb der Dreimonatsfrist; Tage ohne Eintrag oder Wochenende ohne Heimfahrt stehen getrennt als „zu prüfen“; je Abrechnung das Tagegeld (steuerfrei/steuerpflichtig) zur Gegenrechnung',
+  'Steuer-Übergabe: neue feste Datenstruktur „steuer“ (Schema tgrb-steuer-v1) im JSON-Backup und als eigener Export (Einstellungen › Backup › „Steuer-Übergabe“) – je Jahr ab 2024: Verpflegungsmehraufwand der doppelten Haushaltsführung (Tage voll/halb, Brutto, Kürzung, Betrag), Tagegeld mit Steuersplit je Abrechnung, Zwischenabordnung/Einsatz mit Dreimonatsfrist, gestellte Mahlzeiten und Hinweisen – alles aus den TG-/RK-Abrechnungen, nichts geschätzt',
   'Sync: Dateien, die direkt in die Belegablage gezogen wurden, werden jetzt auch auf das zweite Gerät geladen (bisher nur Belege mit Bezug im Datenstand); Knopf unter der Diagnose',
   'Cloud-Anzeige: zeigt jetzt getrennt ↑ letzter Upload und ↓ letztes Laden (bisher nur Upload – „Laden“ änderte die Zeit nie)',
   'Sync-Diagnose: Belegablage wird mit der Cloud abgeglichen (fehlend / ohne Kennzeichen / durch aktives Jahr ausgeblendet) – mit Knopf „Belegablage reparieren“; Listener liest bei Unstimmigkeit den Cloud-Kopf frisch',
@@ -1825,7 +1833,8 @@ async function load(){
   setTimeout(()=>bwNachlesen5210(),16000);
 }
 let pt=null;
-function persist(){
+var _pwCache=null;
+function persist(){_pwCache=null;
   _bwVTCache=null;
   try{localStorage.setItem(SK,JSON.stringify(state.entries));localStorage.setItem(SETK,JSON.stringify(state.settings));}catch(e){}
   if(pt)clearTimeout(pt);pt=setTimeout(async()=>{
@@ -1833,6 +1842,12 @@ function persist(){
   if(typeof scheduleCloudPush==='function')scheduleCloudPush();
 }
 function migrate(){
+  if(!state.settings.migMiete126){
+    if(state.settings.mieteTg==null&&state.settings.mieteZweit)state.settings.mieteTg=state.settings.mieteZweit;
+    if(state.settings.mieteTatsaechlich==null)state.settings.mieteTatsaechlich=650;   // lt. Angabe Mike 19.11.2026
+    state.settings.migMiete126=true;
+  }
+  (state.entries||[]).forEach(e=>{delete e.pendelWege;delete e.pendelWegeQuelle;});   // nur Export-Felder, werden nicht gespeichert
   if(!state.settings.migPendelDT){
     (state.entries||[]).forEach(e=>(e.segs||[]).forEach(s=>pendelDTDefault(s,true)));
     state.settings.migPendelDT=true;
@@ -2355,6 +2370,16 @@ function buildDaytype(){
       <input type="checkbox" id="fhfCb" ${wiz.isFHF?'checked':''} onchange="wiz.isFHF=this.checked">
       <label class="tl" for="fhfCb"><b>👨‍👩‍👧 Familienheimfahrt (FHF)</b>
         <small>Steuerlich absetzbare Heimfahrt im Rahmen doppelter Haushaltsführung.</small></label>
+    </div>
+    <div class="tblock" style="margin:6px 0 2px;display:flex;align-items:center;gap:10px">
+      <label class="tl" style="flex:1"><b>🛣️ Pendelwege Kaserne ↔ Zweitwohnung</b>
+        <small>Vorgabe: ${pendelWegeVorschlagText(wiz)} – hier überschreibbar.</small></label>
+      <select onchange="wiz.pendelWegeManuell=this.value===''?undefined:parseInt(this.value,10)">
+        <option value="" ${(wiz.pendelWegeManuell===undefined||wiz.pendelWegeManuell===null)?'selected':''}>Regel</option>
+        <option value="0" ${wiz.pendelWegeManuell===0?'selected':''}>0 Wege</option>
+        <option value="1" ${wiz.pendelWegeManuell===1?'selected':''}>1 Weg</option>
+        <option value="2" ${wiz.pendelWegeManuell===2?'selected':''}>2 Wege</option>
+      </select>
     </div>`;   // v5.23: bei jeder Tagesart
   const urBlock=(wiz.dayCode==='UR')?`
     <div class="tblock" style="margin-top:9px;background:#E8F5E9;border-color:#1B5E20">
@@ -4767,6 +4792,7 @@ function jahresUebersicht(yr){
     const ec=(!e.costCurr||e.costCurr==='EUR')?(parseFloat(e.costAmt)||0):0;
     if(ec>0){u.kostGrp['Sonstige']=(u.kostGrp['Sonstige']||0)+ec;u.kostGesamt+=ec;}
   });
+  {const PT=pendelTageJahr(y);u.pendelTageVoll=PT.filter(p=>p.wege===2).length;u.pendelTageEinfach=PT.filter(p=>p.wege===1).length;u.pendelWegeGesamt=PT.reduce((a,p)=>a+p.wege,0);}
   u.bw=bwSummen(y);
   u.mb=mbSummen(y);
   u.sg=selbstGetragen(y,u.bw);
@@ -4820,7 +4846,7 @@ function selbstGetragen(yr,BW){
     if(t){genutzt.add(t.bi);return;}
     allg+=v;});
   const K=typeof kfzVergleich==='function'?kfzVergleich(y):{km:0,voll:0};
-  const miete=parseFloat(state.settings.mieteZweit)||0;
+  const miete=mieteTatsaechlich();
   const mMonate=miete?(dhfUnterkunftAnteilig(y,1,BW.anzTG||0)||0):0;
   const unterkunft=Math.round(miete*mMonate*100)/100;
   const r2=v=>Math.round((v||0)*100)/100;
@@ -4921,6 +4947,172 @@ function vmaBerechnung(yr){
   return{aktiv:true,start,ende,von,bis,tage:nVoll+nHalb,nVoll,nHalb,nNull,brutto,kuerzung,
     betrag:Math.max(0,brutto-kuerzung),VOLL,TEIL,detail};
 }
+
+/* ═══ Steuer-Uebergabe (v5.27.0) ═══════════════════════════════════════════════════
+   Feste, versionierte Datenstruktur fuer die Steuer-App (Schema tgrb-steuer-v1).
+   Sie steht im JSON-Backup unter "steuer" und laesst sich einzeln exportieren.
+   Quelle: TG-/RK-Abrechnungen (Tagesaufstellung, Steuersplit, Reiseabschnitte) und die Eintraege.
+   NICHTS wird geschaetzt: Auswaertstaetigkeiten (Zwischenabordnung u. a.) werden mit Fakten und
+   Dreimonatsfrist ausgewiesen, aber nicht automatisch mit Pauschalen angesetzt (vmaStatus 'zu_klaeren'). */
+const STEUER_SCHEMA='tgrb-steuer-v1';
+function steuerUebergabe(){
+  const s=state.settings||{};
+  const r2=x=>Math.round((+x||0)*100)/100;
+  const dI=d=>(d instanceof Date&&!isNaN(d))?isoLocalD(d):'';
+  const plusTag=(iso,n)=>{const d=new Date(iso+'T12:00');d.setDate(d.getDate()+n);return isoLocalD(d);};
+  const plus3M=iso=>{const d=new Date(iso+'T12:00');if(isNaN(d))return'';d.setMonth(d.getMonth()+3);d.setDate(d.getDate()-1);return isoLocalD(d);};
+  const tageZw=(a,b)=>Math.max(0,Math.round((new Date(b+'T12:00')-new Date(a+'T12:00'))/86400000)+1);
+  const alleB=bwList().filter(b=>b&&(b.typ==='TG'||b.typ==='RK'));
+  const jahreSet=new Set();
+  (state.entries||[]).forEach(e=>{if(e&&/^\d{4}/.test(e.date||''))jahreSet.add(+String(e.date).slice(0,4));});
+  alleB.forEach(b=>{if(/^\d{4}/.test(b.periode||''))jahreSet.add(+String(b.periode).slice(0,4));});
+  const jl=[...jahreSet];
+  const yMin=Math.min(2024,...jl),yMax=Math.max(new Date().getFullYear(),...jl);
+  const heute=todayISO();
+  /* Auswaertstaetigkeiten mit Dreimonatsfrist: Zwischenabordnung (TG-Reiseabschnitt) bzw. RK mit „Abordnung“ im Anlass/Ziel */
+  const seg=[];
+  alleB.forEach(b=>{
+    if(b.typ==='TG'){
+      (b.reisen||[]).forEach(rz=>{
+        if(/Zwischenabordnung/i.test(rz.art||'')&&rz.von&&rz.bis)seg.push({von:rz.von,bis:rz.bis,ort:String(rz.ort||'').trim(),q:'TG '+(b.nr||'')});
+      });
+    } else if(/abordn|lehnin/i.test((b.anlass||'')+' '+(b.ziel||''))&&b.von&&b.bis){
+      seg.push({von:b.von,bis:b.bis,ort:String(b.ziel||'').trim(),q:'RK '+(b.nr||'')});
+    }
+  });
+  seg.sort((a,b)=>a.von.localeCompare(b.von));
+  const bloecke=[];
+  seg.forEach(x=>{
+    const l=bloecke[bloecke.length-1];
+    const gleicherOrt=l&&(!x.ort||!l.orte.length||bwOrtTokens(x.ort).some(t=>l.orte.some(o=>bwOrtTokens(o).includes(t))));
+    if(l&&gleicherOrt&&x.von<=plusTag(l.bis,1)){
+      if(x.bis>l.bis)l.bis=x.bis;
+      if(x.ort&&!l.orte.includes(x.ort))l.orte.push(x.ort);
+      if(!l.quellen.includes(x.q))l.quellen.push(x.q);
+    } else bloecke.push({von:x.von,bis:x.bis,orte:x.ort?[x.ort]:[],quellen:[x.q]});
+  });
+  const abordnungen=bloecke.map(bl=>{
+    const fristEnde=plus3M(bl.von);
+    const effEnde=bl.bis<fristEnde?bl.bis:fristEnde;
+    const za={};   // je Datum einmal (mehrere Bescheide)
+    alleB.filter(b=>b.typ==='TG').forEach(b=>(b.tage||[]).forEach(d=>{
+      if(d.datum>=bl.von&&d.datum<=bl.bis&&/(^|\s)ZA(\s|$)/.test(d.art||''))za[d.datum]=d;
+    }));
+    const zd=Object.values(za);
+    const mz={fruehstueck:zd.filter(d=>d.fGestellt).length,mittag:zd.filter(d=>d.mGestellt).length,abend:zd.filter(d=>d.aGestellt).length};
+    const VOLL=parseFloat(s.vmaVoll)||28,TEIL=VOLL/2;
+    const tok=new Set();bl.orte.forEach(o=>bwOrtTokens(o).forEach(t=>tok.add(t)));
+    const entMap={};(state.entries||[]).forEach(e=>{if(e&&e.date&&!entMap[e.date])entMap[e.date]=e;});
+    const ortPasst=e=>!!e&&bwOrtTokens(String(e.workLocation||'')).some(t=>tok.has(t));
+    /* Tatsaechliche Anwesenheit: Eintraege mit Dienstort 1 = Abordnungsort verlaengern einen zu kurzen Bescheidzeitraum */
+    let bisE=bl.bis;
+    (state.entries||[]).forEach(e=>{if(e&&e.date>bisE&&e.date<=heute&&ortPasst(e))bisE=e.date;});
+    const nachE=entMap[plusTag(bisE,1)];
+    const beendet=!!(nachE&&!ortPasst(nachE));   // Abreise nur belegt, wenn der Folgetag woanders erfasst ist
+    const fenEnde=bisE<fristEnde?bisE:fristEnde;
+    const codes={},liste=[];
+    (state.entries||[]).filter(e=>e&&e.date>=bl.von&&e.date<=fenEnde).sort((x,y)=>x.date.localeCompare(y.date)).forEach(e=>{
+      const cs=tagCodes(e);cs.forEach(cd=>{codes[cd]=(codes[cd]||0)+1;});
+      const vh=bwVerpflTag(e.date);
+      liste.push({datum:e.date,codes:cs,ort:e.workLocation||'',gestellt:vh?vh.verpflegung:'',nichtEingenommen:vh?vh.verpflegungNE:''});
+    });
+    /* Berechnung: Uebernachtung am Ort (vom Nutzer bestaetigt) */
+    const detail=[],zuPruefen=[];let brutto=0,kuerz=0,nVoll=0,nHalb=0,nNull=0,daheim=false;
+    for(let d=bl.von;d<=fenEnde;d=plusTag(d,1)){
+      const e=entMap[d];let satz=VOLL,art='voller Tag am Ort';
+      if(e&&hatCode(e,['UR','KR','FVD'])){satz=0;art='kein Ansatz (Urlaub/Krank/Freistellung)';}
+      else if(e&&hatCode(e,['RF'])){satz=TEIL;art='Rückfahrt (An-/Abreisetag)';daheim=false;}
+      else if(e&&hatCode(e,['HF'])){satz=TEIL;art='Heimfahrt (An-/Abreisetag)';daheim=true;}
+      else if(d===bl.von){satz=TEIL;art='Anreisetag';}
+      else if(daheim){
+        if(e&&(hatCode(e,['AW','WFH'])||ortPasst(e))){daheim=false;satz=TEIL;art='Rückkehr zum Ort (ohne Rückfahrt-Eintrag)';}
+        else{satz=0;art='am Hausstand';}
+      }
+      else if(beendet&&d===bisE){satz=TEIL;art='Abreisetag';}
+      else if(!e||hatCode(e,['WF'])){
+        satz=0;art=e?'Wochenende/Feiertag ohne Heimfahrt – prüfen':'kein Eintrag – prüfen';
+        zuPruefen.push({datum:d,grund:art,moeglich:VOLL});
+      }
+      let k=0;
+      const vh=bwVerpflTag(d),gest=vh?vh.verpflegung.split(','):[];
+      if(satz>0&&gest.length){
+        if(gest.includes('frühstück'))k+=VOLL*0.20;
+        if(gest.includes('mittag'))k+=VOLL*0.40;
+        if(gest.includes('abend'))k+=VOLL*0.40;
+        k=Math.min(k,satz);
+      }
+      if(satz===VOLL)nVoll++;else if(satz===TEIL)nHalb++;else nNull++;
+      brutto+=satz;kuerz+=k;
+      detail.push({datum:d,art,satz,kuerzung:r2(k)});
+    }
+    const bescheideZA=alleB.filter(b=>b.typ==='TG'&&(b.tage||[]).some(d=>za[d.datum])).map(b=>({nr:b.nr||'',periode:b.periode||'',
+      tagegeld:r2(b.tagegeld),steuerfrei:r2(b.tgSteuerfrei),steuerpflichtig:r2(b.tgStpfl),
+      tagegeldZA:r2((b.tage||[]).filter(d=>za[d.datum]).reduce((a,d)=>a+(d.tg||0),0))}));
+    return{orte:bl.orte,von:bl.von,bis:bisE,bisLautBescheid:bl.bis,quellen:bl.quellen,
+      dreimonatsfrist:{beginn:bl.von,ende:fristEnde,kalendertageInFrist:tageZw(bl.von,fenEnde),abgelaufen:fristEnde<heute,
+        regel:'§ 9 Abs. 4a Satz 6 EStG: Verpflegungspauschalen nur in den ersten 3 Monaten an derselben Tätigkeitsstätte; Unterbrechung ab 4 Wochen startet neu (Satz 7)'},
+      tageZA:zd.length,mahlzeitenGestellt:mz,trennungstagegeldZA:r2(zd.reduce((a,d)=>a+(d.tg||0),0)),
+      eintraegeInFrist:{codes,tage:liste},
+      vmaStatus:'berechnet',
+      annahmen:['Übernachtung am Ort (vom Nutzer bestätigt) – volle Tage '+VOLL+' €, An-/Abreise-/Heimfahrttage '+TEIL+' €',
+        'Tage zwischen Heimfahrt und Rückfahrt: 0 € (am Hausstand)',
+        'Abreisetag nur, wenn der Folgetag an anderem Dienstort erfasst ist ('+(beendet?'ja':'nein')+')',
+        'Tage ohne Eintrag und Wochenenden ohne Heimfahrt: 0 €, getrennt unter zuPruefen'],
+      vmaTage:nVoll+nHalb,tageVoll:nVoll,tageHalb:nHalb,tageOhneAnsatz:nNull,brutto:r2(brutto),kuerzungGestellteMahlzeiten:r2(kuerz),
+      vmaBetrag:r2(Math.max(0,brutto-kuerz)),
+      zuPruefen:{anzahl:zuPruefen.length,moeglicherMehrbetrag:r2(zuPruefen.length*VOLL),tage:zuPruefen},
+      detail,tagegeldBescheide:bescheideZA,
+      hinweis:'Steuerfreies Tagegeld der Abrechnungen ist gegenzurechnen (§ 3c EStG); Abordnungsort und Wohnsituation (Hausstand Potsdam) vom Berater bestätigen lassen'};
+  });
+  const jahre={};
+  for(let y=yMin;y<=yMax;y++){
+    const ys=String(y);
+    const V=vmaBerechnung(y);
+    const S=bwSummen(ys);
+    const lst=alleB.filter(b=>(b.periode||'').startsWith(ys));
+    const rk=lst.filter(b=>b.typ==='RK');
+    const rkSf=rk.reduce((a,b)=>a+(b.tgSteuerfrei||0),0),rkSp=rk.reduce((a,b)=>a+(b.tgStpfl||0),0);
+    const sfGes=S.tgTgSteuerfrei+rkSf;
+    const abY=abordnungen.filter(a=>a.von<=ys+'-12-31'&&a.bis>=ys+'-01-01').map(a=>{
+      const vonY=a.von>ys+'-01-01'?a.von:ys+'-01-01';
+      const bisRaw=a.bis<a.dreimonatsfrist.ende?a.bis:a.dreimonatsfrist.ende;
+      const bisY=bisRaw<ys+'-12-31'?bisRaw:ys+'-12-31';
+      const dy=(a.detail||[]).filter(x=>x.datum.startsWith(ys));
+      return Object.assign({},a,{fristTageImJahr:tageZw(vonY,bisY),vmaTageImJahr:dy.filter(x=>x.satz>0).length,
+        vmaBetragImJahr:r2(dy.reduce((t,x)=>t+Math.max(0,x.satz-x.kuerzung),0))});
+    });
+    const H=[];
+    if(!s.dhfStart)H.push('Beginn der doppelten Haushaltsführung fehlt in den Einstellungen – Verpflegungsmehraufwand nicht berechenbar.');
+    if(S.tgTgSteuerfrei>0&&!(V.betrag>0))H.push('Steuerfreies Trennungstagegeld '+r2(S.tgTgSteuerfrei).toFixed(2)+' € liegt vor, aber kein Verpflegungsansatz aus der doppelten Haushaltsführung ('+(V.grund||'keine Tage im Fristfenster')+'). Verpflegung nicht auf 0 setzen, ohne den Grund zu prüfen.');
+    if(V.aktiv&&V.betrag>0&&S.tgTgStpfl>0)H.push('Trennungstagegeld teils steuerpflichtig gezahlt ('+r2(S.tgTgStpfl).toFixed(2)+' €): mindert den Werbungskostenabzug nicht (§ 3c EStG).');
+    if(rkSf>0)H.push('Reisekosten-Tagegeld steuerfrei '+r2(rkSf).toFixed(2)+' €: Verpflegung der Dienstreisen wird in der RK-App nicht als Werbungskosten gerechnet – in der Steuer-App der Verpflegungspauschale gegenüberstellen.');
+    abY.forEach(a=>{H.push('Auswärtstätigkeit '+(a.orte[0]||'')+' ab '+fmtD(a.von)+': Verpflegung '+a.vmaBetragImJahr.toFixed(2)+' € im Jahr (Übernachtung am Ort, Dreimonatsfrist bis '+fmtD(a.dreimonatsfrist.ende)+') – steuerfreies Tagegeld gegenrechnen.');
+      if(a.zuPruefen.anzahl)H.push('Auswärtstätigkeit '+(a.orte[0]||'')+': '+a.zuPruefen.anzahl+' Tage ohne Eintrag bzw. Wochenende ohne Heimfahrt – bis zu '+a.zuPruefen.moeglicherMehrbetrag.toFixed(2)+' € zusätzlich möglich, bitte prüfen.');});
+    if(steuerEinordnung()!=='dhf')H.push('Steuerliche Einordnung: Ausw\u00e4rtst\u00e4tigkeit. Der Block verpflegungDhf (doppelte Haushaltsf\u00fchrung) ist nicht anwendbar (anwendbar=false); Verpflegung der Ausw\u00e4rtst\u00e4tigkeiten steht unter auswaertstaetigkeiten[].');
+    const PTy=pendelTageJahr(ys);
+    jahre[ys]={
+      pendel:{einordnung:steuerEinordnung(),tageVoll:PTy.filter(p=>p.wege===2).length,tageEinfach:PTy.filter(p=>p.wege===1).length,wegeGesamt:PTy.reduce((a,p)=>a+p.wege,0)},
+      verpflegungDhf:{anwendbar:steuerEinordnung()==='dhf',aktiv:!!V.aktiv,grund:V.grund||'',abgelaufen:!!V.abgelaufen,
+        fristBeginn:dI(V.start),fristEnde:dI(V.ende),fensterVon:dI(V.von),fensterBis:dI(V.bis),
+        vmaTage:V.tage||0,tageVoll:V.nVoll||0,tageHalb:V.nHalb||0,tageOhneAnsatz:V.nNull||0,
+        satzVoll:V.VOLL,satzHalb:V.TEIL,brutto:r2(V.brutto),kuerzungGestellteMahlzeiten:r2(V.kuerzung),betrag:r2(V.betrag),
+        quelle:'Eintraege + Tagesaufstellung der TG-/RK-Abrechnungen',
+        detail:(V.detail||[]).map(d=>({datum:d.date,art:d.art,satz:d.satz,kuerzung:r2(d.kuerzung)}))},
+      tagegeld:{
+        tg:{brutto:r2(S.tgTagegeld),steuerfrei:r2(S.tgTgSteuerfrei),steuerpflichtig:r2(S.tgTgStpfl)},
+        rk:{inland:r2(S.rkInland),ausland:r2(S.rkAusland),einbehalt:r2(S.rkEinbehalt),netto:r2(S.rkTagegeld),steuerfrei:r2(rkSf),steuerpflichtig:r2(rkSp)},
+        steuerfreiGesamt:r2(sfGes)},
+      abrechnungen:lst.map(b=>({id:b.id||'',typ:b.typ,nr:b.nr||'',periode:b.periode||'',anlass:b.anlass||'',
+        tagegeld:r2(b.tagegeld),einbehalt:r2(b.einbehaltGes),tagegeldSteuerfrei:r2(b.tgSteuerfrei),tagegeldSteuerpflichtig:r2(b.tgStpfl),
+        tageMitVerpflegung:(b.tage||[]).filter(d=>d.fGestellt||d.mGestellt||d.aGestellt).length})),
+      auswaertstaetigkeiten:abY,
+      hinweise:H};
+  }
+  return{schema:STEUER_SCHEMA,appVersion:APP_VERSION,appBuild:APP_BUILD,erzeugt:new Date().toISOString(),
+    dhf:{beginn:s.dhfStart||'',ende:s.dhfEnde||'',tgEnde:s.tgEnde||'',satzVoll:parseFloat(s.vmaVoll)||28},
+    steuerEinordnung:steuerEinordnung(),mieteTatsaechlich:mieteTatsaechlich(),mieteTg:mieteTg(),
+    jahre};
+}
 /* Tatsächliche Fahrtkosten für Familienheimfahrten, je Verkehrsmittel (steuerlich korrekt statt reiner
    Pauschale, §9 EStG): Flugzeug muss immer mit den tatsächlichen Kosten angesetzt werden, bei Bahn/
    Bus/ÖPNV gilt der höhere Betrag aus tatsächlichen Kosten oder Entfernungspauschale, Privat-Kfz nur
@@ -4961,11 +5153,76 @@ function heimfahrtenJahr(yr){
 /* v5.21: Arbeitsstaetten-Tage fuer die Entfernungspauschale Zweitwohnung – Arbeitsstaette.
    Am Heimfahrt- bzw. Rueckfahrttag wird nur EIN Weg zurueckgelegt (morgens hin, abends nach
    Hause bzw. umgekehrt) → nur die halbe Pauschale (BFH 12.02.2020, VI R 42/17). */
+function pendelWegeVorschlagText(w){try{const e=state.entries.find(x=>x.id===w.id)||w;const i=pendelWegeInfo(Object.assign({},e,{pendelWegeManuell:undefined}));return i.w+(i.w===1?' Weg':' Wege')+(i.q==='regel-unsicher'?' (unsicher: keine Strecken erfasst)':'');}catch(_e){return '\u2013';}}
+function steuerEinordnung(){return (state.settings&&state.settings.steuerEinordnung)==='dhf'?'dhf':'auswaerts';}
+function mieteTatsaechlich(){return parseFloat(state.settings.mieteTatsaechlich)||parseFloat(state.settings.mieteZweit)||0;}
+function mieteTg(){return parseFloat(state.settings.mieteTg)||parseFloat(state.settings.mieteZweit)||0;}
+const REISE_CODES_PW=['DR','L'+'G','\u00dcB','ES','EGV'];
+function pwIsDay(iso){return new Date(iso+'T12:00:00');}
+function pwDiffTage(a,b){return Math.round((pwIsDay(b)-pwIsDay(a))/86400000);}
+/* Pendelwege je Tag (Regel): Kaserne <-> Zweitwohnung. Liefert Map id -> {w,q} */
+function pendelWegeMap(){
+  if(_pwCache)return _pwCache;
+  const M=new Map();const L=(state.entries||[]).filter(e=>e&&e.date).slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const byDate=new Map(L.map(e=>[e.date,e]));
+  const isTrip=e=>hatCode(e,REISE_CODES_PW);
+  const key=e=>e.id||e.date;
+  const kas=c=>c==='WORK'||c==='WORK2';
+  // Reiseblöcke bilden
+  const blocks=[];let cur=null;
+  L.forEach(e=>{
+    if(!isTrip(e))return;
+    if(cur){
+      const last=cur[cur.length-1];const gap=pwDiffTage(last.date,e.date);
+      let ok=gap===1;
+      if(!ok&&gap>1&&gap<=4){ok=true;for(let i=1;i<gap;i++){const d=new Date(pwIsDay(last.date).getTime()+i*86400000);const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');const x=byDate.get(iso);if(x&&!hatCode(x,['WF']))ok=false;}}
+      if(ok){cur.push(e);return;}
+      blocks.push(cur);
+    }
+    cur=[e];
+  });
+  if(cur)blocks.push(cur);
+  const inBlock=new Map();
+  blocks.forEach(b=>{
+    const f=b[0],l=b[b.length-1];
+    const nichtPendel=sg=>{const a=locClass(sg.fromLoc),b=locClass(sg.toLoc);return !(a&&b&&[a,b].sort().join('|')==='FRL|WORK');};   // Pendelstrecke selbst bestimmt nicht Start/Ende der Reise
+    const fs=(f.segs||[]).filter(sg=>sg.enabled!==false&&nichtPendel(sg));const ls=(l.segs||[]).filter(sg=>sg.enabled!==false&&nichtPendel(sg));
+    let unsicher=false,sK,eK;
+    if(!fs.length){sK=true;unsicher=true;}else{sK=kas(locClass(fs[0].fromLoc));}
+    if(!ls.length){eK=true;unsicher=true;}else{eK=kas(locClass(ls[ls.length-1].toLoc));}
+    b.forEach((e,i)=>{
+      let w;
+      const own=(e.segs||[]).filter(sg=>sg.enabled!==false);
+      if(own.length&&own.every(sg=>!nichtPendel(sg))){inBlock.set(key(e),{w:2,q:'regel'});return;}   // nur Pendelstrecke erfasst = normaler Pendeltag (Hin- und Rueckweg, Angabe Mike 19.11.2026)
+      if(b.length===1)w=(sK?1:0)+(eK?1:0);
+      else if(i===0)w=sK?1:0;
+      else if(i===b.length-1)w=eK?1:0;
+      else w=0;
+      inBlock.set(key(e),{w,q:unsicher&&(i===0||i===b.length-1)?'regel-unsicher':'regel'});
+    });
+  });
+  L.forEach(e=>{
+    let r;
+    if(!isArbeitsstaetteDay(e))r={w:0,q:'regel'};
+    else if(hatCode(e,['HF','RF']))r={w:1,q:'regel'};
+    else if(inBlock.has(key(e)))r=inBlock.get(key(e));
+    else r={w:2,q:'regel'};
+    M.set(key(e),r);
+  });
+  _pwCache=M;return M;
+}
+function pendelWegeInfo(e){
+  if(!e)return {w:0,q:'regel'};
+  const m=e.pendelWegeManuell;
+  if(m===0||m===1||m===2)return {w:m,q:'manuell'};
+  return pendelWegeMap().get(e.id||e.date)||{w:isArbeitsstaetteDay(e)?2:0,q:'regel'};
+}
+function pendelWegeTag(e){return pendelWegeInfo(e).w;}
 function pendelTageJahr(yr){
   const y=String(yr);
-  return state.entries.filter(e=>e.date&&e.date.startsWith(y)&&isArbeitsstaetteDay(e))
-    .sort((a,b)=>a.date.localeCompare(b.date))
-    .map(e=>({e,faktor:hatCode(e,['HF','RF'])?0.5:1}));
+  const l=state.entries.filter(e=>e.date&&e.date.startsWith(y)&&isArbeitsstaetteDay(e)).sort((a,b)=>a.date.localeCompare(b.date));
+  if(steuerEinordnung()!=='auswaerts')return l.map(e=>{const hf=hatCode(e,['HF','RF']);return {e,faktor:hf?0.5:1,wege:hf?1:2};});
+  return l.map(e=>({e,w:pendelWegeTag(e)})).filter(x=>x.w>0).map(x=>({e:x.e,faktor:x.w/2,wege:x.w}));
 }
 function fhfTatsaechlicheKosten(yr,kmFhfPauschale,epKm){
   const y=String(yr);
@@ -5111,7 +5368,7 @@ function dhfVergleich(yr){
   const rD=(s.fkRoutes||[]).find(r=>r.type==='daily')||{};
   const rW=(s.fkRoutes||[]).find(r=>r.type==='weekly')||{};
   const KM_TAG=parseFloat(rD.km)||21, KM_FHF=parseFloat(rW.km)||700;
-  const miete=parseFloat(s.mieteZweit)||0;
+  const miete=mieteTatsaechlich();
   const monate=BW.anzTG||0;
   // Absetzbar (doppelte Haushaltsfuehrung)
   const dhfUnterkunft=dhfUnterkunftAnteilig(y,miete,monate);
@@ -5322,6 +5579,7 @@ function renderJahresCard(){
       ${kpi(e(u.kostGesamt)+' €','Kosten gesamt','selbst erfasst','var(--navy)','var(--lsoft)')}
       ${kpi(e(bw.erstattet)+' €','Bw erstattet','Trennungsgeld '+e(bw.tgGesamt)+' € &middot; Dienstreisen '+e(bw.rkGesamt-bw.rkAnrechnung)+' €','var(--ok)','var(--oks)')}
       ${kpi(u.arbTage,'Arb.-St&#228;tten-Tage',Object.keys(u.arbNachCode).sort().map(k=>k+' '+u.arbNachCode[k]).join(' &middot; ')+(u.arb2Tage?' &middot; davon Arb.-St. 2: '+u.arb2Tage:''),'var(--navy)','var(--lsoft)')}
+      ${kpi((u.pendelTageVoll||0)+' / '+(u.pendelTageEinfach||0),'Pendeltage 2 Wege / 1 Weg',(u.pendelWegeGesamt||0)+' Wege gesamt &middot; '+(steuerEinordnung()==='auswaerts'?'Ausw&#228;rtst&#228;tigkeit':'DHF'),'var(--navy)','var(--lsoft)')}
       ${kpi(u.fhf,'Familienheimfahrten','','var(--navy)','var(--lsoft)')}
       ${kpi(u.abwTage,'Abwesenheitstage','DR/LG/&Uuml;B/ES/EGV','var(--navy)','var(--lsoft)')}
     </div>
@@ -7466,7 +7724,7 @@ function loadSettings(){
   const setV=(id,v)=>{const el=document.getElementById(id);if(el)el.value=(v!=null?v:'');};
   setV('sRSoFe',s.rSoFe);setV('sRSa13',s.rSa13);setV('sRNacht',s.rNacht);setV('sTaxRate',s.taxRate);setV('sRMav',s.rMav);
   const dc=document.getElementById('sDupCheck');if(dc)dc.checked=!s.dupCheckHidden;
-  setV('sUrlaubJahr',s.urlaubJahr);setV('sUrlaubUebertrag',s.urlaubUebertrag);setV('sFvdUebertrag',s.fvdUebertrag);setV('sMieteZweit',s.mieteZweit);setV('sDhfStart',s.dhfStart);setV('sDhfEnde',s.dhfEnde);setV('sTgEnde',s.tgEnde);setV('sVmaVoll',s.vmaVoll);
+  setV('sUrlaubJahr',s.urlaubJahr);setV('sUrlaubUebertrag',s.urlaubUebertrag);setV('sFvdUebertrag',s.fvdUebertrag);setV('sMieteZweit',s.mieteZweit);setV('sDhfStart',s.dhfStart);setV('sSteuerEinord',s.steuerEinordnung||'auswaerts');setV('sMieteTatsaechlich',s.mieteTatsaechlich);setV('sMieteTg',s.mieteTg);setV('sDhfEnde',s.dhfEnde);setV('sTgEnde',s.tgEnde);setV('sVmaVoll',s.vmaVoll);
   ['sBK1','sBK2','sBK3','sBK4'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.value=[s.bk1,s.bk2,s.bk3,s.bk4][i]||'';});
   const geo=g=>g?`✓(${g.lat.toFixed(3)},${g.lng.toFixed(3)})`:'?';
   const gs=document.getElementById('geoStat');
@@ -7499,6 +7757,9 @@ function saveSettings(){
     urlaubUebertrag:parseFloat(document.getElementById('sUrlaubUebertrag')?.value)||null,
     fvdUebertrag:parseFloat(document.getElementById('sFvdUebertrag')?.value)||null,
     mieteZweit:parseFloat(document.getElementById('sMieteZweit')?.value)||null,
+    steuerEinordnung:(document.getElementById('sSteuerEinord')?.value==='dhf')?'dhf':'auswaerts',
+    mieteTatsaechlich:parseFloat(document.getElementById('sMieteTatsaechlich')?.value)||null,
+    mieteTg:parseFloat(document.getElementById('sMieteTg')?.value)||null,
     dhfStart:(document.getElementById('sDhfStart')?.value)||'',
     dhfEnde:(document.getElementById('sDhfEnde')?.value)||'',
     tgEnde:(document.getElementById('sTgEnde')?.value)||'',
@@ -7681,10 +7942,71 @@ function closeModal(){document.getElementById('modal').classList.remove('show');
 document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
 
 /* BACKUP */
+/* ═══ Datenbereinigung (v5.28): nichts passiert ohne Bestätigung ═══ */
+const DB_RESERV_TXT='Umbuchung – zweite Reservierung nicht genutzt';
+function dbClose(){const m=document.getElementById('dbModal');if(m)m.remove();}
+function dbMonatVon(name){const m=/(\d{4})_(\d{2})(?:_\d{2})?_Abrechnung_(TG|DR|RK)/i.exec(name||'');return m?{ym:m[1]+'-'+m[2],art:m[3].toUpperCase()}:null;}
+async function dbRender(){
+  let m=document.getElementById('dbModal');
+  if(!m){m=document.createElement('div');m.id='dbModal';m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;overflow:auto;padding:14px';document.body.appendChild(m);}
+  const byDate={};state.entries.forEach(e=>{if(e.date)(byDate[e.date]=byDate[e.date]||[]).push(e);});
+  const dups=Object.entries(byDate).filter(([d,l])=>l.length>1).sort((a,b)=>a[0].localeCompare(b[0]));
+  const bel=ablageBelege().slice().sort((a,b)=>(a.datum||'').localeCompare(b.datum||''));
+  let pdfs=[];
+  try{const files=await idbAllF();const used=new Set(bwList().map(b=>b.fileId).filter(Boolean));
+    files.forEach(f=>{const k=dbMonatVon(f.name);if(!k||used.has(f.id))return;
+      const kand=bwList().filter(b=>(k.art==='TG'?b.typ==='TG':b.typ==='RK')&&(((b.periode||'').startsWith(k.ym))||((b.von||'').startsWith(k.ym))));
+      pdfs.push({f,k,kand});});
+  }catch(_e){}
+  const res=[];state.entries.forEach(e=>{const l=(e.segs||[]).map((sg,i)=>({sg,i})).filter(x=>x.sg.enabled!==false&&/reservierung/i.test((x.sg.costType||'')+' '+(x.sg.costDesc||''))&&(parseFloat(x.sg.costAmt)||0)>0);if(l.length>=2)res.push({e,l});});
+  const bGrp={};bel.forEach(b=>{const k=(b.datum||'')+'|'+String(b.belegart||'').replace(/\s*\d+$/,'');(bGrp[k]=bGrp[k]||[]).push(b);});
+  const bDop=Object.values(bGrp).filter(l=>l.length>=2&&/bahn/i.test(l[0].belegart||''));
+  const sec=t=>`<h3 style="margin:16px 0 6px;font-size:14px">${t}</h3>`;
+  const btn=(txt,fn)=>`<button class="btn btn-s btn-sm" style="margin:2px 4px 2px 0" onclick="${fn}">${txt}</button>`;
+  let h=`<div style="max-width:640px;margin:0 auto;background:var(--card,#fff);color:var(--ink,#111);border-radius:12px;padding:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:16px">&#129529; Datenbereinigung</b>${btn('Schlie&szlig;en','dbClose()')}</div>
+    <div style="font-size:11.5px;color:var(--muted,#666)">Es wird nichts automatisch ge&auml;ndert; jede Aktion fragt vorher nach.</div>`;
+  h+=sec('1  Doppelte Eintr&auml;ge je Datum');
+  h+=dups.length?dups.map(([d,l])=>`<div style="font-size:12.5px;margin:4px 0"><b>${fmtD(d)}</b>: `+l.map(e=>`${esc(e.dayCode||'')} (${(e.segs||[]).length} Strecken, ID ${esc(String(e.id).slice(-5))}) ${btn('diesen l&ouml;schen',`dbDelDup('${esc(e.id)}')`)}`).join(' &middot; ')+`</div>`).join(''):'<div style="font-size:12px">Keine doppelten Datums-Eintr&auml;ge.</div>';
+  h+=sec('2  Beleg einem anderen Datum zuordnen');
+  h+=bel.length?`<div style="font-size:11.5px;color:var(--muted,#666)">Neues Datum eintragen &rarr; die Zuordnung zur Fahrt erfolgt wieder &uuml;ber Datum und Betrag.</div>`+bel.map(b=>`<div style="font-size:12px;margin:3px 0">${fmtD(b.datum)} &middot; ${esc(b.belegart||'Beleg')} &middot; ${esc(b.dateiname||b.name||String(b.id).slice(-8))} &middot; ${esc(fmtM(b.gesamtkosten))}
+    <input type="date" id="dbD_${esc(b.id)}" value="${esc(b.datum||'')}" style="font-size:12px"> ${btn('Datum &auml;ndern',`dbRedate('${esc(b.id)}')`)}</div>`).join(''):'<div style="font-size:12px">Keine Belege in der Ablage.</div>';
+  h+=sec('3  Abrechnungs-PDFs ohne zugeordneten Bescheid');
+  h+=pdfs.length?pdfs.map(({f,k,kand})=>`<div style="font-size:12px;margin:5px 0"><b>${esc(f.name)}</b> &ndash; `+(kand.length?`Bescheid vorhanden: `+kand.map(b=>`${esc(b.typ)} ${esc(b.nr||'')} ${esc(b.periode||((b.von||'')+'&ndash;'+(b.bis||'')))}${b.fileId?' (hat bereits eine Datei)':''} ${btn('Datei diesem Bescheid zuordnen',`dbAssign('${esc(f.id)}','${esc(b.id)}')`)}`).join(' ')+' ':'<span style="color:#B71C1C">kein geparster Bescheid f&uuml;r diesen Monat</span> ')+btn('PDF l&ouml;schen',`dbDelPdf('${esc(f.id)}')`)+`</div>`).join(''):'<div style="font-size:12px">Keine losen Abrechnungs-PDFs.</div>';
+  h+=sec('4  Zwei bezahlte Reservierungen derselben Fahrt');
+  h+=res.length?res.map(({e,l})=>`<div style="font-size:12px;margin:4px 0"><b>${fmtD(e.date)}</b>: `+l.map(x=>`${esc(x.sg.costDesc||x.sg.costType)} ${esc(fmtM(x.sg.costAmt))}${x.sg.reservHinweis?' &mdash; vermerkt':''}`).join(' | ')+' '+btn('Vermerk &bdquo;zweite Reservierung nicht genutzt&ldquo;',`dbReserv('${esc(e.id)}')`)+`</div>`).join(''):'';
+  h+=bDop.length?bDop.map(l=>`<div style="font-size:12px;margin:4px 0"><b>${fmtD(l[0].datum)}</b>: `+l.map(b=>`${esc(b.dateiname||b.belegart)} ${esc(fmtM(b.gesamtkosten))}${b.notiz?' &mdash; vermerkt':''}`).join(' | ')+' '+btn('Vermerk am zweiten Beleg',`dbBelegNotiz('${esc(l[l.length-1].id)}')`)+`</div>`).join(''):(res.length?'':'<div style="font-size:12px">Keine Fahrt mit zwei Reservierungen gefunden.</div>');
+  h+='</div>';m.innerHTML=h;
+}
+function dbDelDup(id){const e=state.entries.find(x=>x.id===id);if(!e)return;
+  showModal('Eintrag löschen?',`Eintrag vom ${fmtD(e.date)} (${e.dayCode||''}, ${(e.segs||[]).length} Strecken) löschen? Er landet im Papierkorb und kann zurückgeholt werden.`,()=>{deleteEntry(id);dbRender();});}
+function dbRedate(id){const b=ablageBelege().find(x=>x.id===id);const inp=document.getElementById('dbD_'+id);if(!b||!inp||!inp.value)return;
+  showModal('Beleg-Datum ändern?',`Beleg ${b.dateiname||b.name||id}: ${fmtD(b.datum)} → ${fmtD(inp.value)}`,()=>{
+    b.datum=inp.value;
+    state.entries.forEach(e=>(e.segs||[]).forEach(sg=>{if(Array.isArray(sg.recIds)&&sg.recIds.includes(id)&&e.date!==b.datum){sg.recIds=sg.recIds.filter(r=>r!==id);}}));
+    persist();dbRender();toast('Beleg-Datum geändert','ok');});}
+function dbAssign(fileId,bwId){const b=bwList().find(x=>x.id===bwId);if(!b)return;
+  showModal('Datei zuordnen?',`Die PDF wird dem Bescheid ${b.typ} ${b.nr||''} zugeordnet${b.fileId?' (ersetzt die bisherige Dateizuordnung)':''}.`,async()=>{
+    try{const rec=await idbGetF(fileId);b.dateiname=(rec&&rec.name)||b.dateiname;}catch(_e){}
+    b.fileId=fileId;persist();dbRender();toast('Datei zugeordnet','ok');});}
+function dbDelPdf(fileId){
+  showModal('PDF löschen?','Die Datei wird endgültig gelöscht (auch in der Cloud). Bescheid-Daten bleiben unberührt.',async()=>{
+    belegAlsGeloeschtMerken([fileId]);try{await idbDelF(fileId);}catch(_e){}persist();dbRender();toast('PDF gelöscht','ok');});}
+function dbBelegNotiz(id){const b=ablageBelege().find(x=>x.id===id);if(!b)return;
+  showModal('Vermerk setzen?',`Beleg ${b.dateiname||id}: \u201e${DB_RESERV_TXT}\u201c vermerken. Der Betrag bleibt unver\u00e4ndert.`,()=>{b.notiz=DB_RESERV_TXT;persist();dbRender();toast('Vermerk gesetzt','ok');});}
+function dbReserv(entryId){const e=state.entries.find(x=>x.id===entryId);if(!e)return;
+  const l=(e.segs||[]).filter(sg=>sg.enabled!==false&&/reservierung/i.test((sg.costType||'')+' '+(sg.costDesc||''))&&(parseFloat(sg.costAmt)||0)>0);
+  showModal('Vermerk setzen?',`Bei der zweiten Reservierung am ${fmtD(e.date)} wird „${DB_RESERV_TXT}“ vermerkt. Der Betrag bleibt unverändert.`,()=>{
+    l.slice(1).forEach(sg=>{sg.reservHinweis=DB_RESERV_TXT;});e.updated=Date.now();persist();dbRender();toast('Vermerk gesetzt','ok');});}
+function doExportSteuer(){
+  try{const o=steuerUebergabe();const blob=new Blob([JSON.stringify(o,null,1)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`tgrb-steuer-${todayISO()}.json`;a.click();URL.revokeObjectURL(url);
+    toast('Steuer-Übergabe exportiert','ok');}catch(err){toast('Steuer-Übergabe fehlgeschlagen: '+err.message,'err');}
+}
 async function doExport(){toast('Backup…');
   const files=await idbAllF();const fb=[];
   for(const f of files){try{fb.push({id:f.id,name:f.name,type:f.type,size:f.size,created:f.created,dataUrl:await toDataURL(f.blob)});}catch(e){}}
-  const blob=new Blob([JSON.stringify({v:5,exported:new Date().toISOString(),settings:state.settings,entries:state.entries,files:fb})],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({v:5,exported:new Date().toISOString(),settings:state.settings,entries:state.entries.map(e=>{const i=pendelWegeInfo(e);return Object.assign({},e,{pendelWege:i.w,pendelWegeQuelle:i.q});}),files:fb,steuer:(()=>{try{return steuerUebergabe();}catch(_e){return null;}})()})],{type:'application/json'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`tgrb-backup-${todayISO()}.json`;a.click();URL.revokeObjectURL(url);try{localStorage.setItem('zc-tgrb-lastbackup',new Date().toISOString());}catch(_e){}if(typeof renderSyncStatus==='function')renderSyncStatus();
   toast(`Backup: ${state.entries.length} Einträge, ${fb.length} Belege`,'ok');
 }
@@ -8683,6 +9005,8 @@ async function genFahrtkostenPdf(){
   const epKm=km=>{km=Math.floor(Math.max(0,km||0));if(!km)return 0;
     return Y>=2026?km*0.38:(km<=20?km*0.30:20*0.30+(km-20)*0.38);};
   const DR_SATZ=0.30; // Dienstreise-Kilometerpauschale (tatsaechlich gefahrene km)
+  const AWM=steuerEinordnung()==='auswaerts';   // v5.28: Auswaertstaetigkeit statt doppelter Haushaltsfuehrung
+  const PAR=String.fromCharCode(167);
 
   const all=state.entries.filter(e=>e.date&&e.date.startsWith(yr))
     .sort((a,b)=>a.date.localeCompare(b.date));
@@ -8702,12 +9026,12 @@ async function genFahrtkostenPdf(){
 
   /* ── TEIL A: Taegliche Fahrten Zweitwohnung -> Arbeitsstaette ── */
   // v5.21: am HF-/RF-Tag nur ein Weg → halbe Pauschale (BFH VI R 42/17)
-  const teilA=pendelTageJahr(yr).map(({e,faktor})=>({
-    date:e.date,code:codeText(e),km:KM_TAG,ep:epKm(KM_TAG)*faktor,halb:faktor<1}));
+  const teilA=pendelTageJahr(yr).map(({e,faktor,wege})=>({
+    date:e.date,code:codeText(e),km:AWM?KM_TAG*wege:KM_TAG,wege,ep:AWM?KM_TAG*wege*DR_SATZ:epKm(KM_TAG)*faktor,halb:!AWM&&faktor<1}));
   const sumApausch=teilA.reduce((a,x)=>a+x.ep,0);
   // Deutschlandticket als tatsaechliche OeV-Kosten: der hoehere Jahresbetrag zaehlt (§ 9 Abs. 2 Satz 2 EStG) – wie Uebersicht
   const DTK=dtKostenImJahr(yr);
-  const sumA=Math.max(sumApausch,DTK.gesamt||0);
+  const sumA=AWM?sumApausch:Math.max(sumApausch,DTK.gesamt||0);
 
   /* ── TEIL B: Familienheimfahrten (nur mit FHF-Haken, RF nie) ── */
   // Steuerlich zaehlt JEDE tatsaechlich durchgefuehrte Heimfahrt, max. 1 je Kalenderwoche
@@ -8723,7 +9047,7 @@ async function genFahrtkostenPdf(){
   const sumBpausch=teilB.reduce((a,x)=>a+x.ep,0);
   // Guenstigerpruefung: OeV-Tickets der Heimfahrten gegen ihren Pauschalanteil, der hoehere Betrag zaehlt
   const oevMehr=FHFK.oepnvMehr||0;
-  const sumB=sumBpausch+oevMehr;
+  const sumB=AWM?((FHFK.oepnvKosten||0)+(FHFK.taxiKosten||0)+(FHFK.M['Mietwagen'].bezahlt||0)+(FHFK.pkwKm||0)*DR_SATZ):sumBpausch+oevMehr;
   /* v5.19.5 TEIL C aus den Flug-BELEGEN der Belegeablage. Jede Heimfahrt (Hinfahrt HF bis Rueckfahrt RF)
      wird einzeln betrachtet; Hin- und Rueckflug derselben Heimfahrt stehen in EINER Zeile, ein einzelner
      Flug allein. Belege einer Besuchsfahrt (Angehoerige) und Fluege ausserhalb einer Heimfahrt werden
@@ -8823,9 +9147,9 @@ async function genFahrtkostenPdf(){
       const amt=parseFloat(x.costAmt)||0;if(amt<=0)return;
       const fremd=!segIstEUR(x);
       const nachr=istPendelStrecke(x)?'nachrichtlich - abgegolten mit Teil 2'
-        :(fhfIds.has(e.id)&&FHF_GR.includes(MODE_GRUPPE[x.mode]))?'nachrichtlich - Guenstigerpruefung Teil 3':'';
+        :(fhfIds.has(e.id)&&FHF_GR.includes(MODE_GRUPPE[x.mode]))?(AWM?'nachrichtlich - in Teil 3 enthalten':'nachrichtlich - Guenstigerpruefung Teil 3'):'';
       teilE.push({date:e.date,art:x.costType||'Sonstiges',betrag:amt,
-        curr:x.costCurr||'EUR',desc:x.costDesc||'',nachr:fremd?'Fremdwaehrung - bitte in EUR erfassen':nachr,
+        curr:x.costCurr||'EUR',desc:x.costDesc||'',hinw:x.reservHinweis||'',nachr:fremd?'Fremdwaehrung - bitte in EUR erfassen':nachr,
         gezaehlt:segCostCounts(x)&&!fremd&&!nachr,scope:x.costScope||''});
     });
     if(e.costAmt&&parseFloat(e.costAmt)>0){
@@ -8872,7 +9196,7 @@ async function genFahrtkostenPdf(){
     // Kopf
     pg.drawRectangle({x:0,y:H-96,width:W,height:96,color:NAV});
     pg.drawText(san('FAHRTKOSTEN-JAHRESBELEG '+yr),{x:ML,y:H-42,size:16,font:fb,color:WHT});
-    pg.drawText(san('Doppelte Haushaltsfuehrung - Aufstellung der Werbungskosten'),{x:ML,y:H-58,size:8.5,font:fn,color:GLD});
+    pg.drawText(san(AWM?'Reisekosten - Auswaertstaetigkeit':'Doppelte Haushaltsfuehrung - Aufstellung der Werbungskosten'),{x:ML,y:H-58,size:8.5,font:fn,color:GLD});
     pg.drawText(san((s.rank?s.rank+' ':'')+s.name+(s.unit?'  |  '+s.unit:'')),{x:ML,y:H-76,size:8.5,font:fn,color:WHT});
     pg.drawText(san('Erstellt am '+new Date().toLocaleDateString('de-DE')),{x:W-MR-108,y:H-76,size:7.5,font:fn,color:GLD});
     y=H-112;
@@ -8883,11 +9207,12 @@ async function genFahrtkostenPdf(){
     [['Zeitraum:', '01.01.'+yr+' - 31.12.'+yr],
      ['Eigener Hausstand (Erstwohnung):', fullAd(s.addrPrimary)||'-'],
      ['Zweitwohnung am Beschaeftigungsort:', fullAd(s.addrSecondary)||'-'],
-     ['Erste Taetigkeitsstaette:', fullAd(s.addrWork)||'-'],
+     [AWM?'Dienststelle (Kaserne):':'Erste Taetigkeitsstaette:', fullAd(s.addrWork)||'-'],
      ...(arb2InZeitraum(yr+'-01-01',yr+'-12-31')?[['Weitere Arbeitsstaette:', fullAd(s.addrWork2)+((s.addrWork2Von||s.addrWork2Bis)?' ('+(s.addrWork2Von?fmtD(s.addrWork2Von):'...')+' - '+(s.addrWork2Bis?fmtD(s.addrWork2Bis):'...')+')':'')]]:[]),
-     ['Entfernung Zweitwohnung - Arbeitsstaette:', KM_TAG+' km (einfach)'],
-     ['Entfernung Hausstand - Beschaeftigungsort:', KM_FHF+' km (einfach, kuerzeste Strassenverbindung)'],
-     ['Entfernungspauschale '+yr+':', Y>=2026?'0,38 EUR/km ab dem 1. km':'0,30 EUR (km 1-20), 0,38 EUR ab km 21'],
+     [AWM?'Strecke Zweitwohnung - Kaserne:':'Entfernung Zweitwohnung - Arbeitsstaette:', KM_TAG+' km (einfach)'],
+     ...(AWM?[['Kilometersatz '+yr+':','0,30 EUR je tatsaechlich gefahrenem km'],['Einordnung:','Auswaertstaetigkeit (lt. Angabe des Steuerpflichtigen)'],['Miete Zweitwohnung:','tatsaechlich '+eur(mieteTatsaechlich())+' EUR/Monat | TG-Unterkunftssatz '+eur(mieteTg())+' EUR/Monat']]
+      :[['Entfernung Hausstand - Beschaeftigungsort:', KM_FHF+' km (einfach, kuerzeste Strassenverbindung)'],
+     ['Entfernungspauschale '+yr+':', Y>=2026?'0,38 EUR/km ab dem 1. km':'0,30 EUR (km 1-20), 0,38 EUR ab km 21']]),
     ].forEach(([k,v])=>{need(13);
       pg.drawText(san(k),{x:ML,y,size:8,font:fb,color:BLK});
       pg.drawText(san(v),{x:ML+215,y,size:8,font:fn,color:BLK});y-=12.5;});
@@ -8931,6 +9256,21 @@ async function genFahrtkostenPdf(){
     }
 
     /* TEIL A */
+    if(AWM){
+      H2('2  Fahrten Zweitwohnung - Kaserne (Auswaertstaetigkeit)');
+      P('Tatsaechlich gefahrene km x 0,30 EUR ('+PAR+' 9 Abs. 1 Satz 3 Nr. 4a Satz 2 EStG; R 9.5 Abs. 1 Satz 5 LStR).',7.5,GR);
+      P('Keine Entfernungspauschale. Tage mit zwei Wegen und Tage mit einem Weg getrennt (Dienstreisetage nach Reiseverlauf).',7.5,GR);
+      y-=4;
+      const voll=teilA.filter(x=>x.wege===2),einf=teilA.filter(x=>x.wege===1);
+      const colsA=[{t:'Datum',k:'d',w:70},{t:'Code',k:'c',w:50},{t:'Strecke',k:'st',w:275},{t:'km',k:'km',w:50,r:1},{t:'Betrag',k:'b',w:70,r:1}];
+      const tabA=(l,txt)=>l.map(x=>({d:fmtD(x.date),c:x.code,st:txt,km:String(x.km),b:eur(x.ep)}));
+      const sm=(l,k)=>l.reduce((a,x)=>a+(x[k]||0),0);
+      if(voll.length){P('2a  Tage mit zwei Wegen (Hin- und Rueckweg)',8,NAV,fb);table(colsA,tabA(voll,'Zweitwohnung - Kaserne - Zweitwohnung'),'Summe 2a  ('+voll.length+' Tage)',sm(voll,'ep'),sm(voll,'km'));}
+      if(einf.length){P('2b  Tage mit einem Weg (Anreise- bzw. Abreisetag, Heimfahrt/Rueckfahrt)',8,NAV,fb);table(colsA,tabA(einf,'Zweitwohnung - Kaserne (ein Weg)'),'Summe 2b  ('+einf.length+' Tage)',sm(einf,'ep'),sm(einf,'km'));}
+      if(!teilA.length)P('Keine Pendeltage erfasst.',8,GR);
+      else P('Summe Teil 2: '+voll.length+' Tage mit 2 Wegen, '+einf.length+' Tage mit 1 Weg, '+Math.round(sm(teilA,'km'))+' km = '+eur(sumA)+' EUR',8,NAV,fb);
+      if(DTK.gesamt>0)P('Nachrichtlich: Deutschlandticket '+eur(DTK.gesamt)+' EUR ('+DTK.monate+' Monate) - nicht angesetzt.',7.5,GR);
+    } else {
     H2('2  Taegliche Fahrten Zweitwohnung - erste Taetigkeitsstaette');
     P('Entfernungspauschale nach '+String.fromCharCode(167)+' 9 Abs. 1 Satz 3 Nr. 4 EStG, einfache Entfernung, verkehrsmittelunabhaengig.',7.5,GR);
     P('Bei Nutzung des eigenen Pkw besteht KEINE Begrenzung auf 4.500 EUR.',7.5,GR);
@@ -8945,8 +9285,26 @@ async function genFahrtkostenPdf(){
       if(teilA.some(x=>x.halb))P('1/2: Am Heimfahrt- bzw. Rueckfahrttag wird nur ein Weg zurueckgelegt - halbe Pauschale (BFH 12.02.2020, VI R 42/17).',7.5,GR);
       if(DTK.gesamt>sumApausch)P('Guenstigerpruefung: Deutschlandticket '+eur(DTK.gesamt)+' EUR ('+DTK.monate+' Monate) liegt ueber der Pauschale - angesetzt '+eur(sumA)+' EUR ('+String.fromCharCode(167)+' 9 Abs. 2 Satz 2 EStG).',7.5,NAV);
     } else P('Keine Arbeitsstaetten-Tage erfasst.',8,GR);
+    }
 
     /* TEIL B */
+    if(AWM){
+      H2('3  Heimfahrten Familienwohnsitz (tatsaechliche Kosten)');
+      P('Keine Entfernungspauschale (keine doppelte Haushaltsfuehrung). Angesetzt sind die tatsaechlichen Kosten laut Erfassung/Beleg:',7.5,GR);
+      P('Tickets Bahn/Bus/OePNV, Taxi, Mietwagen; Privat-Kfz mit 0,30 EUR/km. Fluege: siehe Abschnitt 4.',7.5,GR);
+      y-=4;
+      const rowsB=[
+        ['Bahn / Bus / OePNV (Tickets)',(FHFK.M['Bahn'].km||0)+(FHFK.M['Bus/\u00d6PNV'].km||0),FHFK.oepnvKosten||0],
+        ['Taxi',FHFK.M['Taxi'].km||0,FHFK.taxiKosten||0],
+        ['Mietwagen',FHFK.M['Mietwagen'].km||0,FHFK.M['Mietwagen'].bezahlt||0],
+        ['Privat-Kfz (0,30 EUR/km)',FHFK.pkwKm||0,(FHFK.pkwKm||0)*DR_SATZ],
+      ].filter(r=>r[1]>0||r[2]>0);
+      if(rowsB.length)table([{t:'Verkehrsmittel',k:'a',w:300},{t:'km',k:'km',w:90,r:1},{t:'Betrag',k:'b',w:125,r:1}],
+        rowsB.map(r=>({a:r[0],km:/Privat/.test(r[0])?String(Math.round(r[1])):'',b:eur(r[2])})),'Summe Teil 3  ('+FHFK.trips.length+' Heimfahrten)',sumB);
+      else P('Keine Heimfahrten mit Kosten erfasst.',8,GR);
+      if(FHFK.hfOhneSegmente>0)P('Hinweis: '+FHFK.hfOhneSegmente+' Heimfahrt(en) ohne erfasste Fahrtdetails - keine Kosten ansetzbar.',7.5,GR);
+      P('Dienstwagen-Fahrten: 0 EUR. Reisebeihilfe/Erstattungen stehen gesondert (Abschnitt 7a).',7.5,GR);
+    } else {
     H2('3  Familienheimfahrten ('+String.fromCharCode(167)+' 9 Abs. 1 Satz 3 Nr. 5 EStG)');
     P('Eine Familienheimfahrt je Kalenderwoche; Hin- und Rueckfahrt sind mit der Pauschale abgegolten.',7.5,GR);
     P('Erfasst sind ALLE tatsaechlich durchgefuehrten Heimfahrten - auch die vom Dienstherrn nicht',7.5,GR);
@@ -8972,13 +9330,20 @@ async function genFahrtkostenPdf(){
       P('Ob und in welcher Hoehe eine Reisebeihilfe gezahlt wurde, ist je Fahrt anhand der',7.5,GR);
       P('Trennungsgeldabrechnungen des BVA zu pruefen; diese werden gesondert vorgelegt.',7.5,GR);
     } else P('Keine als FHF gekennzeichneten Heimfahrten erfasst.',8,GR);
+    }
 
     /* TEIL C */
     H2('4  Flugkosten (tatsaechliche Aufwendungen)');
+    if(AWM){
+      P('Tatsaechliche Ticketkosten laut Beleg; Hin- und Rueckflug derselben Heimfahrt stehen in einer Zeile.',7.5,GR);
+      P('Einordnung der Heimfluege im Rahmen der Auswaertstaetigkeit sowie die Behandlung der erstatteten Fluege (Abschnitt 7a)',7.5,GR);
+      P('sind mit dem Berater abzustimmen.',7.5,GR);
+    } else {
     P('Fuer Flugstrecken ist die Entfernungspauschale gesetzlich ausgeschlossen; anzusetzen sind die',7.5,GR);
     P('tatsaechlichen Ticketkosten laut Beleg ('+String.fromCharCode(167)+' 9 Abs. 1 Satz 3 Nr. 4 Satz 8 EStG; BFH VI R 42/07).',7.5,GR);
     P('Betraege aus den Flug-Belegen; Hin- und Rueckflug derselben Heimfahrt stehen in einer Zeile.',7.5,GR);
     P('Besuchsfahrten von Angehoerigen werden wie Familienheimfahrten behandelt.',7.5,GR);
+    }
     y-=4;
     if(teilC.length){
       table([{t:'Datum',k:'d',w:92,max:24},{t:'Flugstrecke',k:'st',w:170,max:48},{t:'Art',k:'a',w:78,max:20},
@@ -9011,7 +9376,7 @@ async function genFahrtkostenPdf(){
     if(teilE.length){
       table([{t:'Datum',k:'d',w:70},{t:'Kostenart',k:'a',w:120},{t:'Beschreibung',k:'be',w:225},
              {t:'Betrag',k:'b',w:100,r:1}],
-        teilE.map(x=>({d:fmtD(x.date),a:x.art,be:fkDescOhneReservierung(x.desc)+(x.gezaehlt?'':' ('+(x.nachr||'nicht gezaehlt')+')'),
+        teilE.map(x=>({d:fmtD(x.date),a:x.art,be:fkDescOhneReservierung(x.desc)+(x.hinw?' ['+x.hinw+']':'')+(x.gezaehlt?'':' ('+(x.nachr||'nicht gezaehlt')+')'),
           b:eur(x.betrag)+' '+(x.curr==='EUR'?'':x.curr),grau:!x.gezaehlt})),
         'Summe Teil 6',sumE);
     } else P('Keine sonstigen Kosten erfasst.',8,GR);
@@ -9020,8 +9385,8 @@ async function genFahrtkostenPdf(){
     need(150);
     H2('7  Zusammenfassung');
     const zRows=[
-      ['Teil 2  Taegliche Fahrten'+(sumA>sumApausch?' (Deutschlandticket, hoeher als Pauschale)':' (Entfernungspauschale)'),sumA],
-      ['Teil 3  Familienheimfahrten (Pauschale'+(oevMehr>0?' + Mehrbetrag OeV-Tickets':'')+')',sumB],
+      [AWM?'Teil 2  Fahrten Zweitwohnung - Kaserne (0,30 EUR/km)':('Teil 2  Taegliche Fahrten'+(sumA>sumApausch?' (Deutschlandticket, hoeher als Pauschale)':' (Entfernungspauschale)')),sumA],
+      [AWM?'Teil 3  Heimfahrten (tatsaechliche Kosten)':('Teil 3  Familienheimfahrten (Pauschale'+(oevMehr>0?' + Mehrbetrag OeV-Tickets':'')+')'),sumB],
       ['Teil 4  Flugkosten (tatsaechliche Kosten)',sumC],
       ['Teil 5  Dienstreisen (0,30 EUR/km)',sumD],
       ['Teil 6  Sonstige Reisekosten',sumE],
@@ -9038,6 +9403,16 @@ async function genFahrtkostenPdf(){
     const gv=san(eur(gesamt)+' EUR');
     pg.drawText(gv,{x:ML+TW-7-fb.widthOfTextAtSize(gv,11),y:y-11,size:11,font:fb,color:GLD});
     y-=32;
+    if(AWM){
+      const BWs=bwSummen(yr);
+      need(70);
+      H2('7a  Erstattungen (nachrichtlich, nicht verrechnet)');
+      [['Fahrkosten-Erstattung lt. TG-Bescheiden',BWs.tgFahrkosten||0],['Fahrkosten-Erstattung lt. Reisekostenabrechnungen',BWs.rkFahrkosten||0],['davon steuerfrei (TG)',BWs.fkSteuerfreiTG||0]].forEach(r=>{need(13);
+        pg.drawText(san(r[0]),{x:ML+5,y,size:8.5,font:fn,color:BLK});
+        const v=san(eur(r[1])+' EUR');pg.drawText(v,{x:ML+TW-5-fn.widthOfTextAtSize(v,8.5),y,size:8.5,font:fn,color:BLK});y-=13;});
+      P('Die Erstattungen sind NICHT von der Summe abgezogen; die Anrechnung ist mit dem Berater zu klaeren.',7.5,GR);
+      y-=6;
+    }
 
     /* v5.20.1 QUERPRUEFUNG Belege <-> TG-Bescheid (wie Reiter Jahresuebersicht) */
     {
@@ -9085,7 +9460,22 @@ async function genFahrtkostenPdf(){
     /* HINWEISE */
     need(120);
     H2('9  Hinweise fuer die steuerliche Beratung');
-    [
+    const AW_HINWEISE=[
+      'Einordnung: Auswaertstaetigkeit lt. Angabe des Steuerpflichtigen; vom Finanzamt fuer 2024 so anerkannt.',
+      'Die Einordnung ist durch den Berater fuer '+yr+' zu bestaetigen.',
+      '',
+      'Fahrtkosten: tatsaechlich gefahrene Kilometer mit 0,30 EUR/km ('+PAR+' 9 Abs. 1 Satz 3 Nr. 4a Satz 2 EStG;',
+      'R 9.5 Abs. 1 Satz 5 LStR). Keine Entfernungspauschale.',
+      '',
+      'Diese Aufstellung weist die Aufwendungen VOR Anrechnung von Erstattungen aus. Erstattungen',
+      '(Trennungsgeld, Reisekostenvergütung) stehen gesondert in Abschnitt 7a und sind nicht verrechnet.',
+      '',
+      'Heimfahrten mit dem Privat-Kfz sind mit 0,30 EUR/km angesetzt - Behandlung mit dem Berater klaeren.',
+      '',
+      'Nicht in dieser Aufstellung: Unterkunftskosten der Zweitwohnung (Miete tatsaechlich '+eur(mieteTatsaechlich())+' EUR/Monat;',
+      'TG-Unterkunftssatz '+eur(mieteTg())+' EUR/Monat) sowie Verpflegungsmehraufwand.',
+    ];
+    (AWM?AW_HINWEISE:[
       'Diese Aufstellung weist die Aufwendungen VOR Anrechnung steuerfreier Erstattungen aus.',
       'Steuerfreie Leistungen des Dienstherrn - insbesondere Trennungsgeld und Reisebeihilfe nach',
       'der TGV - mindern den Werbungskostenabzug und sind gesondert gegenzurechnen. Die',
@@ -9108,7 +9498,7 @@ async function genFahrtkostenPdf(){
       'Die Entfernungspauschale ist ungekuerzt ansetzbar - sowohl fuer Fahrten zwischen Wohnung und',
       'erster Taetigkeitsstaette als auch fuer Familienheimfahrten im Rahmen der doppelten',
       'Haushaltsfuehrung. Sitzplatzreservierungen sind ebenfalls ansetzbar.',
-    ].forEach(t=>{need(12);
+    ]).forEach(t=>{need(12);
       if(t)pg.drawText(san(t),{x:ML,y,size:7.6,font:fn,color:t.startsWith('-')?BLK:GR});
       y-=10.5;});
     footer();
